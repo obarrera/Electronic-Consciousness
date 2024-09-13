@@ -15,9 +15,9 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
 ## Table of Contents
 
 1. **Introduction**
-   - 1.1 Background and Motivation
-   - 1.2 Objectives
-   - 1.3 Structure of the Thesis
+   - [1.1 Background and Motivation](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.1%20Background%20and%20Motivation.md)
+   - [1.2 Objectives](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.2%20Objectives.md)
+   - [1.3 Structure of the Thesis](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.3%20Structure%20of%20the%20Thesis.md)
 
 2. **Foundations of Electronic Consciousness**
    - 2.1 Definitions and Distinctions
