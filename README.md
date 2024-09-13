@@ -62,7 +62,7 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
     - 11.3 Societal Impact
 
 12. **Future Trajectories of Electronic Consciousness**
-    - 12.1 Practical Applications
+    - [12.1 Practical Applications](https://github.com/obarrera/Electronic-Consciousness/blob/main/12.1%20Practical%20Applications%20of%20Electronic%20Consciousness%20(EC).md)
     - 12.2 Societal Transformation
     - 12.3 Human-AI Interaction
 
