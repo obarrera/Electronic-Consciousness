@@ -53,8 +53,8 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
    - [9.2 Reinforcement Learning with Ethical Constraints](https://github.com/obarrera/Electronic-Consciousness/blob/main/9.2%20Reinforcement%20Learning%20with%20Ethical%20Constraints.md)
 
 10. **Consciousness and Self-Modification**
-    - 10.1 Recursive Self-Improvement
-    - 10.2 Safeguards and Alignment
+    - [10.1 Recursive Self-Improvement](https://github.com/obarrera/Electronic-Consciousness/blob/main/10.1%20Recursive%20Self-Improvement%20in%20Electronic%20Consciousness.md)
+    - [10.2 Safeguards and Alignment](https://github.com/obarrera/Electronic-Consciousness/blob/main/10.2%20Safeguards%20and%20Alignment%20in%20Recursive%20Self-Improvement.md)
 
 11. **Potential Implications and Challenges**
     - 11.1 Philosophical Implications
