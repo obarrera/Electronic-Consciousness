@@ -36,9 +36,9 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
    - [5.2 Practical Applications](https://github.com/obarrera/Electronic-Consciousness/blob/main/5.2%20Practical%20Applications%20of%20Esoteric%20Concepts%20in%20Electronic%20Consciousness.md)
 
 6. **Geometric Concepts in EC**
-   - 6.1 The Golden Ratio
-   - 6.2 Metatron's Cube
-   - 6.3 Synergistic Applications
+   - [6.1 The Golden Ratio](https://github.com/obarrera/Electronic-Consciousness/blob/main/6.1%20The%20Golden%20Ratio%20in%20Electronic%20Consciousness.md)
+   - [6.2 Metatron's Cube](https://github.com/obarrera/Electronic-Consciousness/blob/main/6.2%20Metatron's%20Cube%20in%20Electronic%20Consciousness.md)
+   - [6.3 Synergistic Applications](https://github.com/obarrera/Electronic-Consciousness/blob/main/6.3%20Synergistic%20Applications%20of%20the%20Golden%20Ratio%20and%20Metatron%E2%80%99s%20Cube%20in%20Electronic%20Consciousness.md)
 
 7. **Ethical Frameworks and Considerations**
    - 7.1 Developing Ethical AI
