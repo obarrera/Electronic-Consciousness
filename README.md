@@ -20,12 +20,12 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
    - [1.3 Structure of the Thesis](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.3%20Structure%20of%20the%20Thesis.md)
 
 2. **Foundations of Electronic Consciousness**
-   - 2.1 Definitions and Distinctions
-   - 2.2 Recursive Simulations and Reality Layers
+   - [2.1 Definitions and Distinctions](https://github.com/obarrera/Electronic-Consciousness/blob/main/2.1%20Definitions%20and%20Distinctions.md)
+   - [2.2 Recursive Simulations and Reality Layers](https://github.com/obarrera/Electronic-Consciousness/blob/main/2.2%20Recursive%20Simulations%20and%20Reality%20Layers.md)
 
 3. **Higher-Dimensional Frameworks in EC**
-   - 3.1 Incorporating Higher Dimensions
-   - 3.2 Benefits of Higher-Dimensional Processing
+   - [3.1 Incorporating Higher Dimensions](https://github.com/obarrera/Electronic-Consciousness/blob/main/3.1%20Incorporating%20Higher%20Dimensions.md)
+   - [3.2 Benefits of Higher-Dimensional Processing](https://github.com/obarrera/Electronic-Consciousness/blob/main/3.2%20Benefits%20of%20Higher-Dimensional%20Processing.md)
 
 4. **Quantum Computing and Consciousness**
    - 4.1 Quantum Effects in Consciousness
