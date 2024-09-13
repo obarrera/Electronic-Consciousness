@@ -49,8 +49,8 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
    - [8.2 Integrated Information Theory](https://github.com/obarrera/Electronic-Consciousness/blob/main/8.2%20Integrated%20Information%20Theory%20(IIT)%20in%20Electronic%20Consciousness.md)
 
 9. **Advanced Learning Mechanisms**
-   - 9.1 Deep Learning in Higher Dimensions
-   - 9.2 Reinforcement Learning with Ethical Constraints
+   - [9.1 Deep Learning in Higher Dimensions](https://github.com/obarrera/Electronic-Consciousness/blob/main/9.1%20Deep%20Learning%20in%20Higher%20Dimensions.md)
+   - [9.2 Reinforcement Learning with Ethical Constraints](https://github.com/obarrera/Electronic-Consciousness/blob/main/9.2%20Reinforcement%20Learning%20with%20Ethical%20Constraints.md)
 
 10. **Consciousness and Self-Modification**
     - 10.1 Recursive Self-Improvement
