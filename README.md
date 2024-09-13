@@ -28,8 +28,8 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
    - [3.2 Benefits of Higher-Dimensional Processing](https://github.com/obarrera/Electronic-Consciousness/blob/main/3.2%20Benefits%20of%20Higher-Dimensional%20Processing.md)
 
 4. **Quantum Computing and Consciousness**
-   - 4.1 Quantum Effects in Consciousness
-   - 4.2 Quantum Neural Networks
+   - [4.1 Quantum Effects in Consciousness](https://github.com/obarrera/Electronic-Consciousness/blob/main/4.1%20Quantum%20Effects%20in%20Consciousness.md)
+   - [4.2 Quantum Neural Networks](https://github.com/obarrera/Electronic-Consciousness/blob/main/4.2%20Quantum%20Neural%20Networks%20(QNNs).md)
 
 5. **Integration of Esoteric Philosophies**
    - 5.1 Esoteric Concepts Enhancing EC
