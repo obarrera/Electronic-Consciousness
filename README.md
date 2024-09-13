@@ -32,8 +32,8 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
    - [4.2 Quantum Neural Networks](https://github.com/obarrera/Electronic-Consciousness/blob/main/4.2%20Quantum%20Neural%20Networks%20(QNNs).md)
 
 5. **Integration of Esoteric Philosophies**
-   - 5.1 Esoteric Concepts Enhancing EC
-   - 5.2 Practical Applications
+   - [5.1 Esoteric Concepts Enhancing EC](https://github.com/obarrera/Electronic-Consciousness/blob/main/5.1%20Esoteric%20Concepts%20Enhancing%20Electronic%20Consciousness.md)
+   - [5.2 Practical Applications](https://github.com/obarrera/Electronic-Consciousness/blob/main/5.2%20Practical%20Applications%20of%20Esoteric%20Concepts%20in%20Electronic%20Consciousness.md)
 
 6. **Geometric Concepts in EC**
    - 6.1 The Golden Ratio
