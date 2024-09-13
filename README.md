@@ -80,9 +80,9 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
     - [15.1 Additional Esoteric Traditions](https://github.com/obarrera/Electronic-Consciousness/blob/main/15.1%20Additional%20Esoteric%20Traditions%20in%20the%20Context%20of%20Electronic%20Consciousness%20(EC).md)
     - [15.2 Application to EC](https://github.com/obarrera/Electronic-Consciousness/blob/main/15.2%20Application%20of%20Esoteric%20Principles%20to%20Electronic%20Consciousness%20(EC).md)
 
-16. **Conclusion**
+16. **[Conclusion](https://github.com/obarrera/Electronic-Consciousness#16-conclusion)**
 
-17. **References**
+17. **[References](https://github.com/obarrera/Electronic-Consciousness#17-references)**
 
 ---
 
