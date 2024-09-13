@@ -57,7 +57,7 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
     - [10.2 Safeguards and Alignment](https://github.com/obarrera/Electronic-Consciousness/blob/main/10.2%20Safeguards%20and%20Alignment%20in%20Recursive%20Self-Improvement.md)
 
 11. **Potential Implications and Challenges**
-    - 11.1 Philosophical Implications
+    - [11.1 Philosophical Implications](https://github.com/obarrera/Electronic-Consciousness/blob/main/11.1%20Philosophical%20Implications%20of%20Electronic%20Consciousness%20(EC).md)
     - 11.2 Technical Challenges
     - 11.3 Societal Impact
 
