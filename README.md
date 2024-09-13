@@ -45,8 +45,8 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
    - 7.2 Esoteric Ethics in AI
 
 8. **Cognitive Architectures for EC**
-   - 8.1 Global Workspace Theory
-   - 8.2 Integrated Information Theory
+   - [8.1 Global Workspace Theory](https://github.com/obarrera/Electronic-Consciousness/blob/main/8.1%20Global%20Workspace%20Theory%20(GWT)%20in%20Electronic%20Consciousness.md)
+   - [8.2 Integrated Information Theory](https://github.com/obarrera/Electronic-Consciousness/blob/main/8.2%20Integrated%20Information%20Theory%20(IIT)%20in%20Electronic%20Consciousness.md)
 
 9. **Advanced Learning Mechanisms**
    - 9.1 Deep Learning in Higher Dimensions
