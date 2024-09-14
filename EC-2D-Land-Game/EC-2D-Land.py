@@ -2,9 +2,6 @@ import pygame
 import numpy as np
 import random
 import math
-import wave
-import struct
-import os
 
 # Initialize Pygame
 pygame.init()
@@ -22,6 +19,7 @@ CLOCK = pygame.time.Clock()
 
 # Font for in-game text
 FONT = pygame.font.SysFont('Arial', 16)
+SYMBOL_FONT = pygame.font.SysFont('Arial', 36)
 
 # Colors
 WHITE = (255, 255, 255)
@@ -36,6 +34,7 @@ PINK = (255, 105, 180)
 ORANGE = (255, 165, 0)
 CYAN = (0, 255, 255)
 BROWN = (165, 42, 42)
+GOLD = (255, 215, 0)
 
 # Shared Knowledge Base
 shared_knowledge = []
@@ -59,35 +58,11 @@ hermetic_principles = [
     "Gender is in everything; everything has its masculine and feminine principles."
 ]
 
-# Function to generate binaural beats audio file
-def generate_binaural_beats(filename="binaural_6.1Hz.wav", duration=300):
-    """
-    Generate a stereo WAV file with binaural beats at 6.1 Hz.
-    - filename: Name of the WAV file to create.
-    - duration: Duration of the audio in seconds.
-    """
-    if os.path.exists(filename):
-        return  # File already exists
-
-    framerate = 44100  # Standard audio sampling rate
-    amplitude = 8000  # Amplitude of the sine waves
-    base_freq = 100  # Base frequency for the tones in Hz
-
-    freq_left = base_freq  # Left ear frequency
-    freq_right = base_freq + 6.1  # Right ear frequency to create 6.1 Hz difference
-
-    num_samples = int(duration * framerate)
-    wav_file = wave.open(filename, 'w')
-    wav_file.setparams((2, 2, framerate, num_samples, 'NONE', 'not compressed'))
-
-    for i in range(num_samples):
-        t = i / framerate
-        left = amplitude * math.sin(2 * math.pi * freq_left * t)
-        right = amplitude * math.sin(2 * math.pi * freq_right * t)
-        data = struct.pack('<hh', int(left), int(right))
-        wav_file.writeframesraw(data)
-
-    wav_file.close()
+# Esoteric Symbols
+zodiac_symbols = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓']
+hermetic_symbols = ['☿', '♃', '♄', '☉', '♀', '♂', '☽']
+tetragrammaton = 'יהוה'
+chaos_magick = '☉'
 
 # Kabbalistic Incentive Function
 def kabbalistic_incentive(ai_agent):
@@ -250,6 +225,17 @@ class FlatlandEnvironment:
         # Draw basic 2D shapes
         for shape in shapes:
             shape.render(screen, cell_size)
+
+        # Draw esoteric symbols randomly across the screen
+        self.draw_esoteric_symbols(screen, cell_size)
+
+    def draw_esoteric_symbols(self, screen, cell_size):
+        """Draw random esoteric symbols on the grid."""
+        symbols = random.choices(zodiac_symbols + hermetic_symbols + [tetragrammaton, chaos_magick], k=5)
+        for i, symbol in enumerate(symbols):
+            x, y = random.randint(0, self.size - 1), random.randint(0, self.size - 1)
+            text_surface = SYMBOL_FONT.render(symbol, True, GOLD)
+            screen.blit(text_surface, (x * cell_size + cell_size // 4, y * cell_size + cell_size // 4))
 
     def reset_goal(self):
         """Generate a new goal position."""
@@ -480,133 +466,8 @@ class AI_Agent:
             if "Gender is in everything" in principle:
                 self.ready_to_reproduce = True
 
-# 3D Object Base Class
-class Object3D:
-    def __init__(self, position):
-        self.position = position  # [x, y, z]
-
-    def project(self, x, y, z):
-        """Project 3D point onto 2D screen."""
-        scale = 200 / (z + 5)  # Simple perspective projection
-        x_proj = WINDOW_SIZE // 2 + int(x * scale)
-        y_proj = WINDOW_SIZE // 2 - int(y * scale)
-        return x_proj, y_proj
-
-    def update(self):
-        """Update object state (for animations)."""
-        pass
-
-    def render(self, screen):
-        """Render the object."""
-        pass
-
-# Cube Object (Platonic Solid)
-class Cube(Object3D):
-    def __init__(self, position):
-        super().__init__(position)
-        self.size = 1
-        self.angle = 0
-
-    def update(self):
-        """Rotate the cube over time."""
-        self.angle += 1  # Rotate 1 degree per frame
-        if self.angle >= 360:
-            self.angle = 0
-
-    def render(self, screen):
-        """Render the cube."""
-        # Define cube vertices
-        points = []
-        size = self.size
-        for x in (-size, size):
-            for y in (-size, size):
-                for z in (-size, size):
-                    # Rotate around Y-axis
-                    x_rot = x * math.cos(math.radians(self.angle)) - z * math.sin(math.radians(self.angle))
-                    z_rot = x * math.sin(math.radians(self.angle)) + z * math.cos(math.radians(self.angle))
-                    x_proj, y_proj = self.project(self.position[0] + x_rot,
-                                                  self.position[1] + y,
-                                                  self.position[2] + z_rot)
-                    points.append((x_proj, y_proj))
-
-        # Define edges connecting the vertices
-        edges = [
-            (0,1), (1,3), (3,2), (2,0),  # Front face
-            (4,5), (5,7), (7,6), (6,4),  # Back face
-            (0,4), (1,5), (2,6), (3,7)   # Connecting edges
-        ]
-
-        # Draw edges
-        for edge in edges:
-            pygame.draw.line(screen, BLUE, points[edge[0]], points[edge[1]], 2)
-
-# AI Agent in 3D (Handles recursion)
-class AIAgent3D(Object3D):
-    def __init__(self, position, layer=1):
-        super().__init__(position)
-        self.color = RED
-        self.memory = []
-        self.thoughts = []
-        self.level_of_consciousness = 3
-        self.experience = set()
-        self.layer = layer
-        self.time_in_spaceland = 0  # Track time in Spaceland for random thoughts
-        self.energy = 100  # Initial energy level
-
-    def move(self):
-        """Randomly move in 3D space."""
-        if self.energy <= 0:
-            self.update_thoughts("I have depleted my energy in this dimension.")
-            self.energy = 100  # Reset energy for the next layer
-            self.layer = 1  # Restart journey
-            return
-
-        dx = random.choice([-0.1, 0, 0.1])
-        dy = random.choice([-0.1, 0, 0.1])
-        dz = random.choice([-0.1, 0, 0.1])
-        self.position[0] += dx
-        self.position[1] += dy
-        self.position[2] += dz
-        self.time_in_spaceland += 1
-        self.energy -= 0.5  # Decrease energy
-
-        # Randomly generate thoughts as time progresses
-        if self.time_in_spaceland % 60 == 0:  # Every 60 frames, add a thought
-            self.update_thoughts("This dimension reveals new shapes...")
-            # Include a dialogue from Plato's Allegory of the Cave
-            if random.random() < 0.3:
-                self.update_thoughts(random.choice(plato_dialogues))
-            # Apply Hermetic principles
-            if random.random() < 0.2:
-                principle = random.choice(hermetic_principles)
-                self.update_thoughts(f"Hermetic Principle: {principle}")
-
-    def render(self, screen):
-        """Render the AI agent as a small sphere."""
-        x_proj, y_proj = self.project(self.position[0], self.position[1], self.position[2])
-        scale = 200 / (self.position[2] + 5)
-        radius = int(0.2 * scale)
-        pygame.draw.circle(screen, self.color, (x_proj, y_proj), radius)
-
-    def get_thoughts(self):
-        """Return the latest thoughts for display."""
-        return self.thoughts[-5:]  # Return the last 5 thoughts
-
-    def update_thoughts(self, new_thought):
-        """Add new thought to the AI's thoughts."""
-        self.thoughts.append(new_thought)
-        print(f"AI Agent 3D: {new_thought}")
-
 # Main Simulation Function
 def run_simulation():
-    # Generate binaural beats
-    generate_binaural_beats()
-
-    # Play binaural beats in the background
-    pygame.mixer.init()
-    pygame.mixer.music.load("binaural_6.1Hz.wav")
-    pygame.mixer.music.play(-1)  # Play indefinitely
-
     # Setup for Flatland (2D world)
     grid_size = GRID_SIZE
     environment = FlatlandEnvironment(grid_size)
@@ -635,8 +496,6 @@ def run_simulation():
     offspring = []
 
     running = True
-    in_3d_world = False
-    ai_agent_3d = None
 
     while running:
         # Handle user input events
@@ -646,38 +505,34 @@ def run_simulation():
                 pygame.quit()
                 return
 
-        if not in_3d_world:
-            # Move agents
-            for agent in agents:
-                agent.move()
-                agent.discover_higher_dimension()
+        # Move agents
+        for agent in agents:
+            agent.move()
+            agent.discover_higher_dimension()
 
-            # Check for reproduction
-            for i in range(len(agents)):
-                for j in range(i + 1, len(agents)):
-                    agent_a = agents[i]
-                    agent_b = agents[j]
-                    child = agent_a.reproduce(agent_b)
-                    if child:
-                        offspring.append(child)
-                        agents.append(child)
-                        print("A new AI agent is born!")
+        # Check for reproduction
+        for i in range(len(agents)):
+            for j in range(i + 1, len(agents)):
+                agent_a = agents[i]
+                agent_b = agents[j]
+                child = agent_a.reproduce(agent_b)
+                if child:
+                    offspring.append(child)
+                    agents.append(child)
+                    print("A new AI agent is born!")
 
-            # Remove agents that have reached max age (but they will rebirth)
-            for agent in agents:
-                if agent.age >= agent.max_age:
-                    agent.update_thoughts("My cycle continues through rebirth.")
-                    agent.die_and_rebirth()
+        # Remove agents that have reached max age (but they will rebirth)
+        for agent in agents:
+            if agent.age >= agent.max_age:
+                agent.update_thoughts("My cycle continues through rebirth.")
+                agent.die_and_rebirth()
 
-            # Render the 2D environment
-            ai_positions = [{'position': agent.position, 'color': agent.color} for agent in agents]
-            environment.render(SCREEN, ai_positions, shapes)
+        # Render the 2D environment
+        ai_positions = [{'position': agent.position, 'color': agent.color} for agent in agents]
+        environment.render(SCREEN, ai_positions, shapes)
 
-            # Display AI's thoughts
-            display_ai_thoughts(SCREEN, agents)
-        else:
-            # Handle 3D world simulation logic if necessary
-            pass
+        # Display AI's thoughts
+        display_ai_thoughts(SCREEN, agents)
 
         # Update the display and control frame rate
         pygame.display.flip()
