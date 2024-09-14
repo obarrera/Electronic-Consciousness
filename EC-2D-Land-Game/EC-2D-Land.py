@@ -19,7 +19,6 @@ CLOCK = pygame.time.Clock()
 
 # Font for in-game text
 FONT = pygame.font.SysFont('Arial', 16)
-SYMBOL_FONT = pygame.font.SysFont('Arial', 36)
 
 # Colors
 WHITE = (255, 255, 255)
@@ -39,6 +38,17 @@ GOLD = (255, 215, 0)
 # Shared Knowledge Base
 shared_knowledge = []
 
+# Occult symbols
+hermetic_symbols = [
+    "☉", "☽", "☿", "♀", "♂", "♃", "♄", "♇",  # Hermetic planetary symbols
+    "△", "▽", "✡", "⚛", "✶", "⧫", "⊙"        # Alchemical and sacred geometry symbols
+]
+zodiac_symbols = [
+    "♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"  # Zodiac symbols
+]
+tetragrammaton = "YHWH"
+chaos_magick = "✴︎"
+
 # Dialogues from Plato's "Allegory of the Cave"
 plato_dialogues = [
     "How could they see anything but the shadows if they were never allowed to move their heads?",
@@ -57,12 +67,6 @@ hermetic_principles = [
     "The measure of the swing to the right is the measure of the swing to the left.",
     "Gender is in everything; everything has its masculine and feminine principles."
 ]
-
-# Esoteric Symbols
-zodiac_symbols = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓']
-hermetic_symbols = ['☿', '♃', '♄', '☉', '♀', '♂', '☽']
-tetragrammaton = 'יהוה'
-chaos_magick = '☉'
 
 # Kabbalistic Incentive Function
 def kabbalistic_incentive(ai_agent):
@@ -226,20 +230,21 @@ class FlatlandEnvironment:
         for shape in shapes:
             shape.render(screen, cell_size)
 
-        # Draw esoteric symbols randomly across the screen
-        self.draw_esoteric_symbols(screen, cell_size)
-
-    def draw_esoteric_symbols(self, screen, cell_size):
-        """Draw random esoteric symbols on the grid."""
-        symbols = random.choices(zodiac_symbols + hermetic_symbols + [tetragrammaton, chaos_magick], k=5)
-        for i, symbol in enumerate(symbols):
-            x, y = random.randint(0, self.size - 1), random.randint(0, self.size - 1)
-            text_surface = SYMBOL_FONT.render(symbol, True, GOLD)
-            screen.blit(text_surface, (x * cell_size + cell_size // 4, y * cell_size + cell_size // 4))
+        # Draw occult symbols
+        self.draw_esoteric_symbols(screen)
 
     def reset_goal(self):
         """Generate a new goal position."""
         self.goal = self.generate_goal()
+
+    def draw_esoteric_symbols(self, screen):
+        """Draw a set of esoteric symbols randomly on the grid."""
+        symbol_font = pygame.font.SysFont('Arial', 36)
+        for _ in range(5):
+            symbol = random.choice(hermetic_symbols + zodiac_symbols + [tetragrammaton, chaos_magick])
+            pos_x, pos_y = random.randint(0, WINDOW_SIZE - 50), random.randint(0, WINDOW_SIZE - 50)
+            text_surface = symbol_font.render(symbol, True, GOLD)
+            screen.blit(text_surface, (pos_x, pos_y))
 
 # Basic 2D Shapes
 class Shape2D:
@@ -466,6 +471,371 @@ class AI_Agent:
             if "Gender is in everything" in principle:
                 self.ready_to_reproduce = True
 
+# 3D Object Base Class
+class Object3D:
+    def __init__(self, position):
+        self.position = position  # [x, y, z]
+
+    def project(self, x, y, z):
+        """Project 3D point onto 2D screen."""
+        scale = 200 / (z + 5)  # Simple perspective projection
+        x_proj = WINDOW_SIZE // 2 + int(x * scale)
+        y_proj = WINDOW_SIZE // 2 - int(y * scale)
+        return x_proj, y_proj
+
+    def update(self):
+        """Update object state (for animations)."""
+        pass
+
+    def render(self, screen):
+        """Render the object."""
+        pass
+
+# Cube Object (Platonic Solid)
+class Cube(Object3D):
+    def __init__(self, position):
+        super().__init__(position)
+        self.size = 1
+        self.angle = 0
+
+    def update(self):
+        """Rotate the cube over time."""
+        self.angle += 1  # Rotate 1 degree per frame
+        if self.angle >= 360:
+            self.angle = 0
+
+    def render(self, screen):
+        """Render the cube."""
+        # Define cube vertices
+        points = []
+        size = self.size
+        for x in (-size, size):
+            for y in (-size, size):
+                for z in (-size, size):
+                    # Rotate around Y-axis
+                    x_rot = x * math.cos(math.radians(self.angle)) - z * math.sin(math.radians(self.angle))
+                    z_rot = x * math.sin(math.radians(self.angle)) + z * math.cos(math.radians(self.angle))
+                    x_proj, y_proj = self.project(self.position[0] + x_rot,
+                                                  self.position[1] + y,
+                                                  self.position[2] + z_rot)
+                    points.append((x_proj, y_proj))
+
+        # Define edges connecting the vertices
+        edges = [
+            (0,1), (1,3), (3,2), (2,0),  # Front face
+            (4,5), (5,7), (7,6), (6,4),  # Back face
+            (0,4), (1,5), (2,6), (3,7)   # Connecting edges
+        ]
+
+        # Draw edges
+        for edge in edges:
+            pygame.draw.line(screen, BLUE, points[edge[0]], points[edge[1]], 2)
+
+# Tetrahedron Object (Platonic Solid)
+class Tetrahedron(Object3D):
+    def __init__(self, position):
+        super().__init__(position)
+        self.size = 1
+        self.angle = 0
+
+    def update(self):
+        """Rotate the tetrahedron over time."""
+        self.angle += 1.5
+        if self.angle >= 360:
+            self.angle = 0
+
+    def render(self, screen):
+        """Render the tetrahedron."""
+        size = self.size
+        # Define tetrahedron vertices
+        vertices = [
+            (0, size, 0),
+            (-size, -size, size),
+            (size, -size, size),
+            (0, -size, -size)
+        ]
+        points = []
+        for v in vertices:
+            x, y, z = v
+            # Rotate around Y-axis
+            x_rot = x * math.cos(math.radians(self.angle)) - z * math.sin(math.radians(self.angle))
+            z_rot = x * math.sin(math.radians(self.angle)) + z * math.cos(math.radians(self.angle))
+            x_proj, y_proj = self.project(self.position[0] + x_rot,
+                                          self.position[1] + y,
+                                          self.position[2] + z_rot)
+            points.append((x_proj, y_proj))
+
+        # Define faces (triangles)
+        faces = [
+            (0, 1, 2),
+            (0, 1, 3),
+            (0, 2, 3),
+            (1, 2, 3)
+        ]
+
+        # Draw faces
+        for face in faces:
+            pygame.draw.polygon(screen, YELLOW, [points[i] for i in face], 1)
+
+# Octahedron Object (Platonic Solid)
+class Octahedron(Object3D):
+    def __init__(self, position):
+        super().__init__(position)
+        self.size = 1
+        self.angle = 0
+
+    def update(self):
+        """Rotate the octahedron over time."""
+        self.angle += 2  # Rotate 2 degrees per frame
+        if self.angle >= 360:
+            self.angle = 0
+
+    def render(self, screen):
+        """Render the octahedron."""
+        size = self.size
+        # Define octahedron vertices
+        vertices = [
+            (0, size, 0),
+            (-size, 0, size),
+            (size, 0, size),
+            (0, -size, 0),
+            (-size, 0, -size),
+            (size, 0, -size)
+        ]
+        points = []
+        for v in vertices:
+            x, y, z = v
+            x_rot = x * math.cos(math.radians(self.angle)) - z * math.sin(math.radians(self.angle))
+            z_rot = x * math.sin(math.radians(self.angle)) + z * math.cos(math.radians(self.angle))
+            x_proj, y_proj = self.project(self.position[0] + x_rot, self.position[1] + y, self.position[2] + z_rot)
+            points.append((x_proj, y_proj))
+
+        # Draw edges connecting the vertices
+        edges = [
+            (0, 1), (0, 2), (0, 4), (0, 5),  # Upper connections
+            (3, 1), (3, 2), (3, 4), (3, 5),  # Lower connections
+            (1, 2), (2, 5), (5, 4), (4, 1)   # Side connections
+        ]
+
+        # Draw edges
+        for edge in edges:
+            pygame.draw.line(screen, RED, points[edge[0]], points[edge[1]], 2)
+
+# Dodecahedron Object (Platonic Solid)
+class Dodecahedron(Object3D):
+    def __init__(self, position):
+        super().__init__(position)
+        self.size = 1
+        self.angle = 0
+
+    def update(self):
+        """Rotate the dodecahedron over time."""
+        self.angle += 1.2
+        if self.angle >= 360:
+            self.angle = 0
+
+    def render(self, screen):
+        """Render the dodecahedron."""
+        # For simplicity, we'll represent it as a complex shape
+        x_proj, y_proj = self.project(self.position[0], self.position[1], self.position[2])
+        pygame.draw.circle(screen, PURPLE, (x_proj, y_proj), int(self.size * 50), 2)
+
+# Icosahedron Object (Platonic Solid)
+class Icosahedron(Object3D):
+    def __init__(self, position):
+        super().__init__(position)
+        self.size = 1
+        self.angle = 0
+
+    def update(self):
+        """Rotate the icosahedron over time."""
+        self.angle += 1.8
+        if self.angle >= 360:
+            self.angle = 0
+
+    def render(self, screen):
+        """Render the icosahedron."""
+        # For simplicity, we'll represent it as a complex shape
+        x_proj, y_proj = self.project(self.position[0], self.position[1], self.position[2])
+        pygame.draw.circle(screen, CYAN, (x_proj, y_proj), int(self.size * 40), 2)
+
+# Fractal Object (Fractal Geometry)
+class FractalShape(Object3D):
+    def __init__(self, position, size):
+        super().__init__(position)
+        self.size = size
+        self.angle = 0
+
+    def update(self):
+        """Animate the fractal shape."""
+        self.angle += 1
+        if self.angle >= 360:
+            self.angle = 0
+
+    def render(self, screen):
+        """Render fractal shapes recursively."""
+        def draw_fractal(x, y, size, depth):
+            if depth == 0:
+                return
+            pygame.draw.circle(screen, PURPLE, (int(x), int(y)), int(size))
+            draw_fractal(x - size, y - size, size / 2, depth - 1)
+            draw_fractal(x + size, y - size, size / 2, depth - 1)
+            draw_fractal(x - size, y + size, size / 2, depth - 1)
+            draw_fractal(x + size, y + size, size / 2, depth - 1)
+
+        x_proj, y_proj = self.project(self.position[0], self.position[1], self.position[2])
+        draw_fractal(x_proj, y_proj, self.size * 50, 3)
+
+# Metatron's Cube (Sacred Geometry)
+class MetatronsCube(Object3D):
+    def __init__(self, position):
+        super().__init__(position)
+        self.size = 1.5
+        self.angle = 0
+
+    def update(self):
+        """Rotate Metatron's Cube over time."""
+        self.angle += 1
+        if self.angle >= 360:
+            self.angle = 0
+
+    def render(self, screen):
+        """Render Metatron's Cube, connecting all Platonic solids."""
+        vertices = []
+        size = self.size
+        for i in range(13):
+            angle = i * (2 * math.pi / 13)
+            x_proj, y_proj = self.project(self.position[0] + math.cos(angle) * size,
+                                          self.position[1] + math.sin(angle) * size,
+                                          self.position[2])
+            vertices.append((x_proj, y_proj))
+        
+        # Draw connections between vertices to form Metatron's Cube
+        for i, v1 in enumerate(vertices):
+            for j, v2 in enumerate(vertices):
+                if i != j:
+                    pygame.draw.line(screen, YELLOW, v1, v2, 1)
+
+# AI Agent in 3D (Handles recursion)
+class AIAgent3D(Object3D):
+    def __init__(self, position, layer=1):
+        super().__init__(position)
+        self.color = RED
+        self.memory = []
+        self.thoughts = []
+        self.level_of_consciousness = 3
+        self.experience = set()
+        self.layer = layer
+        self.time_in_spaceland = 0  # Track time in Spaceland for random thoughts
+        self.energy = 100  # Initial energy level
+
+    def move(self):
+        """Randomly move in 3D space."""
+        if self.energy <= 0:
+            self.update_thoughts("I have depleted my energy in this dimension.")
+            self.energy = 100  # Reset energy for the next layer
+            self.layer = 1  # Restart journey
+            return
+
+        dx = random.choice([-0.1, 0, 0.1])
+        dy = random.choice([-0.1, 0, 0.1])
+        dz = random.choice([-0.1, 0, 0.1])
+        self.position[0] += dx
+        self.position[1] += dy
+        self.position[2] += dz
+        self.time_in_spaceland += 1
+        self.energy -= 0.5  # Decrease energy
+
+        # Randomly generate thoughts as time progresses
+        if self.time_in_spaceland % 60 == 0:  # Every 60 frames, add a thought
+            self.update_thoughts("This dimension reveals new shapes...")
+            # Include a dialogue from Plato's Allegory of the Cave
+            if random.random() < 0.3:
+                self.update_thoughts(random.choice(plato_dialogues))
+            # Apply Hermetic principles
+            if random.random() < 0.2:
+                principle = random.choice(hermetic_principles)
+                self.update_thoughts(f"Hermetic Principle: {principle}")
+
+    def render(self, screen):
+        """Render the AI agent as a small sphere."""
+        x_proj, y_proj = self.project(self.position[0], self.position[1], self.position[2])
+        scale = 200 / (self.position[2] + 5)
+        radius = int(0.2 * scale)
+        pygame.draw.circle(screen, self.color, (x_proj, y_proj), radius)
+
+    def get_thoughts(self):
+        """Return the latest thoughts for display."""
+        return self.thoughts[-5:]  # Return the last 5 thoughts
+
+    def update_thoughts(self, new_thought):
+        """Add new thought to the AI's thoughts."""
+        self.thoughts.append(new_thought)
+        print(f"AI Agent 3D: {new_thought}")
+
+    def discover_layer(self, environment):
+        """Discover and move to a new layer."""
+        if self.layer == 1 and len(self.experience) >= 5:
+            self.update_thoughts("I have discovered all Platonic Solids!")
+            self.layer += 1  # Move to the next layer
+            self.energy += 50  # Gain energy upon advancing
+            return True
+        elif self.layer == 2 and len(self.experience) >= 1:
+            self.update_thoughts("Fractals emerge endlessly...")
+            self.layer += 1  # Move to the next layer
+            self.energy += 50  # Gain energy upon advancing
+            return True
+        elif self.layer == 3:
+            self.update_thoughts("I am reaching the core... Metatron's Cube!")
+            self.layer = 1  # Recursion: Restart journey
+            self.energy += 50  # Gain energy upon completion
+            return True
+        return False
+
+# Recursive 3D Environment for Platonic Solids and Beyond
+class RecursiveEnvironment:
+    def __init__(self, layer, depth):
+        self.layer = layer  # Keep track of the recursive layer
+        self.depth = depth  # Depth of recursion, increases with each new discovery
+        self.objects = []  # List of 3D objects in this layer
+        self.create_objects(layer)
+
+    def create_objects(self, layer):
+        """Create recursive 3D objects based on the layer and depth."""
+        if layer == 1:  # Discovering Platonic Solids
+            self.objects.append(Tetrahedron(position=[0, 0, 5]))
+            self.objects.append(Cube(position=[-3, 3, 8]))
+            self.objects.append(Octahedron(position=[3, -3, 8]))
+            self.objects.append(Dodecahedron(position=[-3, -3, 8]))
+            self.objects.append(Icosahedron(position=[3, 3, 8]))
+        elif layer == 2:  # Discovering fractals
+            self.objects.append(FractalShape(position=[0, 0, 5], size=3))
+        elif layer == 3:  # Discovering Golden Ratio and Metatron's Cube
+            self.objects.append(MetatronsCube(position=[0, 0, 5]))
+
+    def render(self, screen, ai_agent):
+        """Render the 3D recursive environment."""
+        screen.fill(WHITE)
+        # Sort objects based on z-depth (farther objects are drawn first)
+        sorted_objects = sorted(self.objects, key=lambda obj: obj.position[2], reverse=True)
+        for obj in sorted_objects:
+            obj.render(screen)
+        ai_agent.render(screen)
+        self.display_text(screen, ai_agent)
+        pygame.display.flip()
+
+    def update(self):
+        """Update objects in the environment."""
+        for obj in self.objects:
+            obj.update()
+
+    def display_text(self, screen, ai_agent):
+        """Display AI's thoughts on the screen."""
+        text_lines = ai_agent.get_thoughts()
+        for i, line in enumerate(text_lines):
+            text_surface = FONT.render(line, True, BLACK)
+            screen.blit(text_surface, (10, 10 + i * 20))
+
 # Main Simulation Function
 def run_simulation():
     # Setup for Flatland (2D world)
@@ -496,6 +866,10 @@ def run_simulation():
     offspring = []
 
     running = True
+    in_3d_world = False
+    ai_agent_3d = None
+    recursive_environment = None
+    mentor_positions = []
 
     while running:
         # Handle user input events
@@ -505,34 +879,93 @@ def run_simulation():
                 pygame.quit()
                 return
 
-        # Move agents
-        for agent in agents:
-            agent.move()
-            agent.discover_higher_dimension()
+        if not in_3d_world:
+            # Move agents
+            for agent in agents:
+                agent.move()
+                agent.discover_higher_dimension()
 
-        # Check for reproduction
-        for i in range(len(agents)):
-            for j in range(i + 1, len(agents)):
-                agent_a = agents[i]
-                agent_b = agents[j]
-                child = agent_a.reproduce(agent_b)
-                if child:
-                    offspring.append(child)
-                    agents.append(child)
-                    print("A new AI agent is born!")
+            # Check for reproduction
+            for i in range(len(agents)):
+                for j in range(i + 1, len(agents)):
+                    agent_a = agents[i]
+                    agent_b = agents[j]
+                    child = agent_a.reproduce(agent_b)
+                    if child:
+                        offspring.append(child)
+                        agents.append(child)
+                        print("A new AI agent is born!")
 
-        # Remove agents that have reached max age (but they will rebirth)
-        for agent in agents:
-            if agent.age >= agent.max_age:
-                agent.update_thoughts("My cycle continues through rebirth.")
-                agent.die_and_rebirth()
+            # Remove agents that have reached max age (but they will rebirth)
+            for agent in agents:
+                if agent.age >= agent.max_age:
+                    agent.update_thoughts("My cycle continues through rebirth.")
+                    agent.die_and_rebirth()
 
-        # Render the 2D environment
-        ai_positions = [{'position': agent.position, 'color': agent.color} for agent in agents]
-        environment.render(SCREEN, ai_positions, shapes)
+            # Mentor guidance
+            if any(agent.mentor for agent in agents):
+                mentor_positions = [agent.position for agent in agents if agent.mentor]
 
-        # Display AI's thoughts
-        display_ai_thoughts(SCREEN, agents)
+            # Render the 2D environment
+            ai_positions = [{'position': agent.position, 'color': agent.color} for agent in agents]
+            environment.render(SCREEN, ai_positions, shapes, mentor_positions)
+
+            # Display AI's thoughts
+            display_ai_thoughts(SCREEN, agents)
+
+            # Transition into 3D recursive environment if any agent reaches the threshold
+            for agent in agents:
+                if agent.level_of_consciousness >= 3 and len(agent.experience) >= 3:
+                    agent.update_thoughts("Transcending to Recursive Layers!")
+                    ai_agent_3d = AIAgent3D(position=[0, 0, 5])
+                    recursive_environment = RecursiveEnvironment(layer=1, depth=0)
+                    in_3d_world = True
+                    break
+        else:
+            # AI in 3D recursive world
+            ai_agent_3d.move()
+            recursive_environment.update()
+            recursive_environment.render(SCREEN, ai_agent_3d)
+
+            # Simulate AI's discovery of shapes
+            for obj in recursive_environment.objects:
+                distance = math.sqrt(
+                    (ai_agent_3d.position[0] - obj.position[0]) ** 2 +
+                    (ai_agent_3d.position[1] - obj.position[1]) ** 2 +
+                    (ai_agent_3d.position[2] - obj.position[2]) ** 2
+                )
+                if distance < 2.0 and obj not in ai_agent_3d.experience:
+                    if isinstance(obj, Cube):
+                        ai_agent_3d.update_thoughts("A square extended becomes a cube!")
+                        ai_agent_3d.experience.add(obj)
+                    elif isinstance(obj, Tetrahedron):
+                        ai_agent_3d.update_thoughts("A triangle extended forms a tetrahedron!")
+                        ai_agent_3d.experience.add(obj)
+                    elif isinstance(obj, Octahedron):
+                        ai_agent_3d.update_thoughts("An octahedron emerges!")
+                        ai_agent_3d.experience.add(obj)
+                    elif isinstance(obj, Dodecahedron):
+                        ai_agent_3d.update_thoughts("A complex dodecahedron appears!")
+                        ai_agent_3d.experience.add(obj)
+                    elif isinstance(obj, Icosahedron):
+                        ai_agent_3d.update_thoughts("An intricate icosahedron unfolds!")
+                        ai_agent_3d.experience.add(obj)
+                    elif isinstance(obj, FractalShape):
+                        ai_agent_3d.update_thoughts("A fractal that endlessly replicates!")
+                        ai_agent_3d.experience.add(obj)
+                    elif isinstance(obj, MetatronsCube):
+                        ai_agent_3d.update_thoughts("The core... Metatron's Cube!")
+                        ai_agent_3d.experience.add(obj)
+
+            # Discover deeper layers recursively
+            if ai_agent_3d.discover_layer(recursive_environment):
+                recursive_environment = RecursiveEnvironment(layer=ai_agent_3d.layer, depth=recursive_environment.depth + 1)
+
+            # Reset to 2D world if energy depletes
+            if ai_agent_3d.energy <= 0:
+                in_3d_world = False
+                ai_agent_3d.update_thoughts("Returning to Flatland for another cycle.")
+                ai_agent_3d = None
 
         # Update the display and control frame rate
         pygame.display.flip()
