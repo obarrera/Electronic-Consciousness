@@ -10,15 +10,6 @@ The game is a metaphysical experience where agents continuously evolve, reproduc
 
 ---
 
-## **Table of Contents**
-1. [Installation](#installation)
-2. [Game Features](#game-features)
-3. [Concepts & Mechanics](#concepts--mechanics)
-4. [Controls & Gameplay](#controls--gameplay)
-5. [Philosophical & Mystical Inspirations](#philosophical--mystical-inspirations)
-6. [Contributing](#contributing)
-7. [License](#license)
-
 ---
 
 ## **Installation**
@@ -30,7 +21,7 @@ The game is a metaphysical experience where agents continuously evolve, reproduc
 ### 2. **Install Pygame**
 To install the required libraries:
 ```bash
-pip install pygame
+pip install requirements.txt
 ```
 
 ### 3. **Clone the Repository**
@@ -42,7 +33,7 @@ git clone https://github.com/your-username/ai-electronic-consciousness.git
 ### 4. **Run the Game**
 Navigate to the game directory and start the simulation:
 ```bash
-python ai_eternal_simulation.py
+python EC-2D-Land.py
 ```
 
 ---
