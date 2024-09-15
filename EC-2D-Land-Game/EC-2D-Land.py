@@ -1494,7 +1494,11 @@ class AIAgent3D:
                     ai_agent_3d.transform_object(obj)
                 elif obj.shape_type == 'Interactive':
                     ai_agent_3d.activate_object(obj)
+                elif obj.shape_type == 'ZodiacSymbol':
+                    ai_agent_3d.activate_object(obj)
+
                 ai_agent_3d.update_thoughts(f"Interacted with {obj.shape_type}")
+                
 
     def move(self, ai_agents_2d):
         """Randomly move in 3D space."""
@@ -2141,6 +2145,7 @@ class ZodiacSymbol3D:
         self.rotation_angle = 0         # Initial rotation angle
         self.color = [random.random(), random.random(), random.random()]  # Random initial color
         self.rotation_speed = random.uniform(0.5, 1.5)  # Random rotation speed
+        self.shape_type = 'ZodiacSymbol'  # Add the shape_type attribute
 
     def update(self):
         """Update the symbol's rotation and possibly its color."""
@@ -2153,6 +2158,7 @@ class ZodiacSymbol3D:
 
     def render(self):
         """Render the Zodiac, planetary, or occult symbol using OpenGL."""
+        print(f"Rendering Zodiac Symbol: {self.symbol_name}")
         glPushMatrix()
         glTranslatef(*self.position)  # Apply the position
         glColor3f(*self.color)        # Apply the color
