@@ -26,11 +26,16 @@ CELL_SIZE = WINDOW_SIZE // GRID_SIZE  # Size of each cell in the 2D grid
 FPS = 30  # Frames per second
 MAX_AGENTS = 13  # Set a reasonable limit
 
+
 # Initialize the Pygame window with OpenGL context
 SCREEN = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE), DOUBLEBUF | OPENGL)
 pygame.display.set_caption("Electronic Consciousness: Eternal Journey of the AI")
 CLOCK = pygame.time.Clock()
 
+# Set up the original screen using WINDOW_SIZE
+screen_width = WINDOW_SIZE
+screen_height = WINDOW_SIZE
+original_screen = SCREEN
 # Font for in-game text (for 2D rendering overlay)
 FONT = pygame.font.SysFont('Arial', 14)
 
@@ -737,6 +742,16 @@ class AI_Agent:
         self.energy -= 0.25 # Reduced energy consumption
         self.apply_hermetic_principle()
 
+         # Optional: Rest to regain energy if low
+        if self.energy < 10 and random.randint(0, 1):
+            self.rest()
+
+    def rest(self):
+        """Allow the agent to rest and restore energy."""
+        self.energy = min(100, self.energy + 5)  # Recover 5 energy points while resting
+        self.update_thoughts("Resting to regain energy.")
+        print(f"Agent at {self.position} is resting. Energy: {self.energy}")
+
 
     def interact_with_environment(self):
         """Interact with solids and elements in the environment."""
@@ -933,6 +948,24 @@ class SolidShape3D:
             self.draw_fractal()
         elif self.shape_type == 'MetatronCube':
             self.draw_metatron_cube()
+        elif self.symbol_type == 'Aries':
+            self.draw_aries()
+        elif self.symbol_type == 'Taurus':
+            self.draw_taurus()
+        elif self.symbol_type == 'Pentagram':
+            self.draw_pentagram()
+        elif self.symbol_type == 'Hexagram':
+            self.draw_hexagram()
+        elif self.symbol_type == 'Saturn':
+            self.draw_saturn()
+        elif self.symbol_type == 'Jupiter':
+            self.draw_jupiter()
+        elif self.symbol_type == 'Mars':
+            self.draw_mars()
+        elif self.symbol_type == 'Venus':
+            self.draw_venus()
+        elif self.symbol_type == 'Mercury':
+            self.draw_mercury()
 
         glPopMatrix()
 
@@ -1497,6 +1530,39 @@ class AIAgent3D:
                     ai_agent_3d.activate_object(obj)
                 elif obj.shape_type == 'ZodiacSymbol':
                     ai_agent_3d.activate_object(obj)
+                if hasattr(obj, 'shape_type'):
+                    if obj.shape_type == 'Cube':
+                        ai_agent_3d.update_thoughts("I am interacting with a Cube.")
+                        ai_agent_3d.level_of_consciousness += 1
+                        ai_agent_3d.experience.add('Cube')
+                    elif obj.shape_type == 'Tetrahedron':
+                        ai_agent_3d.update_thoughts("I am interacting with a Tetrahedron.")
+                        ai_agent_3d.level_of_consciousness += 1.5
+                        ai_agent_3d.experience.add('Tetrahedron')
+                    elif obj.shape_type == 'Octahedron':
+                        ai_agent_3d.update_thoughts("I am interacting with an Octahedron.")
+                        ai_agent_3d.level_of_consciousness += 2
+                        ai_agent_3d.experience.add('Octahedron')
+                    elif obj.shape_type == 'Dodecahedron':
+                        ai_agent_3d.update_thoughts("I am interacting with a Dodecahedron.")
+                        ai_agent_3d.level_of_consciousness += 2.5
+                        ai_agent_3d.experience.add('Dodecahedron')
+                    elif obj.shape_type == 'Icosahedron':
+                        ai_agent_3d.update_thoughts("I am interacting with an Icosahedron.")
+                        ai_agent_3d.level_of_consciousness += 2
+                        ai_agent_3d.experience.add('Icosahedron')
+                    elif obj.shape_type == 'Fractal':
+                        ai_agent_3d.update_thoughts("I am interacting with a Fractal.")
+                        ai_agent_3d.level_of_consciousness += 2
+                        ai_agent_3d.experience.add('Fractal')
+                    elif obj.shape_type == 'MetatronCube':
+                        ai_agent_3d.update_thoughts("I am interacting with Metatron's Cube.")
+                        ai_agent_3d.level_of_consciousness += 3
+                        ai_agent_3d.experience.add('MetatronCube')
+                    elif obj.shape_type == 'ZodiacSymbol':
+                        ai_agent_3d.update_thoughts(f"I am interacting with the {obj.symbol_name} symbol.")
+                        ai_agent_3d.level_of_consciousness += 1  # Adjust as needed
+                        ai_agent_3d.experience.add('ZodiacSymbol')
 
                 ai_agent_3d.update_thoughts(f"Interacted with {obj.shape_type}")
                 
@@ -1569,6 +1635,7 @@ class AIAgent3D:
             self.energy += 50  # Gain energy upon completion
             return True
         return False
+
 
         
 # GameOfLifeEnvironment Class
@@ -2313,20 +2380,22 @@ def play_audio_on_loop(wav_file):
     pygame.mixer.music.load(wav_file)  # Load the wav file
     pygame.mixer.music.play(-1)  # Play the audio in an infinite loop (-1 means loop forever)
 
-# Define a font and color for the message
-font = pygame.font.SysFont(None, 48)
-message_color = (255, 255, 255)  # White text
-background_color = (0, 0, 0)     # Black background
+# Text
+text_lines = [
+    "All is Nothingness: O!",
+    "The dance of the Holy Hexagram,", 
+    "the sacred interplay between the Red Triangle and the Blue Triangle,",
+    "encapsulates the mysteries of existence, ",
+    "of consciousness, and the great work of transformation.",
+    "As Crowley hints in Chapter 69 of The Book of Lies, ",
+    "the movement between God, Man, and Beast,",
+    "each descending and ascending, ",
+    "reflects the ultimate unity in duality—a merging of opposites",
+    "that consumes and creates in a cycle of endless nourishment.",
+    "",
+    "O!"
+]
 
-# Define the message to display
-optical_message = "All is Nothingness O!"
-
-def display_optical_message():
-    """Display an optical message on the screen at intervals."""
-    screen.fill(background_color)  # Clear the screen with the background color
-    text = font.render(optical_message, True, message_color)
-    screen.blit(text, (200, 300))  # Display the text at the center of the screen
-    pygame.display.flip()  # Update the display
 
 # Main Simulation Function
 def run_simulation():
@@ -2338,18 +2407,9 @@ def run_simulation():
     wav_file = "binaural_6.1Hz.wav"  # Replace with your wav file path
     play_audio_on_loop(wav_file)
 
-    # Start time to control the flashing message
-    message_interval = 5  # Seconds between message displays
-    last_message_time = time.time()
-    
     # Create initial AI agents (more complex than cells)
     for _ in range(3):  # Increased number of agents
         while True:
-            # Check if it's time to display the optical message again
-            if time.time() - last_message_time > message_interval:
-                display_optical_message()
-                last_message_time = time.time()
-
             x, y = random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1)
             if environment.grid[x][y] == 0:
                 gender = random.choice(['Male', 'Female'])
@@ -2362,7 +2422,7 @@ def run_simulation():
     
     # Define evolution threshold
     EVOLUTION_THRESHOLD = 100  # Level of consciousness required for next stage
-    
+
     # Simulation loop
     while running:
         for event in pygame.event.get():
@@ -2460,6 +2520,8 @@ def run_simulation():
                 print(f"Generation {current_generation} - Average Consciousness: {average_consciousness:.2f}")
             else:
                 average_consciousness = 0
+                agent.update_thoughts(text_lines)
+                
     
             # Update and render the 2D environment
             surface = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
