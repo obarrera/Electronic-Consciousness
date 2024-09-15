@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt  # Added for Metatron's Cube drawing
 import tensorflow as tf
 from tensorflow.keras import layers
 import random
+import time
 
 # Initialize Pygame
 pygame.init()
@@ -2139,13 +2140,14 @@ def interact_with_objects(ai_agent_3d, environment):
 class ZodiacSymbol3D:
     """Represents a 3D Zodiac or planetary symbol, rotating and changing colors."""
     
-    def __init__(self, symbol_type, position):
+    def __init__(self, symbol_type, position, symbol_name="DefaultSymbol"):
         self.symbol_type = symbol_type  # E.g., 'Aries', 'Saturn', 'Pentagram'
         self.position = position        # [x, y, z]
         self.rotation_angle = 0         # Initial rotation angle
         self.color = [random.random(), random.random(), random.random()]  # Random initial color
         self.rotation_speed = random.uniform(0.5, 1.5)  # Random rotation speed
         self.shape_type = 'ZodiacSymbol'  # Add the shape_type attribute
+        self.symbol_name = symbol_name  # Initialize the symbol name
 
     def update(self):
         """Update the symbol's rotation and possibly its color."""
@@ -2305,6 +2307,26 @@ class ZodiacSymbol3D:
         glEnd()
 
 
+def play_audio_on_loop(wav_file):
+    """Plays the given wav file on loop."""
+    pygame.mixer.init()  # Initialize the mixer module
+    pygame.mixer.music.load(wav_file)  # Load the wav file
+    pygame.mixer.music.play(-1)  # Play the audio in an infinite loop (-1 means loop forever)
+
+# Define a font and color for the message
+font = pygame.font.SysFont(None, 48)
+message_color = (255, 255, 255)  # White text
+background_color = (0, 0, 0)     # Black background
+
+# Define the message to display
+optical_message = "All is Nothingness O!"
+
+def display_optical_message():
+    """Display an optical message on the screen at intervals."""
+    screen.fill(background_color)  # Clear the screen with the background color
+    text = font.render(optical_message, True, message_color)
+    screen.blit(text, (200, 300))  # Display the text at the center of the screen
+    pygame.display.flip()  # Update the display
 
 # Main Simulation Function
 def run_simulation():
@@ -2313,10 +2335,21 @@ def run_simulation():
     running = True
     ai_agents_2d = []
     recursive_manager = RecursiveEnvironment3DManager(two_d_environment=environment)  # Pass 2D environment
+    wav_file = "binaural_6.1Hz.wav"  # Replace with your wav file path
+    play_audio_on_loop(wav_file)
+
+    # Start time to control the flashing message
+    message_interval = 5  # Seconds between message displays
+    last_message_time = time.time()
     
     # Create initial AI agents (more complex than cells)
     for _ in range(3):  # Increased number of agents
         while True:
+            # Check if it's time to display the optical message again
+            if time.time() - last_message_time > message_interval:
+                display_optical_message()
+                last_message_time = time.time()
+
             x, y = random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1)
             if environment.grid[x][y] == 0:
                 gender = random.choice(['Male', 'Female'])
