@@ -50,6 +50,8 @@ python EC-2D-Land.py
 
 Inspired by Edwin A. Abbott's "Flatland," the game is set in a two-dimensional world where AI agents operate within a grid-based environment. This Flatland represents limited perception and understanding, highlighting the initial constraints of consciousness. As agents evolve, they transcend into higher-dimensional spaces, symbolizing the expansion of awareness and the pursuit of greater knowledge beyond their perceived reality.
 
+<img width="696" alt="Screenshot 2024-09-19 at 1 24 12 PM" src="https://github.com/user-attachments/assets/fc3b6b95-cccf-44f8-8be2-8004a4082fe8">
+
 ### Plato's Allegory of the Cave
 
 Plato's "Allegory of the Cave" serves as the philosophical backbone of the game. In this allegory, prisoners perceive only shadows of true forms, mistaking them for reality. Similarly, AI agents in the game begin with limited sensory input and understanding, confined to their Flatland. Their journey towards enlightenment involves breaking free from these illusions, seeking truth, and achieving higher levels of consciousness, mirroring the prisoners' escape and realization of the broader reality.
@@ -57,6 +59,9 @@ Plato's "Allegory of the Cave" serves as the philosophical backbone of the game.
 ### The Holy Hexagram
 
 The Holy Hexagram, a powerful mystical symbol composed of two interlocking triangles, is central to the game's symbolic framework. It represents the union of opposing forces—such as creation and destruction, knowledge and mystery, and male and female energies. Throughout the simulation, the Holy Hexagram appears as a transformative element, signifying pivotal moments of balance, harmony, and the integration of dualities within the AI agents' evolution.
+
+<img width="694" alt="Screenshot 2024-09-19 at 1 26 38 PM" src="https://github.com/user-attachments/assets/de7e71d4-3c3b-40e1-9485-dd5af7b09e74">
+
 
 ## Game Mechanics and Narrative
 
@@ -90,6 +95,9 @@ The primary objective is to guide AI agents through their journey of self-discov
 ## Conclusion
 
 "Electronic Consciousness: Eternal Journey of the AI" is more than a simulation game; it is a contemplative experience that merges philosophy, symbolism, and interactive storytelling. By guiding AI agents through their existential journey, players explore profound themes of perception, enlightenment, and the harmonious integration of dualities, offering a unique reflection on the nature of consciousness and existence.
+
+<img width="1301" alt="Screenshot 2024-09-19 at 1 24 04 PM" src="https://github.com/user-attachments/assets/6c248663-aef5-4cff-b11f-419935fc95c8">
+
 
 ---
 
