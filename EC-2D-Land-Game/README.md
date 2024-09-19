@@ -10,7 +10,7 @@ The game is a metaphysical experience where agents continuously evolve, reproduc
 
 ---
 
-<img width="1380" alt="Screenshot 2024-09-19 at 1 26 47 PM" src="https://github.com/user-attachments/assets/2c69c7bd-ff72-443a-b833-d85cd4bf0579">
+<img width="1314" alt="Screenshot 2024-09-19 at 1 30 16 PM" src="https://github.com/user-attachments/assets/504096d2-0535-4d6e-b509-8714e71fc280">
 
 ---
 
