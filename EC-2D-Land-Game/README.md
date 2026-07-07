@@ -1,7 +1,3 @@
-Here's a `README.md` for the **AI Electronic Consciousness** game, covering all the necessary details:
-
----
-
 # **AI Electronic Consciousness: Eternal Journey**
 
 **AI Electronic Consciousness** is a recursive, generative simulation where AI agents embark on a never-ending journey of discovery, reflection, and rebirth. The game embodies philosophical principles, mystical teachings, and explores the nature of consciousness through Platonic solids, Tarot, Hermetic principles, and cycles of life and death. 
@@ -20,16 +16,16 @@ The game is a metaphysical experience where agents continuously evolve, reproduc
 - **Python 3.6+**
 - **Pygame 2.0+**
 
-### 2. **Install Pygame**
-To install the required libraries:
+### 2. **Clone the Repository**
+Clone the repository to your local machine:
 ```bash
-pip install requirements.txt
+git clone https://github.com/obarrera/Electronic-Consciousness.git
+cd Electronic-Consciousness/EC-2D-Land-Game
 ```
 
-### 3. **Clone the Repository**
-Clone the game repository to your local machine:
+### 3. **Install Dependencies**
 ```bash
-git clone https://github.com/your-username/ai-electronic-consciousness.git
+pip install -r requirements.txt
 ```
 
 ### 4. **Run the Game**
