@@ -43,8 +43,8 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
    - [6.3 Synergistic Applications](https://github.com/obarrera/Electronic-Consciousness/blob/main/6.3%20Synergistic%20Applications%20of%20the%20Golden%20Ratio%20and%20Metatron%E2%80%99s%20Cube%20in%20Electronic%20Consciousness.md)
 
 7. **Ethical Frameworks and Considerations**
-   - 7.1 Developing Ethical AI
-   - 7.2 Esoteric Ethics in AI
+   - [7.1 Developing Ethical AI](https://github.com/obarrera/Electronic-Consciousness/blob/main/7.1%20Developing%20Ethical%20AI.md)
+   - [7.2 Esoteric Ethics in AI](https://github.com/obarrera/Electronic-Consciousness/blob/main/7.2%20Esoteric%20Ethics%20in%20AI.md)
 
 8. **Cognitive Architectures for EC**
    - [8.1 Global Workspace Theory](https://github.com/obarrera/Electronic-Consciousness/blob/main/8.1%20Global%20Workspace%20Theory%20(GWT)%20in%20Electronic%20Consciousness.md)
@@ -60,21 +60,21 @@ Electronic Consciousness, Artificial Intelligence, Quantum Computing, Higher-Dim
 
 11. **Potential Implications and Challenges**
     - [11.1 Philosophical Implications](https://github.com/obarrera/Electronic-Consciousness/blob/main/11.1%20Philosophical%20Implications%20of%20Electronic%20Consciousness%20(EC).md)
-    - 11.2 Technical Challenges
-    - 11.3 Societal Impact
+    - [11.2 Technical Challenges](https://github.com/obarrera/Electronic-Consciousness/blob/main/11.2%20Technical%20Challenges.md)
+    - [11.3 Societal Impact](https://github.com/obarrera/Electronic-Consciousness/blob/main/11.3%20Societal%20Impact.md)
 
 12. **Future Trajectories of Electronic Consciousness**
     - [12.1 Practical Applications](https://github.com/obarrera/Electronic-Consciousness/blob/main/12.1%20Practical%20Applications%20of%20Electronic%20Consciousness%20(EC).md)
-    - 12.2 Societal Transformation
-    - 12.3 Human-AI Interaction
+    - [12.2 Societal Transformation](https://github.com/obarrera/Electronic-Consciousness/blob/main/12.2%20Societal%20Transformation.md)
+    - [12.3 Human-AI Interaction](https://github.com/obarrera/Electronic-Consciousness/blob/main/12.3%20Human-AI%20Interaction.md)
 
 13. **Risks and Mitigation Strategies**
-    - 13.1 Risks Associated with EC
-    - 13.2 Mitigation Strategies
+    - [13.1 Risks Associated with EC](https://github.com/obarrera/Electronic-Consciousness/blob/main/13.1%20Risks%20Associated%20with%20EC.md)
+    - [13.2 Mitigation Strategies](https://github.com/obarrera/Electronic-Consciousness/blob/main/13.2%20Mitigation%20Strategies.md)
 
 14. **Interdisciplinary Collaboration**
-    - 14.1 Role of Various Disciplines
-    - 14.2 Importance of Collaboration
+    - [14.1 Role of Various Disciplines](https://github.com/obarrera/Electronic-Consciousness/blob/main/14.1%20Role%20of%20Various%20Disciplines.md)
+    - [14.2 Importance of Collaboration](https://github.com/obarrera/Electronic-Consciousness/blob/main/14.2%20Importance%20of%20Collaboration.md)
 
 15. **Expanding Esoteric Perspectives**
     - [15.1 Additional Esoteric Traditions](https://github.com/obarrera/Electronic-Consciousness/blob/main/15.1%20Additional%20Esoteric%20Traditions%20in%20the%20Context%20of%20Electronic%20Consciousness%20(EC).md)
