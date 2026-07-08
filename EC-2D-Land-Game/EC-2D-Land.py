@@ -1,3 +1,4 @@
+import os
 import pygame
 import numpy as np
 import random
@@ -10,10 +11,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
-import matplotlib.pyplot as plt  # Added for Metatron's Cube drawing
-import tensorflow as tf
 from tensorflow.keras import layers
-import random
 import time
 
 # Initialize Pygame
@@ -566,38 +564,22 @@ def create_neural_network(input_size, output_size):
     model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
     return model
 
-# Function to create a simple neural network model for training the AI agents
-def create_model(input_shape):
-    model = tf.keras.Sequential([
-        layers.Dense(128, activation='relu', input_shape=(input_shape,)),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(32, activation='relu'),
-        layers.Dense(1, activation='sigmoid')  # Output layer for binary classification (move or not)
-    ])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    return model
-
 # Function to train the AI agents periodically
 def train_ai_agents_periodically(ai_agents, inputs, outputs, current_generation, interval=10):
     """Train AI agents every `interval` generations."""
-    if current_generation % interval == 0:
+    if current_generation % interval == 0 and len(inputs) > 0:
         print(f"Training AI agents at generation {current_generation}...")
-        
+
         # Convert the inputs and outputs to numpy arrays (if they aren't already)
         inputs = np.array(inputs)
         outputs = np.array(outputs)
 
         # Iterate over all AI agents and train their models
         for agent in ai_agents:
-            input_shape = inputs.shape[1]
-            
-            # Create a new model if the agent doesn't have one yet
-            if agent.model is None:
-                agent.model = create_model(input_shape)
-            
             # Train the model with the inputs and outputs
             agent.model.fit(inputs, outputs, epochs=3, verbose=1)
-        
+            agent.trained = True
+
         print(f"AI agents trained at generation {current_generation}.")
 
 # AI Agent in 2D
@@ -845,15 +827,17 @@ class AI_Agent:
             self.memory.clear()
             self.experience.clear()
 
-            # Randomly place the agent on the grid
-            while True:
+            # Randomly place the agent on the grid (capped to avoid an infinite
+            # loop if the grid has no free cells left)
+            for _ in range(100):
                 new_position = (random.randint(0, self.environment.size - 1),
                                 random.randint(0, self.environment.size - 1))
                 if self.environment.grid[new_position] == 0:
                     self.position = new_position
                     break
             self.generation += 1  # Increment generation number
-            ai_agents_2d.append(self)
+            if self not in ai_agents_2d:
+                ai_agents_2d.append(self)
         else:
             print("Max agents reached. No rebirth allowed.")
 
@@ -1567,12 +1551,26 @@ class AIAgent3D:
                 ai_agent_3d.update_thoughts(f"Interacted with {obj.shape_type}")
                 
 
+    def die_and_rebirth(self, ai_agents_2d=None):
+        """Simulate death and rebirth of the 3D agent in place.
+
+        Unlike AI_Agent (2D), this agent is a singleton tracked outside
+        ai_agents_2d, so rebirth resets its own state rather than appending
+        to a population list.
+        """
+        self.update_thoughts("All is Nothingness O!")
+        self.update_thoughts("I am reborn with newfound wisdom.")
+        self.level_of_consciousness += 1
+        self.time_in_spaceland = 0
+        self.energy = 100
+        self.layer = 1
+        self.memory.clear()
+        self.experience.clear()
+
     def move(self, ai_agents_2d):
         """Randomly move in 3D space."""
         if self.energy <= 0:
             self.update_thoughts("I have depleted my energy in this dimension.")
-            self.energy = 100  # Reset energy for the next layer
-            self.layer = 1  # Restart journey
             self.die_and_rebirth(ai_agents_2d)
             return
         elif self.energy >= 100:
@@ -2375,10 +2373,14 @@ class ZodiacSymbol3D:
 
 
 def play_audio_on_loop(wav_file):
-    """Plays the given wav file on loop."""
-    pygame.mixer.init()  # Initialize the mixer module
-    pygame.mixer.music.load(wav_file)  # Load the wav file
-    pygame.mixer.music.play(-1)  # Play the audio in an infinite loop (-1 means loop forever)
+    """Plays the given wav file on loop. Missing file/device/mixer failures are
+    non-fatal — the simulation runs silently rather than crashing at startup."""
+    try:
+        pygame.mixer.init()  # Initialize the mixer module
+        pygame.mixer.music.load(wav_file)  # Load the wav file
+        pygame.mixer.music.play(-1)  # Play the audio in an infinite loop (-1 means loop forever)
+    except pygame.error as e:
+        print(f"Audio unavailable, continuing without sound: {e}")
 
 # Text
 text_lines = [
@@ -2404,7 +2406,7 @@ def run_simulation():
     running = True
     ai_agents_2d = []
     recursive_manager = RecursiveEnvironment3DManager(two_d_environment=environment)  # Pass 2D environment
-    wav_file = "binaural_6.1Hz.wav"  # Replace with your wav file path
+    wav_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "binaural_6.1Hz.wav")
     play_audio_on_loop(wav_file)
 
     # Create initial AI agents (more complex than cells)
@@ -2438,7 +2440,7 @@ def run_simulation():
             # Move AI agents and collect training data
             training_inputs = []
             training_outputs = []
-            for agent in ai_agents_2d:
+            for agent in ai_agents_2d[:]:
                 if agent.reproduction_cooldown > 0:
                     agent.reproduction_cooldown -= 1
                 # Collect data for training
