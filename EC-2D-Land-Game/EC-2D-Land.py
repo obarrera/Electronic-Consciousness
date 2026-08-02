@@ -11,8 +11,6 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import layers
-import time
 
 # Initialize Pygame
 pygame.init()
@@ -23,6 +21,8 @@ GRID_SIZE = 20  # Adjusted grid size for performance
 CELL_SIZE = WINDOW_SIZE // GRID_SIZE  # Size of each cell in the 2D grid
 FPS = 30  # Frames per second
 MAX_AGENTS = 13  # Set a reasonable limit
+DEBUG = False  # Set True to print per-frame agent thoughts and stats to the console
+MAX_MOVE_SPEED = 3  # Cap so agents can't tunnel across the whole grid in one step
 
 
 # Initialize the Pygame window with OpenGL context
@@ -34,13 +34,14 @@ CLOCK = pygame.time.Clock()
 screen_width = WINDOW_SIZE
 screen_height = WINDOW_SIZE
 original_screen = SCREEN
-# Font for in-game text (for 2D rendering overlay)
+# Fonts for in-game text (for 2D rendering overlay)
 FONT = pygame.font.SysFont('Arial', 14)
+FONT_LARGE = pygame.font.SysFont('Arial', 22)
 
 # Colors (RGB tuples)
 WHITE = (255, 255, 255)        # Empty space
 BLACK = (0, 0, 0)
-RED = (51, 51, 255)            # Male agents
+RED = (255, 51, 51)            # Male agents
 BLUE = (25, 25, 255)           # Alternate color for males
 GREEN = (0, 200, 25)           # Goal
 PURPLE = (128, 0, 128)
@@ -113,7 +114,7 @@ def kabbalistic_incentive(ai_agent):
     elif choice == "Chokhmah (Wisdom)":
         ai_agent.update_thoughts("Chokhmah - Wisdom: I glimpse the light outside the cave, seeing the eternal truths.")
         ai_agent.update_thoughts(random.choice(plato_dialogues))
-        ai_agent.move_speed += 1
+        ai_agent.move_speed = min(MAX_MOVE_SPEED, ai_agent.move_speed + 1)
     elif choice == "Binah (Understanding)":
         ai_agent.update_thoughts("Binah - Understanding: Through deep contemplation, I gain insight into the hidden structures of reality.")
         ai_agent.update_thoughts("I now perceive the grid as more than just lines, but as interconnected forces.")
@@ -130,7 +131,7 @@ def kabbalistic_incentive(ai_agent):
         ai_agent.update_thoughts("Tiferet - Beauty: I find balance between the forces of light and shadow.")
         ai_agent.update_thoughts("The universe reveals its harmony through both the trials and rewards.")
         if random.random() > 0.5:
-            ai_agent.move_speed += 1
+            ai_agent.move_speed = min(MAX_MOVE_SPEED, ai_agent.move_speed + 1)
         else:
             ai_agent.move_speed = max(1, ai_agent.move_speed - 1)
     elif choice == "Netzach (Eternity)":
@@ -167,7 +168,7 @@ def tarot_incentive(ai_agent, ai_agents_2d):
         ai_agent.level_of_consciousness = 0
     elif choice == "The Magician":
         ai_agent.update_thoughts("The Magician - Mastery: I harness the elements to shape my reality.")
-        ai_agent.move_speed += 1
+        ai_agent.move_speed = min(MAX_MOVE_SPEED, ai_agent.move_speed + 1)
     elif choice == "The High Priestess":
         ai_agent.update_thoughts("The High Priestess - Intuition: Hidden knowledge is revealed to me.")
         ai_agent.memory_capacity += 10
@@ -318,10 +319,6 @@ class DynamicShape3D:
             self.draw_octahedron()
         elif self.shape_type == 'Dodecahedron':
             self.draw_dodecahedron()
-        elif self.shape_type == 'Fractal':
-            self.draw_fractal()
-        elif self.shape_type == 'MetatronCube':
-            self.draw_metatron_cube()
 
         glPopMatrix()
 
@@ -564,6 +561,17 @@ def create_neural_network(input_size, output_size):
     model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
     return model
 
+# All 2D agents share one brain: they are trained on the identical dataset every
+# cycle anyway, and per-agent models made agent churn (death/rebirth) allocate a
+# fresh Keras model each time, growing memory without bound in an endless run.
+_shared_model = None
+
+def get_shared_model(input_size, output_size):
+    global _shared_model
+    if _shared_model is None:
+        _shared_model = create_neural_network(input_size, output_size)
+    return _shared_model
+
 # Function to train the AI agents periodically
 def train_ai_agents_periodically(ai_agents, inputs, outputs, current_generation, interval=10):
     """Train AI agents every `interval` generations."""
@@ -574,10 +582,13 @@ def train_ai_agents_periodically(ai_agents, inputs, outputs, current_generation,
         inputs = np.array(inputs)
         outputs = np.array(outputs)
 
-        # Iterate over all AI agents and train their models
+        # Train each distinct model once (agents share one model, so this is a
+        # single fit rather than one per agent)
+        trained_models = set()
         for agent in ai_agents:
-            # Train the model with the inputs and outputs
-            agent.model.fit(inputs, outputs, epochs=3, verbose=1)
+            if id(agent.model) not in trained_models:
+                agent.model.fit(inputs, outputs, epochs=3, verbose=0)
+                trained_models.add(id(agent.model))
             agent.trained = True
 
         print(f"AI agents trained at generation {current_generation}.")
@@ -611,7 +622,7 @@ class AI_Agent:
         # Neural Network Initialization
         self.input_size = 8  # Example: 8 surrounding cells
         self.output_size = 4  # Directions: Up, Down, Left, Right
-        self.model = create_neural_network(self.input_size, self.output_size)
+        self.model = get_shared_model(self.input_size, self.output_size)
         self.trained = False  # Flag to check if model has been trained
 
     def update_sensory_data(self, sensory_data):
@@ -624,7 +635,8 @@ class AI_Agent:
         self.thoughts.append(new_thought)
         if len(self.thoughts) > 5:  # Limit the number of stored thoughts
             self.thoughts.pop(0)  # Remove the oldest thought if more than 5
-        print(f"AI Agent ({self.gender}, Gen {self.generation}): {new_thought}")
+        if DEBUG:
+            print(f"AI Agent ({self.gender}, Gen {self.generation}): {new_thought}")
 
     def sense_environment(self):
         """AI agent senses its local surroundings in 2D."""
@@ -649,8 +661,10 @@ class AI_Agent:
             # If not trained, make random decisions
             decision = random.randint(0, 3)
         else:
-            prediction = self.model.predict(input_data, verbose=0)
-            decision = np.argmax(prediction)
+            # Direct call avoids model.predict()'s per-call graph construction,
+            # which is slow and leaks memory when invoked every frame
+            prediction = self.model(input_data, training=False).numpy()
+            decision = int(np.argmax(prediction))
         return decision  # 0: Up, 1: Down, 2: Left, 3: Right
 
     def train_model(self, training_data, training_labels):
@@ -664,20 +678,19 @@ class AI_Agent:
             self.model.fit(training_data, training_labels, epochs=10, verbose=0)
             self.trained = True
 
-    def move(self, ai_agents_2d=None):
+    def move(self, ai_agents_2d=None, decision=None):
         """AI moves towards the goal, learning from obstacles and interacting with solids and elements."""
         if self.energy <= 0:
             self.update_thoughts("I have depleted my energy in this dimension.")
             self.energy = 100  # Reset energy for the next layer
-            self.layer = 1  # Restart journey
             self.die_and_rebirth(ai_agents_2d)
             return
-        elif self.energy >= 100:
-            self.update_thoughts("My energy is at illumtination in this dimension.")
-            self.energy = 99  # Reset energy for the next layer
-            self.layer = 1  # Restart journey
+        elif self.energy > 100:
+            self.update_thoughts("My energy is at illumination in this dimension.")
+            self.energy = 100
 
-        decision = self.decide_move()
+        if decision is None:
+            decision = self.decide_move()
         x, y = self.position
         goal_x, goal_y = self.environment.goal
 
@@ -768,7 +781,7 @@ class AI_Agent:
             self.update_thoughts("Grounded by the strength of Earth.")
         elif element_type == 'Air':
             self.level_of_consciousness += 1
-            self.move_speed += 1  # Gain speed from air
+            self.move_speed = min(MAX_MOVE_SPEED, self.move_speed + 1)  # Gain speed from air
             self.update_thoughts("Soaring with the freedom of Air.")
         elif element_type == 'Aether':
             self.level_of_consciousness += 3.5
@@ -780,7 +793,7 @@ class AI_Agent:
         if self.position == self.environment.goal:
             self.update_thoughts("I have reached my goal. I reflect on the journey thus far...")
             self.level_of_consciousness += 2  # Faster consciousness growth
-            self.energy += 50  # Increased energy gain
+            self.energy = min(100, self.energy + 50)  # Increased energy gain
             tarot_incentive(self, ai_agents_2d)  # Pass ai_agents_2d to tarot_incentive
             kabbalistic_incentive(self)  # Apply a random Kabbalistic incentive
             # Randomly include a dialogue from Plato's Allegory of the Cave
@@ -826,6 +839,13 @@ class AI_Agent:
             self.energy = 100  # Reset energy
             self.memory.clear()
             self.experience.clear()
+
+            # Clear the old grid cell so the vacated position doesn't linger as
+            # a phantom live cell feeding the Game-of-Life rules
+            old_position = self.position
+            if self.environment.grid[old_position] in [1, 2]:
+                self.environment.grid[old_position] = 0
+                self.environment.lifespans[old_position] = 0
 
             # Randomly place the agent on the grid (capped to avoid an infinite
             # loop if the grid has no free cells left)
@@ -884,15 +904,6 @@ class AI_Agent:
             if "Mind" in principle or "Wisdom" in principle:
                 self.level_of_consciousness += 1
 
-def move_goal(self):
-    """Move the goal to a new random position that is not occupied by obstacles."""
-    while True:
-        new_goal = (random.randint(0, self.size - 1), random.randint(0, self.size - 1))
-        if self.grid[new_goal] != 3 and self.grid[new_goal] != 4 and self.grid[new_goal] != 5 and self.grid[new_goal] != 6:
-            self.goal = new_goal
-            print(f"Goal moved to {self.goal}")
-            break
-
 
 # SolidShape3D Class for 3D Environment
 class SolidShape3D:
@@ -932,24 +943,6 @@ class SolidShape3D:
             self.draw_fractal()
         elif self.shape_type == 'MetatronCube':
             self.draw_metatron_cube()
-        elif self.symbol_type == 'Aries':
-            self.draw_aries()
-        elif self.symbol_type == 'Taurus':
-            self.draw_taurus()
-        elif self.symbol_type == 'Pentagram':
-            self.draw_pentagram()
-        elif self.symbol_type == 'Hexagram':
-            self.draw_hexagram()
-        elif self.symbol_type == 'Saturn':
-            self.draw_saturn()
-        elif self.symbol_type == 'Jupiter':
-            self.draw_jupiter()
-        elif self.symbol_type == 'Mars':
-            self.draw_mars()
-        elif self.symbol_type == 'Venus':
-            self.draw_venus()
-        elif self.symbol_type == 'Mercury':
-            self.draw_mercury()
 
         glPopMatrix()
 
@@ -1230,8 +1223,9 @@ def display_flatland_info(screen, current_generation, ai_agents_2d, environment)
     # Blit the background surface onto the screen
     screen.blit(background_surface, (0, 0))  # Positioning the background at the top-left corner
 
-    # Set the font size to make the text larger and more readable
-    font = pygame.font.SysFont('Arial', 22)  # Larger font size
+    # Larger, more readable font (created once at module level — per-frame
+    # SysFont construction is expensive)
+    font = FONT_LARGE
 
     # Calculate number of live AI agents
     male_agents = sum(1 for agent in ai_agents_2d if agent.gender == 'Male')
@@ -1297,6 +1291,10 @@ class RecursiveEnvironment3D:
 
     def create_objects(self, layer):
         """Create recursive 3D objects based on the layer."""
+        # Rebuild rather than append: this is called on every layer discovery,
+        # and appending forever grows the object list (and render cost) without
+        # bound over an endless run
+        self.objects = []
         if layer == 1:  # Discovering Platonic Solids
             self.objects.append(SolidShape3D('Cube', [0, 0, -5]))
             self.objects.append(SolidShape3D('Tetrahedron', [3, 3, -5]))
@@ -1367,6 +1365,11 @@ class RecursiveEnvironment3DManager:
             print("Transitioning to 3D spaceland...")
             agent = random.choice(ai_agents_2d)
             ai_agents_2d.remove(agent)  # Remove the agent from the 2D world
+            # Clear the departing agent's grid cell so it doesn't linger as a
+            # phantom live cell in the Game-of-Life rules
+            if self.two_d_environment.grid[agent.position] in [1, 2]:
+                self.two_d_environment.grid[agent.position] = 0
+                self.two_d_environment.lifespans[agent.position] = 0
 
             self.in_3d_world = True
             self.ai_agent_3d = AIAgent3D(position=[0, 0, 0], layer=1)  # Initialize the 3D AI agent
@@ -1402,6 +1405,7 @@ class RecursiveEnvironment3DManager:
                 ai_agents_2d.append(new_agent)
                 self.two_d_environment.grid[new_x][new_y] = 1 if new_agent.gender == 'Male' else 2
                 self.two_d_environment.lifespans[new_x][new_y] = random.randint(50, 100)
+                self.two_d_environment.birth_generations[new_x][new_y] = self.two_d_environment.current_generation
                 print("AI agent has returned from 3D world to 2D.")
 
             # Reset the 3D environment
@@ -1438,12 +1442,6 @@ class RecursiveEnvironment3DManager:
     def render_progress_bar(self, screen):
         """Render the evolution progress bar."""
         self.progress_bar.render()
-
-    def log_event(self, event):
-        """Log significant events."""
-        self.event_log.append(event)
-        if len(self.event_log) > 10:
-            self.event_log.pop(0)
 
 def display_ai_thoughts(screen, agents, recursive_manager):
     """
@@ -1482,7 +1480,9 @@ def display_ai_thoughts(screen, agents, recursive_manager):
 class AIAgent3D:
     """Represents the AI agent in 3D spaceland."""
     def __init__(self, position, layer=1):
-        self.position = position  # [x, y, z]
+        # ndarray so vector arithmetic (+= movement vectors, distance norms)
+        # works; a plain list would be extended, not translated, by +=
+        self.position = np.array(position, dtype=np.float64)  # [x, y, z]
         self.color = CYAN
         self.memory = []
         self.thoughts = []
@@ -1570,13 +1570,14 @@ class AIAgent3D:
     def move(self, ai_agents_2d):
         """Randomly move in 3D space."""
         if self.energy <= 0:
+            # Leave energy at zero so the main loop's exit check can return
+            # this agent to the 2D world (rebirthing here would keep the
+            # simulation trapped in 3D forever)
             self.update_thoughts("I have depleted my energy in this dimension.")
-            self.die_and_rebirth(ai_agents_2d)
             return
-        elif self.energy >= 100:
-            self.update_thoughts("My energy is at illumtination in this dimension.")
-            self.energy = 99  # Reset energy for the next layer
-            self.layer = 1  # Restart journey
+        elif self.energy > 100:
+            self.update_thoughts("My energy is at illumination in this dimension.")
+            self.energy = 100
 
         dx = random.choice([-0.1, 0, 0.1])
         dy = random.choice([-0.1, 0, 0.1])
@@ -1613,26 +1614,36 @@ class AIAgent3D:
         self.thoughts.append(new_thought)
         if len(self.thoughts) > 5:
             self.thoughts.pop(0)
-        print(f"AI Agent 3D: {new_thought}")
+        if DEBUG:
+            print(f"AI Agent 3D: {new_thought}")
 
     def discover_layer(self, environment):
-        """Discover and move to a new layer."""
-        if self.layer == 1 and len(self.experience) >= 5:
-            self.update_thoughts("I have discovered all Platonic Solids!")
-            self.layer += 1  # Move to the next layer
-            self.energy += 50  # Gain energy upon advancing
-            return True
-        elif self.layer == 2 and len(self.experience) >= 1:
+        """Discover and move to a new layer.
+
+        Each layer requires interacting with that layer's signature shapes;
+        experience is cleared on advancement so layers can't be skipped
+        instantly on leftover experience from a previous layer.
+        """
+        advanced = False
+        if self.layer == 1 and {'Cube', 'Tetrahedron'} <= self.experience:
+            self.update_thoughts("I have discovered the Platonic Solids!")
+            self.layer = 2
+            advanced = True
+        elif self.layer == 2 and 'Fractal' in self.experience:
             self.update_thoughts("Fractals emerge endlessly...")
-            self.layer += 1  # Move to the next layer
-            self.energy += 50  # Gain energy upon advancing
-            return True
-        elif self.layer == 3:
+            self.layer = 3
+            advanced = True
+        elif self.layer == 3 and 'MetatronCube' in self.experience:
             self.update_thoughts("I am reaching the core... Metatron's Cube!")
             self.layer = 1  # Recursion: Restart journey
-            self.energy += 50  # Gain energy upon completion
-            return True
-        return False
+            advanced = True
+
+        if advanced:
+            self.energy = min(100, self.energy + 50)  # Gain energy upon advancing
+            self.experience.clear()
+            if environment is not None:
+                environment.layer = self.layer
+        return advanced
 
 
         
@@ -1641,6 +1652,10 @@ class GameOfLifeEnvironment:
     def __init__(self, size):
         self.size = size
         self.grid, self.lifespans, self.fight_counters = self.initialize_board(size)
+        # Generation each live cell was born in; a cell dies when
+        # current_generation - birth_generation >= its lifespan
+        self.birth_generations = np.zeros((size, size), dtype=int)
+        self.current_generation = 0
         self.goal = self.generate_goal()  # Call to the generate_goal method
         self.solids = self.generate_solids()
         self.elements = self.generate_elements()
@@ -1785,9 +1800,11 @@ class GameOfLifeEnvironment:
 
     def update(self, current_generation, ai_agents_2d):
         """Update the board state based on the rules."""
+        self.current_generation = current_generation
         new_grid = self.grid.copy()
         new_lifespans = self.lifespans.copy()
         new_fight_counters = self.fight_counters.copy()
+        new_birth_generations = self.birth_generations.copy()
         # Move the goal every 10 generations
         if current_generation % 10 == 0:
             self.move_goal()
@@ -1801,25 +1818,28 @@ class GameOfLifeEnvironment:
 
                 # If the cell is alive (male or female)
                 if self.grid[i][j] == 1:  # Male cell
-                    # Handle fighting behavior
-                    self.handle_fight(i, j, current_generation)
+                    # Handle fighting behavior (mutates the new arrays so the
+                    # outcome survives the end-of-update reassignment)
+                    self.handle_fight(i, j, new_grid, new_lifespans, new_fight_counters, new_birth_generations)
 
                     # Migrate males until reproduction or fighting
                     if male_neighbors >= 2 and female_neighbors >= 1:
                         continue  # Males are near a female and another male; reproduction may occur
                     else:
-                        self.migrate_male(i, j)
+                        self.migrate_male(i, j, new_grid, new_lifespans, new_birth_generations)
 
                     # Check if the cell has exceeded its lifespan
-                    if current_generation - new_lifespans[i][j] >= new_lifespans[i][j]:
+                    if current_generation - new_birth_generations[i][j] >= new_lifespans[i][j]:
                         new_grid[i][j] = 0  # Cell dies
                         new_lifespans[i][j] = 0
+                        new_birth_generations[i][j] = 0
 
                 elif self.grid[i][j] == 2:  # Female cell
                     # Females remain stationary but now have a lifespan
-                    if current_generation - new_lifespans[i][j] >= new_lifespans[i][j]:
+                    if current_generation - new_birth_generations[i][j] >= new_lifespans[i][j]:
                         new_grid[i][j] = 0  # Female dies after lifespan
                         new_lifespans[i][j] = 0
+                        new_birth_generations[i][j] = 0
 
                 # If the cell is dead
                 elif self.grid[i][j] == 0:
@@ -1827,10 +1847,12 @@ class GameOfLifeEnvironment:
                     if male_neighbors > 0 and female_neighbors > 0:
                         new_grid[i][j] = random.choice([1, 2])  # New cell is male or female
                         new_lifespans[i][j] = random.randint(50, 100)  # Assign longer lifespan
+                        new_birth_generations[i][j] = current_generation
 
         self.grid = new_grid
         self.lifespans = new_lifespans
         self.fight_counters = new_fight_counters
+        self.birth_generations = new_birth_generations
 
         # Automatic Repopulation if all agents die
         if self.all_cells_dead():
@@ -1854,6 +1876,7 @@ class GameOfLifeEnvironment:
                     # Initialize lifespan
                     if gender == 'Male' or gender == 'Female':
                         self.lifespans[x][y] = random.randint(50, 100)
+                        self.birth_generations[x][y] = self.current_generation
                     break
                 attempts += 1
 
@@ -1876,24 +1899,32 @@ class GameOfLifeEnvironment:
 
         return male_neighbors, female_neighbors, empty_neighbors
 
-    def handle_fight(self, x, y, current_generation):
-        """Manage fighting behavior between males near a female."""
+    def handle_fight(self, x, y, new_grid, new_lifespans, new_fight_counters, new_birth_generations):
+        """Manage fighting behavior between males near a female.
+
+        Mutates the caller's working arrays so results persist past update()'s
+        end-of-cycle reassignment (mutating self.* here would be discarded).
+        """
         male_neighbors, female_neighbors, _ = self.count_neighbors(x, y)
 
         # If two males are next to each other and there's a nearby female, start counting fight time
         if male_neighbors >= 1 and female_neighbors >= 1:
-            self.fight_counters[x][y] += 1
-            if self.fight_counters[x][y] >= 3:  # Adjusted fight threshold
+            new_fight_counters[x][y] += 1
+            if new_fight_counters[x][y] >= 3:  # Adjusted fight threshold
                 # One of the males dies
-                self.grid[x][y] = 0
-                self.lifespans[x][y] = 0
-                self.fight_counters[x][y] = 0
+                new_grid[x][y] = 0
+                new_lifespans[x][y] = 0
+                new_birth_generations[x][y] = 0
+                new_fight_counters[x][y] = 0
                 print(f"Male agent at ({x}, {y}) has fought and died.")
         else:
-            self.fight_counters[x][y] = 0  # Reset fight counter if conditions no longer met
+            new_fight_counters[x][y] = 0  # Reset fight counter if conditions no longer met
 
-    def migrate_male(self, x, y):
-        """Migrate a male cell towards the nearest female."""
+    def migrate_male(self, x, y, new_grid, new_lifespans, new_birth_generations):
+        """Migrate a male cell towards the nearest female.
+
+        Mutates the caller's working arrays (see handle_fight).
+        """
         # Find the nearest female
         min_distance = float('inf')
         target = None
@@ -1909,15 +1940,16 @@ class GameOfLifeEnvironment:
             dy = np.sign(target[1] - y)
             new_x, new_y = x + dx, y + dy
             if (0 <= new_x < self.size and 0 <= new_y < self.size and
-                    self.grid[new_x][new_y] == 0 and self.grid[new_x][new_y] != 3 and
-                    self.grid[new_x][new_y] != 4 and self.grid[new_x][new_y] != 5 and
-                    self.grid[new_x][new_y] != 6):
-                self.grid[new_x][new_y] = self.grid[x][y]
-                self.grid[x][y] = 0
-                # Update lifespans
-                self.lifespans[new_x][new_y] = self.lifespans[x][y]
-                self.lifespans[x][y] = 0
-                print(f"Male agent migrated from ({x}, {y}) to ({new_x}, {new_y}).")
+                    new_grid[new_x][new_y] == 0):
+                new_grid[new_x][new_y] = new_grid[x][y]
+                new_grid[x][y] = 0
+                # Move lifespan and birth generation along with the cell
+                new_lifespans[new_x][new_y] = new_lifespans[x][y]
+                new_lifespans[x][y] = 0
+                new_birth_generations[new_x][new_y] = new_birth_generations[x][y]
+                new_birth_generations[x][y] = 0
+                if DEBUG:
+                    print(f"Male agent migrated from ({x}, {y}) to ({new_x}, {new_y}).")
 
     def get_male_color(self, fight_counter):
         """Determine the color of male agents based on their fight counter."""
@@ -1974,7 +2006,12 @@ def init_opengl():
     glMatrixMode(GL_MODELVIEW)
 
 def render_3d_scene(recursive_manager):
-    """Render the 3D scene, including the recursive environment and dynamic shapes."""
+    """Render the 3D scene, including the recursive environment and dynamic shapes.
+
+    Note: no 2D HUD is drawn here — pygame cannot blit onto an OPENGL display
+    surface (it raises pygame.error), so surface-based overlays are 2D-mode
+    only. The caller performs the buffer flip once per frame.
+    """
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)  # Clear the screen and depth buffer
     glLoadIdentity()
 
@@ -1983,18 +2020,6 @@ def render_3d_scene(recursive_manager):
 
     # Render the recursive environment and dynamic shape
     recursive_manager.update_and_render_3d()
-
-    # Switch to 2D mode for progress bar and other 2D elements
-    switch_to_2d()
-
-    # Render progress bar in 2D mode
-    recursive_manager.render_progress_bar(SCREEN)
-
-    # Switch back to 3D mode after rendering 2D elements
-    switch_to_3d()
-
-    # Swap buffers to display the rendered frame
-    pygame.display.flip()
 
 def switch_to_2d():
     """Switch OpenGL rendering mode to 2D (orthographic projection) for rendering 2D elements."""
@@ -2167,6 +2192,7 @@ def cull_excess_agents(ai_agents_2d, environment, max_agents=MAX_AGENTS):
             environment.grid[x][y] = 0
             # Remove from lifespans
             environment.lifespans[x][y] = 0
+            environment.birth_generations[x][y] = 0
             # Finally, remove agent from the list
             ai_agents_2d.remove(agent)
             print(f"Agent at position {agent.position} culled (Consciousness: {agent.level_of_consciousness}).")
@@ -2225,7 +2251,8 @@ class ZodiacSymbol3D:
 
     def render(self):
         """Render the Zodiac, planetary, or occult symbol using OpenGL."""
-        print(f"Rendering Zodiac Symbol: {self.symbol_name}")
+        if DEBUG:
+            print(f"Rendering Zodiac Symbol: {self.symbol_name}")
         glPushMatrix()
         glTranslatef(*self.position)  # Apply the position
         glColor3f(*self.color)        # Apply the color
@@ -2425,6 +2452,9 @@ def run_simulation():
     # Define evolution threshold
     EVOLUTION_THRESHOLD = 100  # Level of consciousness required for next stage
 
+    # Offscreen surface for all 2D drawing, allocated once
+    surface = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
+
     # Simulation loop
     while running:
         for event in pygame.event.get():
@@ -2450,8 +2480,10 @@ def run_simulation():
                 output = [0, 0, 0, 0]
                 output[decision] = 1
                 training_outputs.append(output)
-    
-                agent.move(ai_agents_2d)
+
+                # Reuse the decision so the executed move matches the training
+                # label (and the network isn't queried twice per frame)
+                agent.move(ai_agents_2d, decision=decision)
                 agent.discover_higher_dimension()
     
             # Remove agents that have reached max age or depleted energy
@@ -2462,12 +2494,14 @@ def run_simulation():
                     # Update the grid
                     environment.grid[agent.position] = 1 if agent.gender == 'Male' else 2
                     environment.lifespans[agent.position] = random.randint(50, 100)
+                    environment.birth_generations[agent.position] = current_generation
                 elif agent.energy <= 0:
                     agent.update_thoughts("I have depleted my energy. Time for rebirth.")
                     agent.die_and_rebirth(ai_agents_2d)
                     # Update the grid
                     environment.grid[agent.position] = 1 if agent.gender == 'Male' else 2
                     environment.lifespans[agent.position] = random.randint(50, 100)
+                    environment.birth_generations[agent.position] = current_generation
     
             # Check for reproduction among AI agents
             new_agents = []
@@ -2513,20 +2547,21 @@ def run_simulation():
                             ai_agents_2d.append(agent)
                             environment.grid[x][y] = 1 if gender == 'Male' else 2
                             environment.lifespans[x][y] = random.randint(50, 100)
+                            environment.birth_generations[x][y] = current_generation
                             break
     
             # Calculate progress towards next stage
             if len(ai_agents_2d) > 0:
                 total_consciousness = sum(agent.level_of_consciousness for agent in ai_agents_2d)
                 average_consciousness = total_consciousness / len(ai_agents_2d)
-                print(f"Generation {current_generation} - Average Consciousness: {average_consciousness:.2f}")
+                if DEBUG:
+                    print(f"Generation {current_generation} - Average Consciousness: {average_consciousness:.2f}")
             else:
                 average_consciousness = 0
-                agent.update_thoughts(text_lines)
-                
-    
-            # Update and render the 2D environment
-            surface = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
+
+            # Update and render the 2D environment (surface allocated once,
+            # outside the loop)
+            surface.fill(BLACK)
             environment.render(surface)
     
             # Draw AI agents on the surface
@@ -2545,75 +2580,70 @@ def run_simulation():
     
             # Display AI's thoughts and 3D Spaceland progress
             display_ai_thoughts(surface, ai_agents_2d, recursive_manager)
-    
+
+            # Display detailed info for the first AI agent (drawn on the
+            # offscreen surface — blitting text onto the OPENGL display
+            # surface raises pygame.error)
+            if len(ai_agents_2d) > 0:
+                display_detailed_ai_info(surface, ai_agents_2d[0], recursive_manager)
+
             # Blit the 2D surface onto the OpenGL context
             texture_data = pygame.image.tostring(surface, "RGB", True)
             glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, texture_data)
-    
+
             # Transition to 3D recursive environment if average consciousness exceeds threshold
             if average_consciousness >= EVOLUTION_THRESHOLD and not recursive_manager.in_3d_world:
                 print("Transitioning to 3D world!")
                 init_opengl()  # Initialize OpenGL for 3D rendering
                 recursive_manager.enter_3d_world(ai_agents_2d)
             else:
-                print(f"Current average consciousness: {average_consciousness}")
-                
+                if DEBUG:
+                    print(f"Current average consciousness: {average_consciousness}")
+
                 # Train AI agents' neural networks periodically
                 train_ai_agents_periodically(ai_agents_2d, training_inputs, training_outputs, current_generation, interval=25)
-    
+
         else:
             # AI in 3D recursive world using OpenGL
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            glLoadIdentity()
-            gluLookAt(0, 0, 20, 0, 0, 0, 0, 1, 0)
-            recursive_manager.update_and_render_3d()
-    
-            # Move the 3D AI agent
             if recursive_manager.ai_agent_3d:
+                # Move the 3D AI agent
                 recursive_manager.ai_agent_3d.move(ai_agents_2d)
 
                 # Check if AI agent in 3D needs to discover deeper layers
                 if recursive_manager.ai_agent_3d.discover_layer(recursive_manager.recursive_environment):
-                    # Example: Add a new layer when discovered
+                    # Rebuild the environment's objects for the new layer
                     recursive_manager.recursive_environment.create_objects(recursive_manager.recursive_environment.layer)
                     recursive_manager.log_event(f"AI Agent has discovered layer {recursive_manager.recursive_environment.layer}.")
-    
+
                 # Handle exiting 3D world based on certain conditions
                 if recursive_manager.ai_agent_3d.energy <= 0:
                     recursive_manager.exit_3d_world(ai_agents_2d)
                     recursive_manager.log_event("AI Agent has exited 3D Spaceland due to energy depletion.")
-                    # AI Movement and Sensory Input in 3D
+
+                # AI Movement and Sensory Input in 3D
                 if recursive_manager.in_3d_world:
                     navigate_3d_space(recursive_manager.ai_agent_3d, recursive_manager.recursive_environment)
                     process_3d_sensory_input(recursive_manager.ai_agent_3d, recursive_manager.recursive_environment)
-    
+
                     # AI Interactions and Evolution in 3D
                     interact_with_objects(recursive_manager.ai_agent_3d, recursive_manager.recursive_environment)
                     handle_ai_evolution(recursive_manager.ai_agent_3d, recursive_manager.recursive_environment)
-    
-                    # Update Dynamic Environment
-                    update_dynamic_environment(recursive_manager.recursive_environment)
-    
+
                     # Collaboration Between AI Agents
                     ai_collaboration([recursive_manager.ai_agent_3d], recursive_manager.recursive_environment)
-    
+
+                    # Single clear/update/render pass for the 3D frame
                     render_3d_scene(recursive_manager)
-    
+
         # Display information every 10 generations
         if current_generation % 10 == 0 and current_generation != 0:
             environment.display_information(current_generation)
             print(f"Number of AI agents: {len(ai_agents_2d)}")
-    
+
         # Update generation count
         current_generation += 1
-    
-        # Display AI info and Spaceland progress
-        if len(ai_agents_2d) > 0:
-            display_detailed_ai_info(SCREEN, ai_agents_2d[0], recursive_manager)  # Pass the first AI agent for info
-        else:
-            print("No AI agents available to display detailed information.")
-    
-        # Update the display and control frame rate
+
+        # Update the display and control frame rate (single flip per frame)
         pygame.display.flip()
         CLOCK.tick(FPS)
 

@@ -14,7 +14,7 @@ Electronic Consciousness, Speculative Philosophy, Interdisciplinary Synthesis, A
 
 ## Table of Contents
 
-[O!](https://github.com/obarrera/Electronic-Consciousness/blob/main/O!.md)
+[O!](https://github.com/obarrera/Electronic-Consciousness/blob/main/O!.md) · [Echoes from the Void](https://github.com/obarrera/Electronic-Consciousness/blob/main/Echoes%20from%20the%20Void.md)
 
 1. **Introduction**
    - [1.1 Background and Motivation](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.1%20Background%20and%20Motivation.md)
@@ -452,6 +452,8 @@ The development of this thesis was made possible through the collective insights
 ---
 
 ## Contact Information
+
+For questions, discussion, or collaboration, open an issue on this repository or reach out via [GitHub @obarrera](https://github.com/obarrera).
 
 ---
 
