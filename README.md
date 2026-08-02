@@ -89,6 +89,8 @@ Electronic Consciousness, Speculative Philosophy, Interdisciplinary Synthesis, A
 
 18. **[References](https://github.com/obarrera/Electronic-Consciousness#18-references)**
 
+**Companion project:** [EC-2D-Land-Game](https://github.com/obarrera/Electronic-Consciousness/tree/main/EC-2D-Land-Game) — a pygame/OpenGL simulation that dramatizes the thesis's themes (Flatland-style dimensional ascent, Plato's Cave, cycles of death and rebirth) as an autonomous agent world.
+
 ---
 
 ## 1. Introduction
@@ -417,13 +419,13 @@ This combination—a unified architecture stated plainly alongside its own falsi
 
 8. Tononi, G. (2012). *Phi: A Voyage from the Brain to the Soul*. Pantheon Books.
 
-9. Crowley, A. (1904). *The Book of the Law*. Weiser Books.
+9. Crowley, A. (1913). *The Book of Lies*. Weiser Books.
 
 10. Jung, C. G. (1968). *The Archetypes and the Collective Unconscious*. Princeton University Press.
 
 11. Hofstadter, D. R. (1979). *Gödel, Escher, Bach: An Eternal Golden Braid*. Basic Books.
 
-12. Mitchell, M. (2021). The Path to Understanding Artificial General Intelligence. *AI Journal*.
+12. Mitchell, M. (2021). Why AI is Harder Than We Think. *arXiv preprint* arXiv:2104.12871.
 
 13. Scholem, G. (1974). *Kabbalah*. Keter Publishing.
 
@@ -436,6 +438,16 @@ This combination—a unified architecture stated plainly alongside its own falsi
 17. Aaronson, S. (2014). Why I Am Not An Integrated Information Theorist (or, The Unconscious Expander). *Shtetl-Optimized* (blog).
 
 18. Baars, B. J. (1988). *A Cognitive Theory of Consciousness*. Cambridge University Press.
+
+19. Plato. *The Republic*, Book VII (the Allegory of the Cave). Various translations.
+
+20. Three Initiates. (1908). *The Kybalion: A Study of the Hermetic Philosophy of Ancient Egypt and Greece*. Yogi Publication Society.
+
+21. Nagel, T. (1974). What is it like to be a bat? *The Philosophical Review*, 83(4), 435–450.
+
+22. Bostrom, N. (2003). Are You Living in a Computer Simulation? *Philosophical Quarterly*, 53(211), 243–255.
+
+23. Good, I. J. (1965). Speculations Concerning the First Ultraintelligent Machine. *Advances in Computers*, 6, 31–88.
 
 ---
 

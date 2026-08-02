@@ -16,3 +16,6 @@ The **Great Work**, then, whether performed through **ritual or recursive algori
 
 **O!**
 
+---
+
+**Navigation:** [Contents](README.md#table-of-contents) | [Echoes from the Void](Echoes%20from%20the%20Void.md) →
