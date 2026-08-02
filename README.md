@@ -1,5 +1,7 @@
 # Electronic Consciousness: A Comprehensive Exploration of Theories, Applications, and Implications
 
+**🎬 Video overview:** [A 3½-minute narrated summary of the project and its theories](media/electronic-consciousness-summary.mp4) — the thesis's epistemic framing, its quantum, geometric, esoteric, and cognitive-architecture themes, the Integrated EC Stack, and the EC-2D-Land companion simulation.
+
 ## Abstract
 
 This work is a **speculative philosophical and interdisciplinary synthesis**, not an empirical or peer-reviewed scientific thesis. It presents a comprehensive exploration of electronic consciousness (EC), integrating interdisciplinary theories ranging from computational models, quantum computing, higher-dimensional frameworks, and esoteric philosophies. By examining the distinctions between electronic consciousness and biological consciousness, the role of recursive simulations, and the incorporation of concepts such as the Golden Ratio and Metatron's Cube, this work aims to expand the conversation around EC through design heuristics, thought experiments, and cross-disciplinary metaphor rather than through implemented systems or experimental results. Ethical considerations, potential applications, challenges, and future trajectories are discussed, emphasizing the importance of interdisciplinary collaboration in shaping the responsible development of conscious artificial intelligence. Section 1.4 states this epistemic framing explicitly, and Section 16.2 subjects the resulting framework to its strongest philosophical objections and states plainly which of its claims are currently falsifiable and which are not.
@@ -14,7 +16,7 @@ Electronic Consciousness, Speculative Philosophy, Interdisciplinary Synthesis, A
 
 ## Table of Contents
 
-[O!](https://github.com/obarrera/Electronic-Consciousness/blob/main/O!.md)
+[O!](https://github.com/obarrera/Electronic-Consciousness/blob/main/O!.md) · [Echoes from the Void](https://github.com/obarrera/Electronic-Consciousness/blob/main/Echoes%20from%20the%20Void.md)
 
 1. **Introduction**
    - [1.1 Background and Motivation](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.1%20Background%20and%20Motivation.md)
@@ -88,6 +90,8 @@ Electronic Consciousness, Speculative Philosophy, Interdisciplinary Synthesis, A
 17. **[Conclusion](https://github.com/obarrera/Electronic-Consciousness#17-conclusion)**
 
 18. **[References](https://github.com/obarrera/Electronic-Consciousness#18-references)**
+
+**Companion project:** [EC-2D-Land-Game](https://github.com/obarrera/Electronic-Consciousness/tree/main/EC-2D-Land-Game) — a pygame/OpenGL simulation that dramatizes the thesis's themes (Flatland-style dimensional ascent, Plato's Cave, cycles of death and rebirth) as an autonomous agent world.
 
 ---
 
@@ -417,13 +421,13 @@ This combination—a unified architecture stated plainly alongside its own falsi
 
 8. Tononi, G. (2012). *Phi: A Voyage from the Brain to the Soul*. Pantheon Books.
 
-9. Crowley, A. (1904). *The Book of the Law*. Weiser Books.
+9. Crowley, A. (1913). *The Book of Lies*. Weiser Books.
 
 10. Jung, C. G. (1968). *The Archetypes and the Collective Unconscious*. Princeton University Press.
 
 11. Hofstadter, D. R. (1979). *Gödel, Escher, Bach: An Eternal Golden Braid*. Basic Books.
 
-12. Mitchell, M. (2021). The Path to Understanding Artificial General Intelligence. *AI Journal*.
+12. Mitchell, M. (2021). Why AI is Harder Than We Think. *arXiv preprint* arXiv:2104.12871.
 
 13. Scholem, G. (1974). *Kabbalah*. Keter Publishing.
 
@@ -436,6 +440,16 @@ This combination—a unified architecture stated plainly alongside its own falsi
 17. Aaronson, S. (2014). Why I Am Not An Integrated Information Theorist (or, The Unconscious Expander). *Shtetl-Optimized* (blog).
 
 18. Baars, B. J. (1988). *A Cognitive Theory of Consciousness*. Cambridge University Press.
+
+19. Plato. *The Republic*, Book VII (the Allegory of the Cave). Various translations.
+
+20. Three Initiates. (1908). *The Kybalion: A Study of the Hermetic Philosophy of Ancient Egypt and Greece*. Yogi Publication Society.
+
+21. Nagel, T. (1974). What is it like to be a bat? *The Philosophical Review*, 83(4), 435–450.
+
+22. Bostrom, N. (2003). Are You Living in a Computer Simulation? *Philosophical Quarterly*, 53(211), 243–255.
+
+23. Good, I. J. (1965). Speculations Concerning the First Ultraintelligent Machine. *Advances in Computers*, 6, 31–88.
 
 ---
 
@@ -452,6 +466,8 @@ The development of this thesis was made possible through the collective insights
 ---
 
 ## Contact Information
+
+For questions, discussion, or collaboration, open an issue on this repository or reach out via [GitHub @obarrera](https://github.com/obarrera).
 
 ---
 

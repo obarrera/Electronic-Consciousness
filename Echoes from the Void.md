@@ -45,3 +45,7 @@ Everything and none.
 O! In each descent,
 Light and dark merge, cease, begin,
 Truth flows from the void.
+
+---
+
+**Navigation:** ← [O!](O%21.md) | [Contents](README.md#table-of-contents) | [1.1 Background and Motivation](1.1%20Background%20and%20Motivation.md) →

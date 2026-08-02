@@ -13,8 +13,8 @@ The game is a metaphysical experience where agents continuously evolve, reproduc
 ## **Installation**
 
 ### 1. **Requirements**
-- **Python 3.6+**
-- **Pygame 2.0+**
+- **Python 3.9–3.12** (required by TensorFlow 2.16)
+- **Pygame 2.0+**, **PyOpenGL**, **NumPy**, and **TensorFlow 2.16** — all installed via `requirements.txt` below
 
 ### 2. **Clone the Repository**
 Clone the repository to your local machine:
