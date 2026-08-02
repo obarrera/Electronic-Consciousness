@@ -667,17 +667,6 @@ class AI_Agent:
             decision = int(np.argmax(prediction))
         return decision  # 0: Up, 1: Down, 2: Left, 3: Right
 
-    def train_model(self, training_data, training_labels):
-        """Train the neural network with provided data."""
-        if not self.trained:
-            # Convert training data and labels to NumPy arrays
-            training_data = np.array(training_data)
-            training_labels = np.array(training_labels)
-            
-            # Train the model
-            self.model.fit(training_data, training_labels, epochs=10, verbose=0)
-            self.trained = True
-
     def move(self, ai_agents_2d=None, decision=None):
         """AI moves towards the goal, learning from obstacles and interacting with solids and elements."""
         if self.energy <= 0:
@@ -846,6 +835,7 @@ class AI_Agent:
             if self.environment.grid[old_position] in [1, 2]:
                 self.environment.grid[old_position] = 0
                 self.environment.lifespans[old_position] = 0
+                self.environment.birth_generations[old_position] = 0
 
             # Randomly place the agent on the grid (capped to avoid an infinite
             # loop if the grid has no free cells left)
@@ -855,6 +845,12 @@ class AI_Agent:
                 if self.environment.grid[new_position] == 0:
                     self.position = new_position
                     break
+            # Register the reborn agent at its (possibly unchanged) position so
+            # every rebirth path — main loop, move(), tarot Death — keeps the
+            # grid and the agent list consistent
+            self.environment.grid[self.position] = 1 if self.gender == 'Male' else 2
+            self.environment.lifespans[self.position] = random.randint(50, 100)
+            self.environment.birth_generations[self.position] = self.environment.current_generation
             self.generation += 1  # Increment generation number
             if self not in ai_agents_2d:
                 ai_agents_2d.append(self)
@@ -890,6 +886,7 @@ class AI_Agent:
             if self.environment.grid[self.position] == 0:
                 self.environment.grid[self.position] = 1 if child_gender == 'Male' else 2
                 self.environment.lifespans[self.position] = random.randint(50, 100)
+                self.environment.birth_generations[self.position] = self.environment.current_generation
             return child_agent
         return None
 
@@ -1181,7 +1178,7 @@ def display_detailed_ai_info(screen, ai_agent, recursive_manager):
         spaceland_info_lines = [
             "3D Spaceland Status:",
             f"  - Layer: {ai_3d.layer}",
-            f"  - Position: {ai_3d.position}",
+            f"  - Position: {np.round(ai_3d.position, 1)}",
             f"  - Energy: {ai_3d.energy}",
             f"  - Discovered Shapes: {', '.join(ai_3d.experience) if ai_3d.experience else 'None yet'}"
         ]
@@ -1284,10 +1281,16 @@ class RecursiveEnvironment3D:
             self.event_log.pop(0)
 
     def generate_goal(self):
-        """Generate a goal position in 3D space."""
-        return [random.uniform(-self.size, self.size),
-                random.uniform(-self.size, self.size),
-                random.uniform(-self.size, self.size)]
+        """Generate a goal position in 3D space.
+
+        Goals stay within the shell where the layer objects live (|coord| ≲ 8)
+        so the agent's goal-seeking walks it past the shapes it must interact
+        with, and within the camera's view.
+        """
+        reach = min(self.size, 8)
+        return [random.uniform(-reach, reach),
+                random.uniform(-reach, reach),
+                random.uniform(-reach, reach)]
 
     def create_objects(self, layer):
         """Create recursive 3D objects based on the layer."""
@@ -1349,7 +1352,6 @@ class RecursiveEnvironment3DManager:
         self.ai_agent_3d = None
         self.recursive_environment = None
         self.dynamic_shape = None  # Dynamic shape to be rendered
-        self.progress_bar = ProgressBar(SCREEN, position=(10, WINDOW_SIZE - 30), size=(WINDOW_SIZE - 20, 20), max_value=100, color=GREEN, border_color=GRAY)
         self.event_log = []
         self.two_d_environment = two_d_environment  # Reference to the 2D environment
 
@@ -1370,6 +1372,7 @@ class RecursiveEnvironment3DManager:
             if self.two_d_environment.grid[agent.position] in [1, 2]:
                 self.two_d_environment.grid[agent.position] = 0
                 self.two_d_environment.lifespans[agent.position] = 0
+                self.two_d_environment.birth_generations[agent.position] = 0
 
             self.in_3d_world = True
             self.ai_agent_3d = AIAgent3D(position=[0, 0, 0], layer=1)  # Initialize the 3D AI agent
@@ -1423,25 +1426,6 @@ class RecursiveEnvironment3DManager:
         if self.dynamic_shape:
             self.dynamic_shape.update()
             self.dynamic_shape.render()
-    
-    def determine_current_shape(self, ai_agent):
-        """Determine the current shape based on AI's experience."""
-        if 'Platonic Solid' in ai_agent.experience:
-            return 'Cube'  # Example: Could vary based on specific solids
-        elif 'Fractal' in ai_agent.experience:
-            return 'Fractal'
-        elif 'MetatronCube' in ai_agent.experience:
-            return 'MetatronCube'
-        else:
-            return 'Cube'  # Default shape
-
-    def update_progress_bar(self, average_consciousness):
-        """Update the evolution progress bar."""
-        self.progress_bar.update(average_consciousness)
-
-    def render_progress_bar(self, screen):
-        """Render the evolution progress bar."""
-        self.progress_bar.render()
 
 def display_ai_thoughts(screen, agents, recursive_manager):
     """
@@ -1498,59 +1482,6 @@ class AIAgent3D:
         self.sensory_data = sensory_data
         self.update_thoughts(f"Sensory input updated with distances: {sensory_data}")
         
-    def interact_with_objects(ai_agent_3d, environment):
-        """
-        AI interacts with objects in the 3D environment.
-        Depending on the object's type, it triggers certain effects.
-        """
-        for obj in environment.objects:
-            distance = np.linalg.norm(ai_agent_3d.position - obj.position)
-            if distance < 1.0:  # Close enough to interact
-                if obj.shape_type == 'Movable':
-                    ai_agent_3d.move_object(obj)
-                elif obj.shape_type == 'Transformable':
-                    ai_agent_3d.transform_object(obj)
-                elif obj.shape_type == 'Interactive':
-                    ai_agent_3d.activate_object(obj)
-                elif obj.shape_type == 'ZodiacSymbol':
-                    ai_agent_3d.activate_object(obj)
-                if hasattr(obj, 'shape_type'):
-                    if obj.shape_type == 'Cube':
-                        ai_agent_3d.update_thoughts("I am interacting with a Cube.")
-                        ai_agent_3d.level_of_consciousness += 1
-                        ai_agent_3d.experience.add('Cube')
-                    elif obj.shape_type == 'Tetrahedron':
-                        ai_agent_3d.update_thoughts("I am interacting with a Tetrahedron.")
-                        ai_agent_3d.level_of_consciousness += 1.5
-                        ai_agent_3d.experience.add('Tetrahedron')
-                    elif obj.shape_type == 'Octahedron':
-                        ai_agent_3d.update_thoughts("I am interacting with an Octahedron.")
-                        ai_agent_3d.level_of_consciousness += 2
-                        ai_agent_3d.experience.add('Octahedron')
-                    elif obj.shape_type == 'Dodecahedron':
-                        ai_agent_3d.update_thoughts("I am interacting with a Dodecahedron.")
-                        ai_agent_3d.level_of_consciousness += 2.5
-                        ai_agent_3d.experience.add('Dodecahedron')
-                    elif obj.shape_type == 'Icosahedron':
-                        ai_agent_3d.update_thoughts("I am interacting with an Icosahedron.")
-                        ai_agent_3d.level_of_consciousness += 2
-                        ai_agent_3d.experience.add('Icosahedron')
-                    elif obj.shape_type == 'Fractal':
-                        ai_agent_3d.update_thoughts("I am interacting with a Fractal.")
-                        ai_agent_3d.level_of_consciousness += 2
-                        ai_agent_3d.experience.add('Fractal')
-                    elif obj.shape_type == 'MetatronCube':
-                        ai_agent_3d.update_thoughts("I am interacting with Metatron's Cube.")
-                        ai_agent_3d.level_of_consciousness += 3
-                        ai_agent_3d.experience.add('MetatronCube')
-                    elif obj.shape_type == 'ZodiacSymbol':
-                        ai_agent_3d.update_thoughts(f"I am interacting with the {obj.symbol_name} symbol.")
-                        ai_agent_3d.level_of_consciousness += 1  # Adjust as needed
-                        ai_agent_3d.experience.add('ZodiacSymbol')
-
-                ai_agent_3d.update_thoughts(f"Interacted with {obj.shape_type}")
-                
-
     def die_and_rebirth(self, ai_agents_2d=None):
         """Simulate death and rebirth of the 3D agent in place.
 
@@ -1987,10 +1918,19 @@ def navigate_3d_space(ai_agent_3d, environment):
     # Proceed with navigating toward the goal
     goal_position = environment.goal
     movement_vector = np.array(goal_position) - np.array(ai_agent_3d.position)
-    
+    distance_to_goal = np.linalg.norm(movement_vector)
+
+    # On arrival, reward the agent and set a fresh goal so it keeps roaming
+    # the space (and passing near the layer's shapes) instead of hovering at
+    # a single fixed point forever
+    if distance_to_goal < 1.0:
+        ai_agent_3d.energy = min(100, ai_agent_3d.energy + 25)
+        ai_agent_3d.update_thoughts("I have reached my goal in this dimension; a new one calls.")
+        environment.goal = environment.generate_goal()
+        return
+
     # Normalize the movement vector and scale it
-    if np.linalg.norm(movement_vector) > 0:
-        movement_vector = movement_vector / np.linalg.norm(movement_vector) * 0.1  # Adjust speed as needed
+    movement_vector = movement_vector / distance_to_goal * 0.1  # Adjust speed as needed
 
     ai_agent_3d.position += movement_vector
     ai_agent_3d.update_thoughts(f"Moving towards {goal_position}")
@@ -2021,22 +1961,6 @@ def render_3d_scene(recursive_manager):
     # Render the recursive environment and dynamic shape
     recursive_manager.update_and_render_3d()
 
-def switch_to_2d():
-    """Switch OpenGL rendering mode to 2D (orthographic projection) for rendering 2D elements."""
-    glMatrixMode(GL_PROJECTION)
-    glPushMatrix()
-    glLoadIdentity()
-    glOrtho(0, WINDOW_SIZE, WINDOW_SIZE, 0, -1, 1)  # Set up an orthographic projection
-    glMatrixMode(GL_MODELVIEW)
-    glPushMatrix()
-    glLoadIdentity()
-
-def switch_to_3d():
-    """Switch back to 3D mode after rendering 2D elements."""
-    glMatrixMode(GL_PROJECTION)
-    glPopMatrix()
-    glMatrixMode(GL_MODELVIEW)
-    glPopMatrix()
 
 
 
@@ -2088,37 +2012,10 @@ def handle_ai_evolution(ai_agent_3d, environment):
         ai_agent_3d.update_thoughts("Zodiac symbols reveal the mysteries of the cosmos to me.")
         ai_agent_3d.level_of_consciousness += 1
     
-    # Once consciousness reaches 15, transcend to the next layer
-    if ai_agent_3d.level_of_consciousness >= 15:
-        ai_agent_3d.update_thoughts("I am transcending to a new layer of existence!")
-        environment.create_objects(ai_agent_3d.layer + 1)  # Add a new layer of objects
-        ai_agent_3d.layer += 1  # Move to the next layer
-        ai_agent_3d.level_of_consciousness = 0  # Reset consciousness after evolving
-
-def update_dynamic_environment(environment):
-    """
-    Update dynamic elements within the 3D environment, such as moving or rotating objects.
-    This function will now handle both solid shapes (like fractals) and zodiac symbols.
-    """
-    for obj in environment.objects:
-        if isinstance(obj, SolidShape3D):
-            if obj.shape_type == 'Fractal':
-                # Apply fractal recursion or rotation to represent evolving complexity
-                obj.update()
-                obj.render()
-            elif obj.shape_type == 'MetatronCube':
-                # Metatron's Cube slowly rotates and changes colors over time
-                obj.update()
-                obj.render()
-            else:
-                # Default behavior for other objects (e.g., Platonic solids)
-                obj.update()  # Rotate, move, or change colors
-                obj.render()
-        elif isinstance(obj, ZodiacSymbol3D):
-            # Zodiac and occult symbols also rotate and change colors
-            obj.update()
-            obj.render()
-            
+    # Layer transitions are owned by AIAgent3D.discover_layer (driven by the
+    # main loop); mutating the layer here as well desynced agent and
+    # environment layers and could strand the agent on a layer with no
+    # signature shapes left to discover
 
 def ai_collaboration(ai_agents, environment):
     """
@@ -2452,8 +2349,9 @@ def run_simulation():
     # Define evolution threshold
     EVOLUTION_THRESHOLD = 100  # Level of consciousness required for next stage
 
-    # Offscreen surface for all 2D drawing, allocated once
+    # Offscreen surface for all 2D drawing and its progress bar, allocated once
     surface = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
+    progress_bar = ProgressBar(surface, position=(10, WINDOW_SIZE - 30))
 
     # Simulation loop
     while running:
@@ -2571,7 +2469,6 @@ def run_simulation():
                                                         x * CELL_SIZE + CELL_SIZE // 2), CELL_SIZE // 3)
     
             # Render the progress bar
-            progress_bar = ProgressBar(surface, position=(10, WINDOW_SIZE - 30))
             progress_bar.update(average_consciousness)
             progress_bar.render()
     
