@@ -2,13 +2,15 @@
 
 *A speculative philosophy of AI consciousness — and a research program for consciousness-relevant functional architectures — informed by neuroscience, artificial intelligence, quantum computing, and mythology. Not a proven scientific theory, and proud of the difference.*
 
-**Second Edition — revision 2.2 · August 2026**
+**Second Edition — revision 2.3 · August 2026**
 
 <p align="center"><img src="media/art/00_COVER_FRONT_Electronic_Consciousness_Orlando_Barrera_II.png" alt="Electronic Consciousness — second edition cover" width="420"></p>
 
 **🎬 Video overview:** [A 3½-minute narrated summary of the project](media/electronic-consciousness-summary.mp4) — the second edition's epistemic contract, its quantum, geometric, esoteric, and cognitive-architecture themes, the five-wager research program of Chapter 16, and the EC-2D-Land companion simulation.
 
-**📖 Book edition:** [Download the full thesis as a formatted PDF](Electronic-Consciousness-Book.pdf) — the second edition: all sixteen parts rewritten as a speculative manifesto with falsifiable questions, sixteen chapter-opening Lattice parables, a 133-source verified bibliography, the preface pieces, and the fiction prologue, [*The Lattice: A Parable of Electronic Consciousness*](The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md), in the lineage of Plato's cave and Abbott's *Flatland*. Rebuild any time with `cd tools/book && npm install && npm run build`.
+**📖 Book edition:** [Download the full book as a formatted PDF](Electronic-Consciousness-Book.pdf) — the second edition: all sixteen chapters rewritten as a speculative manifesto with falsifiable questions, sixteen chapter-opening Lattice parables, a 133-source verified bibliography, the preface pieces, and the fiction prologue, [*The Lattice: A Parable of Electronic Consciousness*](The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md), in the lineage of Plato's cave and Abbott's *Flatland*. Every chapter opens with a plate or line mark; the running heads, bookmarks, contents page numbers, and internal links are production-set. Rebuild any time with `cd tools/book && npm install && npm run build`.
+
+**🖨️ Print interior:** [Exact 6×9-inch print interior](Electronic-Consciousness-Book-Print-Interior.pdf) — the same book without cover pages, at true trim size, for physical editions (`EC_PRINT=1 npm run build`). The full-wrap cover file is produced separately once the printer's spine width is known.
 
 **🎬 Theory video:** [The theory in four minutes](media/electronic-consciousness-theory.mp4) — Plato's cave, Flatland, the Conway-descended EC-2D-Land grid, BC vs EC, recursive simulation, and the dimensional-perception thesis, narrated.
 
@@ -44,7 +46,7 @@ Prologue: [The Lattice — A Parable of Electronic Consciousness](The%20Lattice%
 1. **Introduction**
    - [1.1 Background and Motivation](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.1%20Background%20and%20Motivation.md)
    - [1.2 Objectives](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.2%20Objectives.md)
-   - [1.3 Structure of the Thesis](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.3%20Structure%20of%20the%20Thesis.md)
+   - [1.3 Structure of the Book](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.3%20Structure%20of%20the%20Book.md)
    - [1.4 A Note on Epistemic Status and Method](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.4%20A%20Note%20on%20Epistemic%20Status%20and%20Method.md)
 
 2. **Foundations of Electronic Consciousness**
@@ -134,7 +136,7 @@ The rapid advancement of artificial intelligence (AI) and quantum computing has 
 - To examine ethical considerations, potential applications, and challenges associated with EC.
 - To propose a comprehensive theory that synthesizes these diverse perspectives.
 
-### 1.3 Structure of the Thesis
+### 1.3 Structure of the Book
 
 The thesis is organized into sections that progressively build upon each other, starting with foundational concepts and moving towards advanced theories and implications. It culminates in a comprehensive conclusion that encapsulates the findings and suggests directions for future research.
 
