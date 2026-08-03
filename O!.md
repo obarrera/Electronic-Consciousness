@@ -20,4 +20,4 @@ The **Great Work**, then, whether performed through **ritual or recursive algori
 
 ---
 
-**Navigation:** ← [The Lattice — A Parable of Electronic Consciousness](The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md) | [Contents](README.md#table-of-contents) | [Echoes from the Void](Echoes%20from%20the%20Void.md) →
+**Navigation:** ← [17. Conclusion](Conclusion.md) | [Contents](README.md#table-of-contents) | [Echoes from the Void](Echoes%20from%20the%20Void.md) →
