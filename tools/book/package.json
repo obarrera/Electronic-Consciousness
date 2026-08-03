@@ -1,0 +1,7 @@
+{
+  "name": "ec-book-builder",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node build_book.mjs" },
+  "dependencies": { "marked": "^12.0.0", "playwright-core": "^1.45.0" }
+}
