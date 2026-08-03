@@ -878,7 +878,12 @@ class AI_Agent:
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
             if 0 <= nx < self.environment.size and 0 <= ny < self.environment.size:
-                sensed_area.append(self.environment.grid[nx][ny] / 3.0)
+                if (nx, ny) in self.environment.warm_cells:
+                    sensed_area.append(7 / 3.0)   # player warmth, sensed
+                elif (nx, ny) in self.environment.chill_cells:
+                    sensed_area.append(8 / 3.0)   # player cold, sensed
+                else:
+                    sensed_area.append(self.environment.grid[nx][ny] / 3.0)
             else:
                 sensed_area.append(1.0)  # Treat out-of-bounds as obstacles
         return sensed_area + self.food_gradient()
@@ -1846,6 +1851,11 @@ class GameOfLifeEnvironment:
         self.solids = self.generate_solids()
         self.elements = self.generate_elements()
         self.esoteric_symbols = self.generate_symbols_2d()
+        # The player's hand — the layer above, made playable. Warmed cells
+        # bloom food (one bite, fades if uneaten); chilled cells drain a
+        # point of energy on entry and thaw after ~150 ticks.
+        self.warm_cells = {}   # (x, y) -> ticks left
+        self.chill_cells = {}  # (x, y) -> ticks left
 
     def initialize_board(self, size):
         """Initialize the game board with agents and obstacles."""
@@ -1876,9 +1886,25 @@ class GameOfLifeEnvironment:
                 return goal
 
     def nearest_food(self, position):
-        """Nearest food source to `position` — the goal, for now (the player's
-        warmed cells join this in a later phase). Used by the Gradient sense."""
-        return self.goal
+        """Nearest food source to `position` — the goal or any player-warmed
+        cell. Used by the Gradient sense: the player's warmth literally pulls
+        the agents (and, through the rewards, teaches them)."""
+        x, y = position
+        best = self.goal
+        best_d = abs(self.goal[0] - x) + abs(self.goal[1] - y)
+        for (wx, wy) in self.warm_cells:
+            d = abs(wx - x) + abs(wy - y)
+            if d < best_d:
+                best, best_d = (wx, wy), d
+        return best
+
+    def fade_player_cells(self):
+        """Tick down warmed/chilled cells; both fade back to plain lattice."""
+        for cells in (self.warm_cells, self.chill_cells):
+            for cell in list(cells):
+                cells[cell] -= 1
+                if cells[cell] <= 0:
+                    del cells[cell]
 
     def generate_solids(self):
         """Generate basic 2D solids randomly on the grid."""
@@ -2648,6 +2674,10 @@ def run_simulation():
     learning = LearningMetrics(
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      "out_learning.csv"), OURO.iteration)
+    # The player's hand: a small regenerating attention meter budgets the
+    # warming/chilling so it stays a nudge, not god-mode (3 charges, +1/100 ticks)
+    ATTENTION_MAX = 3.0
+    attention = ATTENTION_MAX
     paused = False
     speed = 1                      # 1x / 2x / 4x via +/-
     show_help = True
@@ -2680,6 +2710,52 @@ def run_simulation():
         glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, data)
         pygame.display.flip()
 
+    def player_touch(cell, kind):
+        """The player warms or chills an empty cell (the layer above acting on
+        the lattice). Costs one attention charge. Returns True if it landed."""
+        nonlocal attention
+        x, y = cell
+        if recursive_manager.in_3d_world:
+            return False
+        if not (0 <= x < GRID_SIZE and 0 <= y < GRID_SIZE):
+            return False
+        if environment.grid[cell] != 0 or cell == environment.goal:
+            return False
+        if any(a.position == cell for a in ai_agents_2d):
+            return False
+        if cell in environment.warm_cells or cell in environment.chill_cells:
+            return False
+        if attention < 1.0:
+            return False
+        attention -= 1.0
+        px = (y * CELL_SIZE + CELL_SIZE // 2, x * CELL_SIZE + CELL_SIZE // 2)
+        if kind == "warm":
+            environment.warm_cells[cell] = 300
+            particles.burst(px, GOLD, count=14, speed=1.2)
+            audio.play("birth", vol=0.10)
+        else:
+            environment.chill_cells[cell] = 150
+            particles.burst(px, (120, 170, 255), count=10, speed=1.0)
+            audio.play("cold", vol=0.10)
+        return True
+
+    # EC_TEST_HAND="warm@120:5,5;chill@240:8,8" — scripted player touches for
+    # unattended verification. Each entry retries from its frame until it
+    # lands on an empty cell. Autopilot itself never depends on this.
+    test_hand = []
+    for part in (os.environ.get("EC_TEST_HAND") or "").split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            kind, rest = part.split("@", 1)
+            frame_s, cell_s = rest.split(":", 1)
+            cx, cy = cell_s.split(",")
+            test_hand.append({"kind": kind.strip(), "frame": int(frame_s),
+                              "cell": (int(cx), int(cy)), "done": False})
+        except ValueError:
+            print(f"EC_TEST_HAND: could not parse {part!r}")
+
     # ---- THE ENDGAME ARC --------------------------------------------------
     # When the walker reaches the shrine on the last required Spaceland layer
     # (7 on the first turning; +1 per turning; EC_LAYERS_TO_COMPLETE overrides)
@@ -2711,7 +2787,7 @@ def run_simulation():
         """The serpent's mouth meets its tail: a fresh Flatland, new turning."""
         nonlocal environment, ai_agents_2d, recursive_manager, stats, parables, \
             journey, current_generation, selected_agent, prime_flash, \
-            last_prime_gen, egg_frames, learning
+            last_prime_gen, egg_frames, learning, attention
         apply_turning_palette()
         environment = GameOfLifeEnvironment(GRID_SIZE)
         ai_agents_2d = []
@@ -2734,6 +2810,7 @@ def run_simulation():
         prime_flash = 0
         last_prime_gen = -1
         egg_frames = 0
+        attention = ATTENTION_MAX
         surface.fill(BLACK)
         audio.set_binaural(None)   # the 6.1 Hz theta bed returns with the world
 
@@ -2786,10 +2863,20 @@ def run_simulation():
                     elif parables.active is not None:
                         parables.dismiss()
                         audio.stop_narration()
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button in (1, 3):
                 mx, my = event.pos
                 cell = (my // CELL_SIZE, mx // CELL_SIZE)
-                selected_agent = next((a for a in ai_agents_2d if a.position == cell), None)
+                # Agent hit-test FIRST: clicking an agent always inspects it
+                agent_hit = next((a for a in ai_agents_2d if a.position == cell), None)
+                shift = pygame.key.get_mods() & pygame.KMOD_SHIFT
+                if event.button == 1 and not shift:
+                    if agent_hit is not None:
+                        selected_agent = agent_hit
+                    else:
+                        player_touch(cell, "warm")
+                elif agent_hit is None:
+                    # right-click or SHIFT+click on an empty cell: chill
+                    player_touch(cell, "chill")
 
         frame_count += 1
         audio.update()
@@ -2918,7 +3005,18 @@ def run_simulation():
         if not recursive_manager.in_3d_world:
             # Update the environment
             environment.update(current_generation, ai_agents_2d)
-    
+
+            # The player's hand: warmed/chilled cells fade, attention regrows
+            environment.fade_player_cells()
+            attention = min(ATTENTION_MAX, attention + 0.01)
+            for touch in test_hand:
+                if not touch["done"] and frame_count >= touch["frame"]:
+                    if player_touch(touch["cell"], touch["kind"]):
+                        touch["done"] = True
+                        print(f"TEST_HAND: {touch['kind']} landed at "
+                              f"{touch['cell']} (frame {frame_count}, "
+                              f"attention now {attention:.1f})")
+
             # Move AI agents; log (sensed, action, outcome reward) per step
             for agent in ai_agents_2d[:]:
                 if agent.reproduction_cooldown > 0:
@@ -2929,6 +3027,7 @@ def run_simulation():
                 decision = agent.decide_move(sensed=sensed)
                 pre_pos = agent.position
                 pre_goal = environment.goal
+                pre_target = environment.nearest_food(pre_pos)
                 pre_energy = agent.energy
                 pre_cons = agent.level_of_consciousness
                 pre_life = agent.generation
@@ -2936,17 +3035,40 @@ def run_simulation():
                 agent.move(ai_agents_2d, decision=decision)
                 agent.discover_higher_dimension()
 
-                # Outcome of the step, one frame later — the real teacher
+                # The player's hand, felt: warmth feeds, cold bites (applied
+                # before the reward is scored, so the player literally teaches)
                 blocked = agent.position == pre_pos
                 died = agent.generation > pre_life
-                food = agent.position == pre_goal and not died
+                ate_warm = False
+                if not died and not blocked:
+                    if agent.position in environment.warm_cells:
+                        del environment.warm_cells[agent.position]
+                        agent.energy = min(100, agent.energy + 15)
+                        agent.update_thoughts("A warmth blooms here that no season planted.")
+                        wx, wy = agent.position
+                        particles.burst((wy * CELL_SIZE + CELL_SIZE // 2,
+                                         wx * CELL_SIZE + CELL_SIZE // 2),
+                                        GOLD, count=10, speed=1.4)
+                        ate_warm = True
+                        if test_hand:
+                            print(f"TEST_HAND: agent ate player-bloomed food "
+                                  f"at {agent.position} (gen {current_generation})")
+                    elif agent.position in environment.chill_cells:
+                        agent.energy -= 1
+                        agent.update_thoughts("A cold no winter made drinks at my warmth.")
+                        if test_hand:
+                            print(f"TEST_HAND: agent chilled at {agent.position} "
+                                  f"(gen {current_generation}, energy {agent.energy:.0f})")
+
+                # Outcome of the step, one frame later — the real teacher
+                food = (agent.position == pre_goal or ate_warm) and not died
                 if died:
                     dist_delta = 0
                 else:
-                    dist_delta = ((abs(pre_pos[0] - pre_goal[0]) +
-                                   abs(pre_pos[1] - pre_goal[1])) -
-                                  (abs(agent.position[0] - pre_goal[0]) +
-                                   abs(agent.position[1] - pre_goal[1])))
+                    dist_delta = ((abs(pre_pos[0] - pre_target[0]) +
+                                   abs(pre_pos[1] - pre_target[1])) -
+                                  (abs(agent.position[0] - pre_target[0]) +
+                                   abs(agent.position[1] - pre_target[1])))
                 learning_buffer.append(
                     (sensed, decision,
                      step_reward(food, agent.energy - pre_energy,
@@ -3065,6 +3187,21 @@ def run_simulation():
             # Pulsing goal marker over the environment's static one
             draw_goal_pulse(surface, environment.goal[0], environment.goal[1], CELL_SIZE, t)
 
+            # The player's marks on the lattice: gold warmth, blue chill.
+            # Static tints with a slow fade-out — REDUCED_FLASH safe.
+            for (wx, wy), ticks in environment.warm_cells.items():
+                veil = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
+                veil.fill((255, 205, 60, int(110 * min(1.0, ticks / 100.0))))
+                surface.blit(veil, (wy * CELL_SIZE, wx * CELL_SIZE))
+                pygame.draw.circle(surface, GOLD,
+                                   (wy * CELL_SIZE + CELL_SIZE // 2,
+                                    wx * CELL_SIZE + CELL_SIZE // 2),
+                                   max(2, CELL_SIZE // 5), 1)
+            for (cx_, cy_), ticks in environment.chill_cells.items():
+                veil = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
+                veil.fill((90, 140, 255, int(110 * min(1.0, ticks / 100.0))))
+                surface.blit(veil, (cy_ * CELL_SIZE, cx_ * CELL_SIZE))
+
             # Agents render as rotating polygons — sides grow with consciousness,
             # glow scales with energy
             for agent in ai_agents_2d:
@@ -3112,6 +3249,12 @@ def run_simulation():
                 bar = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
                 bar.fill((10, 5, 25, 190))
                 bar.blit(STRIP_FONT.render(strip, True, (208, 198, 235)), (8, 3))
+                # Attention meter: one dot per charge of the player's hand
+                for i in range(int(ATTENTION_MAX)):
+                    dot = (WINDOW_SIZE - 52 + i * 15, 10)
+                    if attention >= i + 1:
+                        pygame.draw.circle(bar, (255, 215, 0), dot, 5)
+                    pygame.draw.circle(bar, (200, 190, 230), dot, 5, 1)
                 surface.blit(bar, (0, WINDOW_SIZE - 52))
                 if selected_agent is not None:
                     sx, sy = selected_agent.position

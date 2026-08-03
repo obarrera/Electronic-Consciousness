@@ -417,9 +417,13 @@ class AudioEngine:
             self._narration_ch = None
             self._duck(False)
 
-    def play(self, name):
+    def play(self, name, vol=None):
+        """Play an event tone. `vol` (0..1) scales just this playback's
+        channel — the cached Sound keeps its built volume."""
         if self.ok and not self.muted and name in self._tones:
-            self._tones[name].play()
+            ch = self._tones[name].play()
+            if ch is not None and vol is not None:
+                ch.set_volume(vol)
 
     def toggle_mute(self):
         self.muted = not self.muted
@@ -1066,7 +1070,7 @@ def run_intro(surface, clock, present, audio=None, fps=30, turning=1):
 
 def draw_help(surface, window_size, font, paused, speed, muted):
     state = f"{'PAUSED' if paused else f'{speed}x'}   {'MUTED' if muted else 'AUDIO'}"
-    text = "SPACE pause   +/- speed   P parables   I details   M mute   V view   CLICK inspect   H help off   ESC quit"
+    text = "SPACE pause  +/- speed  P parables  I details  M mute  V view  CLICK warm/inspect  SHIFT+CLICK chill  H help  ESC quit"
     bar = pygame.Surface((window_size, 22), pygame.SRCALPHA)
     bar.fill((10, 5, 25, 200))
     bar.blit(font.render(text, True, (200, 190, 230)), (8, 5))

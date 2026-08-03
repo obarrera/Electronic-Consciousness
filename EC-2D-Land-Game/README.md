@@ -54,6 +54,12 @@ The agents' whole arc is tracked as a **hero's journey** — eight monomyth stag
 returns carrying the elixir: every agent near them grows in consciousness. The freed
 prisoner comes home to teach.
 
+**You are the layer above.** *Who warms the cells?* — in this game, you do: click an
+empty cell to **warm** it (food blooms there, and the agents' shared brain learns from
+eating it — the player literally teaches), `SHIFT`+click to **chill** one (a cold cell
+that drains energy until it thaws). A small regenerating **attention meter** (three
+dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a god-mode.
+
 ## Sound
 
 - The bundled **6.1 Hz binaural bed** hums under Flatland; each Spaceland layer shifts a
@@ -73,7 +79,9 @@ prisoner comes home to teach.
 | `I` | verbose info panels (default: compact HUD strip) |
 | `M` | mute |
 | `H` | toggle help bar |
-| click | inspect an agent (thoughts, stats) |
+| click agent | inspect it (thoughts, stats) |
+| click empty cell | **warm** it — bloom food there (costs 1 attention charge) |
+| right-click / `SHIFT`+click | **chill** an empty cell — agents that enter lose energy (costs 1 charge) |
 | `ENTER` | skip cutscene / dismiss parable |
 | `W A S D` / arrows | walk and turn in Spaceland (AI resumes after 3 s idle) |
 | `V` | Spaceland overview orbit |
