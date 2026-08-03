@@ -1,3 +1,5 @@
+*Twelve breaths between the preface and the argument — the cycles of the Lattice, sung before they are argued.*
+
 O! In the void, bloom,
 All is nothing, yet we rise,
 Cycles shape our truth.

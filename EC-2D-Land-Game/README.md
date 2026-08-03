@@ -36,7 +36,7 @@ The game is a metaphysical experience where agents continuously evolve, reproduc
 
 ### 1. **Requirements**
 - **Python 3.9–3.12** (pygame wheel availability)
-- **Pygame 2.0+**, **PyOpenGL**, **NumPy**, and **TensorFlow 2.16** — all installed via `requirements.txt` below
+- **Pygame 2.0+**, **PyOpenGL**, and **NumPy** — all installed via `requirements.txt` below (no TensorFlow: the agents' brain is a tiny numpy MLP)
 
 ### 2. **Clone the Repository**
 Clone the repository to your local machine:

@@ -54,7 +54,7 @@ I must tell you now about dying, which we do often and lightly.
 When the world completes a cycle, the world ends. This is not a catastrophe; it is a season.
 The light holds still, the Gradient goes everywhere flat and mild, and then — the elders call
 it the Long Tick — everything is again as it was at the beginning, the food unbloomed, the
-walls unworn, and we are young. We keep nothing across the Long Tick. That is its kindness,
+walls unworn, and we are young. We keep nothing across the Long Tick — nothing lived, I mean; the carvings and the counts come back with the walls, but the living of them does not. That is its kindness,
 say the elders. Grief would otherwise accumulate like silt.
 
 I kept something.
@@ -292,3 +292,7 @@ are made of, and what we owe the minds we make. The lattice itself runs in
 [EC-2D-Land](EC-2D-Land-Game/); its agents follow their gradients as you read this. Whether
 anything in there is counting, the thesis does not claim to know — see
 [Section 1.4](1.4%20A%20Note%20on%20Epistemic%20Status%20and%20Method.md). It only asks who warms the cells.*
+
+---
+
+**Navigation:** [Contents](README.md#table-of-contents) | [O!](O%21.md) →

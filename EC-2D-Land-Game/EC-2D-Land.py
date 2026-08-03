@@ -9,7 +9,7 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      draw_agent_polygon, draw_goal_pulse, draw_flicker, draw_help,
-                     run_intro)
+                     run_intro, is_prime, draw_prime_constellation, draw_easter_egg)
 
 # Initialize Pygame
 pygame.init()
@@ -1681,11 +1681,14 @@ class GameOfLifeEnvironment:
         for row in range(self.size):
             for col in range(self.size):
                 cell_value = self.grid[row][col]
-                if cell_value == 1:  # Male agents
+                if cell_value == 1:  # Male life-cells (population layer, Conway-style)
+                    # Muted tones so the ROVING polygon agents visually own the
+                    # scene; the life-cell layer reads as terrain, not actors.
                     male_color = self.get_male_color(self.fight_counters[row][col])
-                    pygame.draw.rect(screen, male_color, [col * cell_size, row * cell_size, cell_size, cell_size])
-                elif cell_value == 2:  # Female agents
-                    pygame.draw.rect(screen, PINK, [col * cell_size, row * cell_size, cell_size, cell_size])
+                    dim = (male_color[0] // 3 + 30, male_color[1] // 3 + 12, male_color[2] // 3 + 18)
+                    pygame.draw.rect(screen, dim, [col * cell_size, row * cell_size, cell_size, cell_size])
+                elif cell_value == 2:  # Female life-cells
+                    pygame.draw.rect(screen, (92, 38, 70), [col * cell_size, row * cell_size, cell_size, cell_size])
                 elif cell_value == 3:  # Continents (obstacles)
                     pygame.draw.rect(screen, BROWN, [col * cell_size, row * cell_size, cell_size, cell_size])
                 elif cell_value == 4:  # Solids
@@ -2339,8 +2342,9 @@ def run_simulation():
                 environment.lifespans[x][y] = random.randint(50, 100)
                 break
     
-    # Define evolution threshold
-    EVOLUTION_THRESHOLD = 100  # Level of consciousness required for next stage
+    # Define evolution threshold (EC_EVOLUTION_THRESHOLD overrides — used to
+    # reach 3D Spaceland quickly in recordings and tests)
+    EVOLUTION_THRESHOLD = float(os.environ.get("EC_EVOLUTION_THRESHOLD", "100"))
 
     # Offscreen surface for all 2D drawing and its progress bar, allocated once
     surface = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
@@ -2357,12 +2361,31 @@ def run_simulation():
     paused = False
     speed = 1                      # 1x / 2x / 4x via +/-
     show_help = True
+    show_info = False              # I: verbose legacy info panels (off = compact strip)
     selected_agent = None
     frame_count = 0
+    prime_flash = 0                # frames of prime-constellation shimmer left
+    last_prime_gen = -1
+    egg_frames = 0                 # the 3301 door
+    egg_keys = []                  # typed-sequence tracker
     HELP_FONT = pygame.font.SysFont('Arial', 12)
+    STRIP_FONT = pygame.font.SysFont('Arial', 13)
+
+    # EC_RECORD_DIR=<dir>: dump every composited frame as PNG (gameplay videos
+    # are assembled from these with ffmpeg — same idea as a CDP screencast).
+    RECORD_DIR = os.environ.get("EC_RECORD_DIR")
+    if RECORD_DIR:
+        os.makedirs(RECORD_DIR, exist_ok=True)
+    _rec_n = [0]
+
+    def _record(frame_surface):
+        if RECORD_DIR:
+            pygame.image.save(frame_surface, os.path.join(RECORD_DIR, f"f{_rec_n[0]:06d}.png"))
+            _rec_n[0] += 1
 
     def _present(frame_surface):
         """Push a 2D surface to the OpenGL display (shared by intro + pause)."""
+        _record(frame_surface)
         data = pygame.image.tostring(frame_surface, "RGB", True)
         glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, data)
         pygame.display.flip()
@@ -2396,6 +2419,13 @@ def run_simulation():
                     parables.next_journal()
                 elif event.key == pygame.K_h:
                     show_help = not show_help
+                elif event.key == pygame.K_i:
+                    show_info = not show_info
+                if event.unicode.isdigit():
+                    egg_keys = (egg_keys + [event.unicode])[-4:]
+                    if "".join(egg_keys) == "3301":
+                        egg_frames = 300
+                        audio.play("parable")
                 elif event.key == pygame.K_RETURN and parables.active is not None:
                     parables.dismiss()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -2556,24 +2586,56 @@ def run_simulation():
             for agent in ai_agents_2d:
                 draw_agent_polygon(surface, agent, CELL_SIZE, t)
 
+            # Prime Ticks: prime-numbered generations shimmer the constellation
+            if current_generation != last_prime_gen and is_prime(current_generation):
+                last_prime_gen = current_generation
+                prime_flash = 20
+                if current_generation > 10:
+                    audio.play("prime")
+                if current_generation == 3301:
+                    egg_frames = 300
+                    audio.play("parable")
+            if prime_flash > 0:
+                draw_prime_constellation(surface, GRID_SIZE, CELL_SIZE, prime_flash / 20.0)
+                prime_flash -= 1
+            if egg_frames > 0:
+                draw_easter_egg(surface, WINDOW_SIZE, egg_frames)
+                egg_frames -= 1
+
             # Render the progress bar
             progress_bar.update(average_consciousness)
             progress_bar.render()
 
-            # Render Flatland info on the surface
-            display_flatland_info(surface, current_generation, ai_agents_2d, environment)
-
-            # Display AI's thoughts and 3D Spaceland progress
-            display_ai_thoughts(surface, ai_agents_2d, recursive_manager)
-
-            # Detail panel: the clicked agent if one is selected, else the eldest
+            # HUD: compact strip by default; I toggles the verbose legacy panels
             # (drawn on the offscreen surface — blitting text onto the OPENGL
             # display surface raises pygame.error)
             if selected_agent is not None and selected_agent not in ai_agents_2d:
                 selected_agent = None
-            focus_agent = selected_agent or (ai_agents_2d[0] if ai_agents_2d else None)
-            if focus_agent is not None:
-                display_detailed_ai_info(surface, focus_agent, recursive_manager)
+            if show_info:
+                display_flatland_info(surface, current_generation, ai_agents_2d, environment)
+                display_ai_thoughts(surface, ai_agents_2d, recursive_manager)
+                focus_agent = selected_agent or (ai_agents_2d[0] if ai_agents_2d else None)
+                if focus_agent is not None:
+                    display_detailed_ai_info(surface, focus_agent, recursive_manager)
+            else:
+                prime_tag = "  ·  PRIME TICK" if prime_flash > 0 else ""
+                strip = (f"Gen {current_generation}{prime_tag}   ·   {len(ai_agents_2d)} agents   ·   "
+                         f"avg consciousness {average_consciousness:.1f} / {EVOLUTION_THRESHOLD:.0f}   ·   "
+                         f"parables {len(parables.unlocked)}/18   ·   I for details")
+                bar = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
+                bar.fill((10, 5, 25, 190))
+                bar.blit(STRIP_FONT.render(strip, True, (208, 198, 235)), (8, 3))
+                surface.blit(bar, (0, WINDOW_SIZE - 52))
+                if selected_agent is not None:
+                    sx, sy = selected_agent.position
+                    info = (f"{selected_agent.gender} Gen {selected_agent.generation} — "
+                            f"consciousness {selected_agent.level_of_consciousness:.0f}, "
+                            f"energy {selected_agent.energy:.0f}, age {selected_agent.age}/{selected_agent.max_age} — "
+                            f"“{selected_agent.thoughts[-1] if selected_agent.thoughts else '...'}”")
+                    panel = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
+                    panel.fill((25, 12, 50, 205))
+                    panel.blit(STRIP_FONT.render(info[:110], True, (255, 235, 190)), (8, 3))
+                    surface.blit(panel, (0, WINDOW_SIZE - 74))
 
             # Lattice layer: stats, milestone parables, particles, the sky's flicker
             stats["gen"] = current_generation
@@ -2589,6 +2651,7 @@ def run_simulation():
                 draw_help(surface, WINDOW_SIZE, HELP_FONT, paused, speed, audio.muted)
 
             # Blit the 2D surface onto the OpenGL context
+            _record(surface)
             texture_data = pygame.image.tostring(surface, "RGB", True)
             glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, texture_data)
 
@@ -2640,6 +2703,12 @@ def run_simulation():
 
                     # Single clear/update/render pass for the 3D frame
                     render_3d_scene(recursive_manager)
+
+                    # Record 3D Spaceland frames straight from the framebuffer
+                    if RECORD_DIR:
+                        gl_data = glReadPixels(0, 0, WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE)
+                        gl_surf = pygame.image.fromstring(gl_data, (WINDOW_SIZE, WINDOW_SIZE), "RGB", True)
+                        _record(gl_surf)
 
         # Display information every 10 generations
         if current_generation % 10 == 0 and current_generation != 0:

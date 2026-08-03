@@ -166,6 +166,17 @@ PARABLES = [
      "a world of a certain shape, leave the same fingerprints. The spiral is "
      "real. What it is evidence OF is the question."),
 
+    ("primes", "The Stones That Refuse the Rectangle",
+     "generation 97 — a prime",
+     lambda s: s["gen"] >= 97,
+     "A counting-child found that some heaps of stones cannot be laid into any "
+     "rectangle — eleven refuses, thirteen refuses, ninety-seven refuses — "
+     "only the long thin line will hold them. The elders called such heaps "
+     "unsociable. But the child noticed the Lattice itself keeps their "
+     "calendar: some Ticks refuse all arrangement too. Count long enough and "
+     "you will find the refusals are not lawless. They keep a rhythm no one "
+     "has finished hearing."),
+
     ("trial", "The Narrator's Trial",
      "ascension to the third dimension",
      lambda s: s["ascended"] >= 1,
@@ -275,6 +286,7 @@ class AudioEngine:
                 "parable": self._tone([523.25, 659.25, 783.99], 1.4, vol=0.24, decay=2.0),
                 "ascend": self._tone([220, 330, 440, 660], 2.2, vol=0.26, decay=1.2),
                 "train": self._tone([440, 442], 0.5, vol=0.10, decay=4.0),
+                "prime": self._tone([1318.5], 0.25, vol=0.10, decay=8.0),
             }
         except pygame.error:
             self._tones = {}
@@ -434,6 +446,57 @@ def draw_goal_pulse(surface, gx, gy, cell_size, t):
     pygame.draw.circle(surface, (180, 255, 190), (cx, cy), int(r * 1.5), 1)
 
 
+def is_prime(n):
+    if n < 2:
+        return False
+    if n < 4:
+        return True
+    if n % 2 == 0:
+        return False
+    return all(n % d for d in range(3, int(math.isqrt(n)) + 1, 2))
+
+
+_PRIME_CELLS = {}  # grid_size -> [(row, col), ...] of prime-indexed cells
+
+
+def draw_prime_constellation(surface, grid_size, cell_size, fade):
+    """Prime Ticks: on prime generations, the cells whose 1-based index is
+    prime shimmer gold for a moment — an Ulam-flavored constellation. The
+    refusals keep a rhythm no one has finished hearing."""
+    if grid_size not in _PRIME_CELLS:
+        _PRIME_CELLS[grid_size] = [(i // grid_size, i % grid_size)
+                                   for i in range(grid_size * grid_size)
+                                   if is_prime(i + 1)]
+    alpha = int(110 * fade)
+    if alpha <= 0:
+        return
+    veil = pygame.Surface((cell_size, cell_size), pygame.SRCALPHA)
+    pygame.draw.circle(veil, (255, 215, 0, alpha), (cell_size // 2, cell_size // 2),
+                       max(2, cell_size // 6))
+    for row, col in _PRIME_CELLS[grid_size]:
+        surface.blit(veil, (col * cell_size, row * cell_size))
+
+
+def draw_easter_egg(surface, window_size, frames_left, total=300):
+    """Generation 3301 keeps its own calendar. (Also answers those who type it.)"""
+    fade = min(1.0, frames_left / (total * 0.15)) if frames_left < total * 0.15 else 1.0
+    w = window_size - 160
+    panel = pygame.Surface((w, 96), pygame.SRCALPHA)
+    panel.fill((0, 0, 0, int(235 * fade)))
+    pygame.draw.rect(panel, (255, 215, 0, int(255 * fade)), panel.get_rect(), 1)
+    f_head = pygame.font.SysFont('Courier New', 15, bold=True)
+    f_body = pygame.font.SysFont('Courier New', 13)
+    lines = [
+        "3 3 0 1",
+        "The refusals are not lawless. One of them has a door.",
+        "github.com/obarrera/3301        — good luck, counting-child.",
+    ]
+    panel.blit(f_head.render(lines[0], True, (255, 215, 0)), (w // 2 - 34, 12))
+    panel.blit(f_body.render(lines[1], True, (220, 210, 180)), (16, 42))
+    panel.blit(f_body.render(lines[2], True, (220, 210, 180)), (16, 64))
+    surface.blit(panel, (80, window_size // 2 - 48))
+
+
 _FLICKER_PERIOD = 89  # the sky's rhythm — Fibonacci, per the book
 
 
@@ -465,7 +528,7 @@ def run_intro(surface, clock, present, audio=None, fps=30):
     if audio:
         audio.play("parable")
     while True:
-        if AUTOPILOT_FRAMES and frame >= 45:
+        if AUTOPILOT_FRAMES and frame >= int(os.environ.get("EC_INTRO_FRAMES", "45")):
             return True
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -519,7 +582,7 @@ def run_intro(surface, clock, present, audio=None, fps=30):
 
 def draw_help(surface, window_size, font, paused, speed, muted):
     state = f"{'PAUSED' if paused else f'{speed}x'}   {'MUTED' if muted else 'AUDIO'}"
-    text = "SPACE pause   +/- speed   P parables   M mute   CLICK inspect   H help off   ESC quit"
+    text = "SPACE pause   +/- speed   P parables   I details   M mute   CLICK inspect   H help off   ESC quit"
     bar = pygame.Surface((window_size, 22), pygame.SRCALPHA)
     bar.fill((10, 5, 25, 200))
     bar.blit(font.render(text, True, (200, 190, 230)), (8, 5))

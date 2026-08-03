@@ -104,7 +104,7 @@ let body = '';
 body += `<div class="cover">
   <h1>Electronic Consciousness</h1>
   <div class="rule"></div>
-  <div class="sub">A Visionary Speculative Manifesto on Consciousness and Reality<br>
+  <div class="sub">A Speculative Manifesto on Minds and the Realities They Inhabit<br>
   Informed by Neuroscience, AI, Quantum Computing, and Mythology</div>
   <div class="author">Orlando Barrera II</div>
   <div class="sub" style="margin-top:0.4em">github.com/obarrera/Electronic-Consciousness</div>
