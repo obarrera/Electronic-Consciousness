@@ -8,7 +8,7 @@ phase-specific checks below.
 
 | Phase | Task | Status | Depends |
 |---|---|---|---|
-| 1 | [Real learning — make the Gradient a real teacher](phases/phase-01-real-learning.md) | planned — ready to implement | — |
+| 1 | [Real learning — make the Gradient a real teacher](phases/phase-01-real-learning.md) | ✅ complete | — |
 | 2 | [The player warms the cells](phases/phase-02-player-hand.md) | planned — ready to implement | — |
 | 3 | [First-session pacing](phases/phase-03-pacing.md) | planned — ready to implement | 1 |
 | 4 | [Positional audio in Spaceland](phases/phase-04-positional-audio.md) | planned — ready to implement | — |
