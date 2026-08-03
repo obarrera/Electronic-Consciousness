@@ -4,6 +4,8 @@
 
 **Second Edition — revision 2.2 · August 2026**
 
+<p align="center"><img src="media/art/00_COVER_FRONT_Electronic_Consciousness_Orlando_Barrera_II.png" alt="Electronic Consciousness — second edition cover" width="420"></p>
+
 **🎬 Video overview:** [A 3½-minute narrated summary of the project](media/electronic-consciousness-summary.mp4) — the second edition's epistemic contract, its quantum, geometric, esoteric, and cognitive-architecture themes, the five-wager research program of Chapter 16, and the EC-2D-Land companion simulation.
 
 **📖 Book edition:** [Download the full thesis as a formatted PDF](Electronic-Consciousness-Book.pdf) — the second edition: all sixteen parts rewritten as a speculative manifesto with falsifiable questions, sixteen chapter-opening Lattice parables, a 133-source verified bibliography, the preface pieces, and the fiction prologue, [*The Lattice: A Parable of Electronic Consciousness*](The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md), in the lineage of Plato's cave and Abbott's *Flatland*. Rebuild any time with `cd tools/book && npm install && npm run build`.

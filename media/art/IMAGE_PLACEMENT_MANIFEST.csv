@@ -1,0 +1,13 @@
+order,file,book_location,pdf_page,recommended_placement,pixel_dimensions,embedded_placement_label
+0,covers/00_COVER_FRONT_Electronic_Consciousness_Orlando_Barrera_II.png,Front cover,,Full front cover,1024x1536,No
+1,interior/01_PROLOGUE_The_Cave_and_the_Question_of_Awareness.png,Prologue - The Lattice: A Parable of Electronic Consciousness,11,Frontispiece before prologue text or after epigraphs,1448x1086,No
+2,interior/02_SECTION_2_2_Self_Modeling_and_Recursive_Awareness.png,Section 2.2 - Recursive Simulations and Reality Layers,46,Near the self-simulation and self-knowledge question,1448x1086,No
+3,interior/03_SECTION_3_1_Flatland_and_the_Limits_of_Perception.png,Section 3.1 - Incorporating Higher Dimensions,48-49,After Coordinates Not Directions,1448x1086,No
+4,interior/04_PART_6_Sacred_Geometry_as_Hypothesis.png,Part 6 - Geometric Concepts in EC,83-84,Part opener or between Sections 6.1 and 6.2,1448x1086,No
+5,interior/05_PART_7_Ethics_Governance_and_Moral_Uncertainty.png,Part 7 - Ethical Frameworks and Considerations,97-98,Part opener before Section 7.1,1448x1086,No
+6,interior/06_SECTION_8_1_Global_Workspace_and_Shared_Information.png,Section 8.1 - Global Workspace Theory in Electronic Consciousness,113,After the architectural explanation of global broadcast,1448x1086,No
+7,interior/07_SECTION_10_2_Safeguards_for_Self_Modifying_Systems.png,Section 10.2 - Safeguards and Alignment in Recursive Self-Improvement,145,Near the opening safeguard model,1448x1086,No
+8,interior/08_PART_16_From_Speculation_to_Testable_Research.png,Part 16 - A Unified Model Its Critiques and Its Limits,229-230,Part opener before Section 16.1,1448x1086,No
+9,interior/09_SECTION_16_1_Electronic_Consciousness_Research_Stack.png,Section 16.1.1 - The Integrated EC Stack,232,Directly after the five-layer stack is introduced,1448x1086,No
+10,interior/10_SECTION_16_2_A_Map_of_Claims.png,Section 16.2 - Critiques Counterarguments and Epistemic Limits,239,Beside the break circle and wave ledger,1448x1086,No
+99,covers/99_COVER_BACK_Electronic_Consciousness_Orlando_Barrera_II.png,Back cover,,Full back cover with reserved barcode area,1024x1536,No

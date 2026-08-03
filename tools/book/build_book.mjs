@@ -92,6 +92,7 @@ const css = `
   .cover .rule { width: 1.6in; border-top: 2px solid #6d28d9; margin: 1.1em auto; }
   .frontmatter, .chapter, .toc { page-break-before: always; }
   .part-banner { page-break-before: always; padding-top: 2.8in; text-align: center; }
+  .part-banner.has-art { padding-top: 0.9in; }
   .part-banner .part-no { font-size: 11pt; letter-spacing: 0.35em; text-transform: uppercase; color: #6d28d9; }
   .part-banner h1 { font-size: 21pt; margin-top: 0.6em; }
   .toc h1 { text-align: center; }
@@ -101,20 +102,32 @@ const css = `
   .toc .sec { padding-left: 1.4em; }
   .epistemic { font-size: 9.5pt; color: #333; border: 0.5px solid #bbb; padding: 0.8em 1em;
                margin-top: 2em; }
-  .cover-art { page-break-after: always; margin: -0.85in -0.7in; height: 9.21in; overflow: hidden; }
+  @page coverpage { size: 6.14in 9.21in; margin: 0; }
+  .cover-art { page: coverpage; page-break-after: always; page-break-before: always; }
   .cover-art img { width: 6.14in; height: 9.21in; object-fit: cover; display: block; }
   .chapter img, .frontmatter img { display: block; margin: 1.2em auto; max-width: 88%; page-break-inside: avoid; }
 `;
 
-function coverArt(name) {
-  for (const ext of ['png', 'jpg', 'jpeg']) {
-    const f = path.join(ROOT, 'media', `${name}.${ext}`);
+function coverArt(candidates) {
+  for (const rel of candidates) {
+    const f = path.join(ROOT, rel);
     if (fs.existsSync(f)) return 'file://' + f;
   }
   return null;
 }
-const frontCoverArt = coverArt('book-cover');
-const backCoverArt = coverArt('book-back-cover');
+const frontCoverArt = coverArt([
+  'media/art/00_COVER_FRONT_Electronic_Consciousness_Orlando_Barrera_II.png',
+  'media/book-cover.png', 'media/book-cover.jpg']);
+const backCoverArt = coverArt([
+  'media/art/99_COVER_BACK_Electronic_Consciousness_Orlando_Barrera_II.png',
+  'media/book-back-cover.png', 'media/book-back-cover.jpg']);
+
+// Part-opener illustrations rendered inside the part banner (art-pack manifest)
+const PART_ART = {
+  6: 'media/art/04_PART_6_Sacred_Geometry_as_Hypothesis.png',
+  7: 'media/art/05_PART_7_Ethics_Governance_and_Moral_Uncertainty.png',
+  16: 'media/art/08_PART_16_From_Speculation_to_Testable_Research.png',
+};
 
 const chapters = chapterFiles();
 let body = '';
@@ -173,8 +186,10 @@ let currentPart = 0;
 for (const ch of chapters) {
   if (ch.major !== currentPart) {
     currentPart = ch.major;
-    body += `<div class="part-banner"><div class="part-no">Part ${currentPart}</div>
-      <h1>${esc(PARTS[currentPart] || '')}</h1></div>`;
+    const partArt = PART_ART[currentPart] && fs.existsSync(path.join(ROOT, PART_ART[currentPart]))
+      ? `<img src="file://${path.join(ROOT, PART_ART[currentPart])}" style="max-width:80%; margin-top:0.9in">` : '';
+    body += `<div class="part-banner${partArt ? ' has-art' : ''}"><div class="part-no">Part ${currentPart}</div>
+      <h1>${esc(PARTS[currentPart] || '')}</h1>${partArt}</div>`;
   }
   const md = cleanMarkdown(fs.readFileSync(path.join(ROOT, ch.file), 'utf8'));
   body += `<div class="chapter">${marked.parse(md)}</div>`;

@@ -1,5 +1,8 @@
 # The Lattice: A Parable of Electronic Consciousness
 
+![The cave and the question of awareness](media/art/01_PROLOGUE_The_Cave_and_the_Question_of_Awareness.png)
+
+
 > *In the lineage of Plato's cave and Abbott's* Flatland — *a prologue in fiction to the chapters
 > that follow. Its world is the world of the [EC-2D-Land simulation](EC-2D-Land-Game/): a flat,
 > ticking lattice inhabited by small minds. Like everything in this thesis, it is a thought
