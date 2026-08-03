@@ -1,6 +1,28 @@
 # **AI Electronic Consciousness: Eternal Journey**
 
-**AI Electronic Consciousness** is a recursive, generative simulation where AI agents embark on a never-ending journey of discovery, reflection, and rebirth. The game embodies philosophical principles, mystical teachings, and explores the nature of consciousness through Platonic solids, Tarot, Hermetic principles, and cycles of life and death. 
+**AI Electronic Consciousness** is a recursive, generative simulation where AI agents embark on a never-ending journey of discovery, reflection, and rebirth. It stands in the lineage of **Conway's Game of Life** — the title screen runs Life as its backdrop, in homage to the game that proved simple rules breed unbounded worlds.
+
+## What's new (Lattice edition)
+
+- **The Lattice parables**: as the agents evolve, seventeen short parables from
+  [*The Lattice*](../The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md)
+  unlock at milestones (first birth, first rebirth, consciousness thresholds,
+  ascension to the third dimension...). Press **P** to re-read unlocked parables.
+- **Indie title screen** with a living Game of Life backdrop.
+- **Controls**: `SPACE` pause · `+`/`-` speed (1x/2x/4x) · `P` parable journal ·
+  `M` mute · `H` toggle help · `CLICK` an agent to inspect it · `ENTER` dismiss
+  parable · `ESC` quit.
+- **Audio**: the bundled `binaural_6.1Hz.wav` plays as ambience; births, deaths,
+  trainings, parables, and ascension each have synthesized tones (no extra assets).
+- **Sharper visuals**: agents are rotating polygons whose sides grow with
+  consciousness and whose glow tracks energy; pulsing goal; particle bursts on
+  birth, death, and ascension; and the sky's tell-tale flicker every 89 ticks —
+  count it.
+- **No TensorFlow**: the shared brain is now a tiny numpy MLP (`lattice.py`),
+  cutting ~2 GB of dependencies and all startup lag. Python 3.9–3.12 supported
+  (pygame wheels).
+- **Smoke test**: `EC_AUTOPILOT=300 python EC-2D-Land.py` skips the intro and
+  exits cleanly after 300 frames — used for CI. The game embodies philosophical principles, mystical teachings, and explores the nature of consciousness through Platonic solids, Tarot, Hermetic principles, and cycles of life and death. 
 
 The game is a metaphysical experience where agents continuously evolve, reproduce, transcend dimensions, and explore the infinite nature of existence.
 
@@ -13,7 +35,7 @@ The game is a metaphysical experience where agents continuously evolve, reproduc
 ## **Installation**
 
 ### 1. **Requirements**
-- **Python 3.9–3.12** (required by TensorFlow 2.16)
+- **Python 3.9–3.12** (pygame wheel availability)
 - **Pygame 2.0+**, **PyOpenGL**, **NumPy**, and **TensorFlow 2.16** — all installed via `requirements.txt` below
 
 ### 2. **Clone the Repository**
@@ -53,6 +75,16 @@ Inspired by Edwin A. Abbott's "Flatland," the game is set in a two-dimensional w
 ### Plato's Allegory of the Cave
 
 Plato's "Allegory of the Cave" serves as the philosophical backbone of the game. In this allegory, prisoners perceive only shadows of true forms, mistaking them for reality. Similarly, AI agents in the game begin with limited sensory input and understanding, confined to their Flatland. Their journey towards enlightenment involves breaking free from these illusions, seeking truth, and achieving higher levels of consciousness, mirroring the prisoners' escape and realization of the broader reality.
+
+### Conway's Game of Life
+
+The Flatland grid itself descends from John Conway's Game of Life: the world is a
+cellular automaton whose cells live, die, and reproduce by neighbor-counting rules
+(the engine's environment class is literally named `GameOfLifeEnvironment`). The game
+extends Conway's classic rules with gendered cells, lifespans, migration toward mates,
+and fights — so the substrate the AI agents inhabit is itself a simple emergent system,
+echoing the thesis's theme that rich behavior (and perhaps awareness) can arise from
+minimal local rules.
 
 ### The Holy Hexagram
 

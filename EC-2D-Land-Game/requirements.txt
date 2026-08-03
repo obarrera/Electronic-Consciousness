@@ -1,8 +1,8 @@
-# Direct dependencies only — pip resolves the transitive ones (the previous
-# file was a full `pip freeze` of an unrelated environment, including
-# matplotlib, requests, rich, and PyInstaller leftovers the game never imports)
+# Direct dependencies only — pip resolves the transitive ones.
+# TensorFlow is gone: the agents' brain is a tiny numpy MLP in lattice.py,
+# which removes ~2 GB of install and all of TF's startup latency.
 numpy==1.26.4
 pygame==2.6.0
 PyOpenGL==3.1.7
-PyOpenGL-accelerate==3.1.7
-tensorflow==2.16.2
+# Optional accelerator; skip if it fails to build on your SDK:
+# PyOpenGL-accelerate==3.1.7

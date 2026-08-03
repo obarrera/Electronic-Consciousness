@@ -7,10 +7,9 @@ import sys
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
+from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
+                     draw_agent_polygon, draw_goal_pulse, draw_flicker, draw_help,
+                     run_intro)
 
 # Initialize Pygame
 pygame.init()
@@ -553,13 +552,9 @@ class EsotericSymbol:
 
 # Neural Network Model for AI Agents
 def create_neural_network(input_size, output_size):
-    """Create a simple neural network model for AI agents."""
-    model = Sequential()
-    model.add(Dense(32, input_dim=input_size, activation='relu'))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dense(output_size, activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
-    return model
+    """Tiny numpy MLP (8->32->32->4): the same duties as the old Keras model
+    with none of TensorFlow's startup latency or install weight."""
+    return NumpyMLP(input_size, hidden=32, output_size=output_size, lr=0.005)
 
 # All 2D agents share one brain: they are trained on the identical dataset every
 # cycle anyway, and per-agent models made agent churn (death/rebirth) allocate a
@@ -661,9 +656,7 @@ class AI_Agent:
             # If not trained, make random decisions
             decision = random.randint(0, 3)
         else:
-            # Direct call avoids model.predict()'s per-call graph construction,
-            # which is slow and leaks memory when invoked every frame
-            prediction = self.model(input_data, training=False).numpy()
+            prediction = self.model.forward(input_data)
             decision = int(np.argmax(prediction))
         return decision  # 0: Up, 1: Down, 2: Left, 3: Right
 
@@ -2353,6 +2346,32 @@ def run_simulation():
     surface = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
     progress_bar = ProgressBar(surface, position=(10, WINDOW_SIZE - 30))
 
+    # Lattice systems: audio, particles, parables, controls state
+    audio = AudioEngine(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'binaural_6.1Hz.wav'))
+    particles = ParticleSystem()
+    parables = ParableOverlay(WINDOW_SIZE, audio=audio)
+    stats = {"gen": 0, "births": 0, "rebirths": 0, "energy_deaths": 0,
+             "max_consciousness": 0, "population": len(ai_agents_2d),
+             "training_rounds": 0, "ascended": 0, "layers": 0}
+    paused = False
+    speed = 1                      # 1x / 2x / 4x via +/-
+    show_help = True
+    selected_agent = None
+    frame_count = 0
+    HELP_FONT = pygame.font.SysFont('Arial', 12)
+
+    def _present(frame_surface):
+        """Push a 2D surface to the OpenGL display (shared by intro + pause)."""
+        data = pygame.image.tostring(frame_surface, "RGB", True)
+        glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, data)
+        pygame.display.flip()
+
+    # Indie title screen (Conway backdrop) before the world begins
+    if not run_intro(surface, CLOCK, _present, audio=audio, fps=FPS):
+        pygame.quit()
+        sys.exit()
+
     # Simulation loop
     while running:
         for event in pygame.event.get():
@@ -2360,7 +2379,55 @@ def run_simulation():
                 running = False
                 pygame.quit()
                 sys.exit()
-    
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                    pygame.quit()
+                    sys.exit()
+                elif event.key == pygame.K_SPACE:
+                    paused = not paused
+                elif event.key in (pygame.K_PLUS, pygame.K_EQUALS):
+                    speed = min(4, speed * 2)
+                elif event.key == pygame.K_MINUS:
+                    speed = max(1, speed // 2)
+                elif event.key == pygame.K_m:
+                    audio.toggle_mute()
+                elif event.key == pygame.K_p:
+                    parables.next_journal()
+                elif event.key == pygame.K_h:
+                    show_help = not show_help
+                elif event.key == pygame.K_RETURN and parables.active is not None:
+                    parables.dismiss()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                cell = (my // CELL_SIZE, mx // CELL_SIZE)
+                selected_agent = next((a for a in ai_agents_2d if a.position == cell), None)
+
+        frame_count += 1
+        from lattice import AUTOPILOT_FRAMES
+        if AUTOPILOT_FRAMES and frame_count >= AUTOPILOT_FRAMES:
+            print(f"Autopilot: clean exit after {frame_count} frames "
+                  f"(gen {current_generation}, {len(ai_agents_2d)} agents, "
+                  f"{len(parables.unlocked)} parables unlocked).")
+            running = False
+            break
+
+        # Paused: keep showing the last simulated frame with live overlays on top
+        # (the offscreen surface persists between frames), so parables stay
+        # readable and the flicker keeps its rhythm while time stands still.
+        if paused and not recursive_manager.in_3d_world:
+            frozen = surface.copy()
+            particles.update_and_draw(frozen)
+            parables.update_and_draw(frozen)
+            draw_flicker(frozen, frame_count, WINDOW_SIZE)
+            if show_help:
+                draw_help(frozen, WINDOW_SIZE, HELP_FONT, paused, speed, audio.muted)
+            texture_data = pygame.image.tostring(frozen, "RGB", True)
+            glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, texture_data)
+            pygame.display.flip()
+            CLOCK.tick(FPS)
+            continue
+
         if not recursive_manager.in_3d_world:
             # Update the environment
             environment.update(current_generation, ai_agents_2d)
@@ -2388,6 +2455,11 @@ def run_simulation():
             for agent in ai_agents_2d[:]:
                 if agent.age >= agent.max_age:
                     agent.update_thoughts("My cycle continues through rebirth.")
+                    px, py = agent.position
+                    particles.burst((py * CELL_SIZE + CELL_SIZE // 2, px * CELL_SIZE + CELL_SIZE // 2),
+                                    agent.color)
+                    audio.play("death")
+                    stats["rebirths"] += 1
                     agent.die_and_rebirth(ai_agents_2d)
                     # Update the grid
                     environment.grid[agent.position] = 1 if agent.gender == 'Male' else 2
@@ -2395,6 +2467,12 @@ def run_simulation():
                     environment.birth_generations[agent.position] = current_generation
                 elif agent.energy <= 0:
                     agent.update_thoughts("I have depleted my energy. Time for rebirth.")
+                    px, py = agent.position
+                    particles.burst((py * CELL_SIZE + CELL_SIZE // 2, px * CELL_SIZE + CELL_SIZE // 2),
+                                    (120, 120, 160))
+                    audio.play("death")
+                    stats["rebirths"] += 1
+                    stats["energy_deaths"] += 1
                     agent.die_and_rebirth(ai_agents_2d)
                     # Update the grid
                     environment.grid[agent.position] = 1 if agent.gender == 'Male' else 2
@@ -2420,6 +2498,12 @@ def run_simulation():
                                     if child:
                                         new_agents.append(child)
                                         reproduction_count += 1
+                                        stats["births"] += 1
+                                        audio.play("birth")
+                                        cx, cy = child.position
+                                        particles.burst((cy * CELL_SIZE + CELL_SIZE // 2,
+                                                         cx * CELL_SIZE + CELL_SIZE // 2),
+                                                        (255, 215, 0), count=12, speed=1.6)
                                         # Update grid and lifespans as before
                     # Calculate number of live AI agents
                     male_agents = sum(1 for agent in ai_agents_2d if agent.gender == 'Male')
@@ -2461,28 +2545,48 @@ def run_simulation():
             # outside the loop)
             surface.fill(BLACK)
             environment.render(surface)
-    
-            # Draw AI agents on the surface
+
+            t = pygame.time.get_ticks() / 1000.0
+
+            # Pulsing goal marker over the environment's static one
+            draw_goal_pulse(surface, environment.goal[0], environment.goal[1], CELL_SIZE, t)
+
+            # Agents render as rotating polygons — sides grow with consciousness,
+            # glow scales with energy
             for agent in ai_agents_2d:
-                x, y = agent.position
-                pygame.draw.circle(surface, agent.color, (y * CELL_SIZE + CELL_SIZE // 2,
-                                                        x * CELL_SIZE + CELL_SIZE // 2), CELL_SIZE // 3)
-    
+                draw_agent_polygon(surface, agent, CELL_SIZE, t)
+
             # Render the progress bar
             progress_bar.update(average_consciousness)
             progress_bar.render()
-    
+
             # Render Flatland info on the surface
             display_flatland_info(surface, current_generation, ai_agents_2d, environment)
-    
+
             # Display AI's thoughts and 3D Spaceland progress
             display_ai_thoughts(surface, ai_agents_2d, recursive_manager)
 
-            # Display detailed info for the first AI agent (drawn on the
-            # offscreen surface — blitting text onto the OPENGL display
-            # surface raises pygame.error)
-            if len(ai_agents_2d) > 0:
-                display_detailed_ai_info(surface, ai_agents_2d[0], recursive_manager)
+            # Detail panel: the clicked agent if one is selected, else the eldest
+            # (drawn on the offscreen surface — blitting text onto the OPENGL
+            # display surface raises pygame.error)
+            if selected_agent is not None and selected_agent not in ai_agents_2d:
+                selected_agent = None
+            focus_agent = selected_agent or (ai_agents_2d[0] if ai_agents_2d else None)
+            if focus_agent is not None:
+                display_detailed_ai_info(surface, focus_agent, recursive_manager)
+
+            # Lattice layer: stats, milestone parables, particles, the sky's flicker
+            stats["gen"] = current_generation
+            stats["population"] = len(ai_agents_2d)
+            if ai_agents_2d:
+                stats["max_consciousness"] = max(stats["max_consciousness"],
+                                                 max(a.level_of_consciousness for a in ai_agents_2d))
+            parables.check_unlocks(stats)
+            particles.update_and_draw(surface)
+            parables.update_and_draw(surface)
+            draw_flicker(surface, frame_count, WINDOW_SIZE)
+            if show_help:
+                draw_help(surface, WINDOW_SIZE, HELP_FONT, paused, speed, audio.muted)
 
             # Blit the 2D surface onto the OpenGL context
             texture_data = pygame.image.tostring(surface, "RGB", True)
@@ -2491,6 +2595,8 @@ def run_simulation():
             # Transition to 3D recursive environment if average consciousness exceeds threshold
             if average_consciousness >= EVOLUTION_THRESHOLD and not recursive_manager.in_3d_world:
                 print("Transitioning to 3D world!")
+                stats["ascended"] += 1
+                audio.play("ascend")
                 init_opengl()  # Initialize OpenGL for 3D rendering
                 recursive_manager.enter_3d_world(ai_agents_2d)
             else:
@@ -2499,6 +2605,9 @@ def run_simulation():
 
                 # Train AI agents' neural networks periodically
                 train_ai_agents_periodically(ai_agents_2d, training_inputs, training_outputs, current_generation, interval=25)
+                if current_generation % 25 == 0 and training_inputs:
+                    stats["training_rounds"] += 1
+                    audio.play("train")
 
         else:
             # AI in 3D recursive world using OpenGL
@@ -2540,9 +2649,10 @@ def run_simulation():
         # Update generation count
         current_generation += 1
 
-        # Update the display and control frame rate (single flip per frame)
+        # Update the display and control frame rate (single flip per frame).
+        # Speed control multiplies the simulation tick rate (1x/2x/4x).
         pygame.display.flip()
-        CLOCK.tick(FPS)
+        CLOCK.tick(FPS * speed)
 
 
 
