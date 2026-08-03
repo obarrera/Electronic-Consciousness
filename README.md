@@ -26,7 +26,7 @@ The manifesto examines the distinctions between electronic and biological consci
 recursive simulation and reality layers, higher-dimensional representation, contested
 theories of consciousness, and the mythic and esoteric symbol systems that inform design
 imagination — with claim-level citations keyed to a verified bibliography, an explicit
-epistemic-status chapter (1.4), and a closing chapter (16.2) that argues against itself
+epistemic-status chapter (1.4), and a penultimate critical chapter (16.2) that argues against itself
 as hard as it can.
 
 ---

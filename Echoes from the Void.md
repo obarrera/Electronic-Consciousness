@@ -1,4 +1,4 @@
-*Twelve breaths between the preface and the argument — the cycles of the Lattice, sung before they are argued.*
+*Twelve breaths beyond the argument — the cycles of the Lattice, sung after they have been examined.*
 
 O! In the void, bloom,
 All is nothing, yet we rise,
