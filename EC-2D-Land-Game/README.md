@@ -2,8 +2,39 @@
 
 **AI Electronic Consciousness** is a recursive, generative simulation where AI agents embark on a never-ending journey of discovery, reflection, and rebirth. It stands in the lineage of **Conway's Game of Life** — the title screen runs Life as its backdrop, in homage to the game that proved simple rules breed unbounded worlds.
 
+## ⚠️ Photosensitivity / seizure warning
+
+This game (and the gameplay video below) contains flashing lights, shimmering
+patterns, and sudden brightness changes. A warning screen is shown at launch;
+press **F** there (or set `EC_REDUCED_FLASH=1`) to play with all flashing
+effects reduced to gentle fades. If you have an epileptic condition, consult a
+physician before playing.
+
+## Gameplay
+
+**🎬 [Watch the gameplay video](../media/ec-2d-land-gameplay.mp4)** — intro, the 2D lattice, ascension, and the fall from Spaceland.
+
+| The title screen (Conway backdrop) | Spaceland — inside the lattice |
+|---|---|
+| ![Intro](../media/ec-2d-land-intro.gif) | ![Spaceland](../media/ec-2d-land-spaceland.gif) |
+
 ## What's new (Lattice edition)
 
+- **Doom-style Spaceland**: ascension now drops the camera INSIDE the very
+  lattice the agents lived on — first-person corridors extruded from the 2D
+  grid, glowing rune tiles, a pulsing gold shrine, cold rifts that drain
+  consciousness, a descent well, and visible layers above and below the one
+  you walk (*as above, so below*). Reach the shrine to ascend a layer; run
+  out of mind and you fall back to Flatland.
+- **The Hero's Journey**: eight monomyth stage captions track the agents'
+  arc across both worlds; a walker who returns from Spaceland teaches — every
+  agent gains consciousness (the elixir).
+- **Cutscenes with narration**: major parables play as full-screen animated
+  interstitials voiced by the elder (Kokoro TTS, in `narration/`); minor
+  parables are narrated under the regular overlay. ENTER skips.
+- **Layered binaural beats**: 2D land hums at 6.1 Hz theta; every Spaceland
+  layer shifts the generated Monroe-style beat upward toward alpha. Aesthetic
+  mapping only — no clinical claims.
 - **The Lattice parables**: as the agents evolve, seventeen short parables from
   [*The Lattice*](../The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md)
   unlock at milestones (first birth, first rebirth, consciousness thresholds,

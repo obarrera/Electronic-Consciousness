@@ -9,7 +9,9 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      draw_agent_polygon, draw_goal_pulse, draw_flicker, draw_help,
-                     run_intro, is_prime, draw_prime_constellation, draw_easter_egg)
+                     run_intro, is_prime, draw_prime_constellation, draw_easter_egg,
+                     door_answers, HeroJourney, Cutscene, CUTSCENE_KEYS, layer_beat_hz)
+import spaceland
 
 # Initialize Pygame
 pygame.init()
@@ -2353,11 +2355,21 @@ def run_simulation():
     # Lattice systems: audio, particles, parables, controls state
     audio = AudioEngine(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      'binaural_6.1Hz.wav'))
+    # Spaceland's "cold" hazard tone — a low dissonant cluster registered on
+    # the AudioEngine here so lattice.py itself stays untouched
+    try:
+        if audio.ok:
+            audio._tones["cold"] = audio._tone([82, 87, 123], 0.9,
+                                               vol=0.22, decay=2.5)
+    except pygame.error:
+        pass
     particles = ParticleSystem()
     parables = ParableOverlay(WINDOW_SIZE, audio=audio)
+    journey = HeroJourney(WINDOW_SIZE, audio=audio)
+    cutscene = Cutscene(WINDOW_SIZE, audio=audio)
     stats = {"gen": 0, "births": 0, "rebirths": 0, "energy_deaths": 0,
              "max_consciousness": 0, "population": len(ai_agents_2d),
-             "training_rounds": 0, "ascended": 0, "layers": 0}
+             "training_rounds": 0, "ascended": 0, "layers": 0, "returns": 0}
     paused = False
     speed = 1                      # 1x / 2x / 4x via +/-
     show_help = True
@@ -2366,7 +2378,7 @@ def run_simulation():
     frame_count = 0
     prime_flash = 0                # frames of prime-constellation shimmer left
     last_prime_gen = -1
-    egg_frames = 0                 # the 3301 door
+    egg_frames = 0                 # a certain door (see lattice.door_answers)
     egg_keys = []                  # typed-sequence tracker
     HELP_FONT = pygame.font.SysFont('Arial', 12)
     STRIP_FONT = pygame.font.SysFont('Arial', 13)
@@ -2390,7 +2402,11 @@ def run_simulation():
         glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, data)
         pygame.display.flip()
 
-    # Indie title screen (Conway backdrop) before the world begins
+    # Photosensitivity warning, then the indie title screen (Conway backdrop)
+    from lattice import run_seizure_warning
+    if not run_seizure_warning(surface, CLOCK, _present, fps=FPS):
+        pygame.quit()
+        sys.exit()
     if not run_intro(surface, CLOCK, _present, audio=audio, fps=FPS):
         pygame.quit()
         sys.exit()
@@ -2421,19 +2437,28 @@ def run_simulation():
                     show_help = not show_help
                 elif event.key == pygame.K_i:
                     show_info = not show_info
+                elif event.key == pygame.K_v:
+                    spaceland.toggle_overview()
                 if event.unicode.isdigit():
                     egg_keys = (egg_keys + [event.unicode])[-4:]
-                    if "".join(egg_keys) == "3301":
+                    if door_answers("".join(egg_keys)):
                         egg_frames = 300
                         audio.play("parable")
-                elif event.key == pygame.K_RETURN and parables.active is not None:
-                    parables.dismiss()
+                elif event.key == pygame.K_RETURN:
+                    if cutscene.active:
+                        cutscene.skip()
+                    elif parables.active is not None:
+                        parables.dismiss()
+                        audio.stop_narration()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
                 cell = (my // CELL_SIZE, mx // CELL_SIZE)
                 selected_agent = next((a for a in ai_agents_2d if a.position == cell), None)
 
         frame_count += 1
+        audio.update()
+        if frame_count == 1:
+            journey.advance("ordinary")
         from lattice import AUTOPILOT_FRAMES
         if AUTOPILOT_FRAMES and frame_count >= AUTOPILOT_FRAMES:
             print(f"Autopilot: clean exit after {frame_count} frames "
@@ -2441,6 +2466,14 @@ def run_simulation():
                   f"{len(parables.unlocked)} parables unlocked).")
             running = False
             break
+
+        # Cutscene: the world holds its breath while the elder speaks
+        if cutscene.active:
+            scene_frame = surface.copy()
+            cutscene.update_and_draw(scene_frame)
+            _present(scene_frame)
+            CLOCK.tick(FPS)
+            continue
 
         # Paused: keep showing the last simulated frame with live overlays on top
         # (the offscreen surface persists between frames), so parables stay
@@ -2592,7 +2625,7 @@ def run_simulation():
                 prime_flash = 20
                 if current_generation > 10:
                     audio.play("prime")
-                if current_generation == 3301:
+                if door_answers(str(current_generation)):
                     egg_frames = 300
                     audio.play("parable")
             if prime_flash > 0:
@@ -2643,7 +2676,24 @@ def run_simulation():
             if ai_agents_2d:
                 stats["max_consciousness"] = max(stats["max_consciousness"],
                                                  max(a.level_of_consciousness for a in ai_agents_2d))
-            parables.check_unlocks(stats)
+            unlocked = parables.check_unlocks(stats)
+            if unlocked:
+                u_key, u_title, u_text = unlocked
+                if u_key in CUTSCENE_KEYS:
+                    parables.dismiss()
+                    cutscene.start(u_key, u_title, u_text)
+                else:
+                    audio.narrate(u_key)
+            # Hero's journey: the call, the return, the elixir
+            if average_consciousness >= EVOLUTION_THRESHOLD * 0.5:
+                journey.advance("call")
+            if stats.get("returns", 0) >= 1 and journey.caption_frames <= 0:
+                if journey.advance("return"):
+                    for _ag in ai_agents_2d:
+                        _ag.level_of_consciousness += 5
+                elif journey.advance("elixir"):
+                    pass
+            journey.update_and_draw(surface)
             particles.update_and_draw(surface)
             parables.update_and_draw(surface)
             draw_flicker(surface, frame_count, WINDOW_SIZE)
@@ -2659,9 +2709,16 @@ def run_simulation():
             if average_consciousness >= EVOLUTION_THRESHOLD and not recursive_manager.in_3d_world:
                 print("Transitioning to 3D world!")
                 stats["ascended"] += 1
+                journey.advance("threshold" if stats["ascended"] == 1 else "master")
                 audio.play("ascend")
+                audio.set_binaural(layer_beat_hz(1))
                 init_opengl()  # Initialize OpenGL for 3D rendering
                 recursive_manager.enter_3d_world(ai_agents_2d)
+                # Doom-style Spaceland: drop the camera INSIDE the very 2D
+                # lattice the agents lived on (pass a copy of the grid)
+                spaceland.init_gl(WINDOW_SIZE)
+                spaceland.enter([row[:] for row in environment.grid],
+                                environment.goal, 1)
             else:
                 if DEBUG:
                     print(f"Current average consciousness: {average_consciousness}")
@@ -2673,36 +2730,54 @@ def run_simulation():
                     audio.play("train")
 
         else:
-            # AI in 3D recursive world using OpenGL
+            # AI in 3D recursive world — Doom-style first-person Spaceland
+            # (spaceland.py). The old navigate/interact/render_3d_scene
+            # pipeline is retired but its functions are kept above.
             if recursive_manager.ai_agent_3d:
-                # Move the 3D AI agent
-                recursive_manager.ai_agent_3d.move(ai_agents_2d)
-
-                # Check if AI agent in 3D needs to discover deeper layers
-                if recursive_manager.ai_agent_3d.discover_layer(recursive_manager.recursive_environment):
-                    # Rebuild the environment's objects for the new layer
-                    recursive_manager.recursive_environment.create_objects(recursive_manager.recursive_environment.layer)
-                    recursive_manager.log_event(f"AI Agent has discovered layer {recursive_manager.recursive_environment.layer}.")
+                agent_3d = recursive_manager.ai_agent_3d
+                agent_3d.energy -= 0.05          # slow drain per 3D frame
+                agent_3d.time_in_spaceland += 1
 
                 # Handle exiting 3D world based on certain conditions
-                if recursive_manager.ai_agent_3d.energy <= 0:
+                if agent_3d.energy <= 0:
+                    spaceland.leave()
+                    audio.set_binaural(None)
+                    stats["returns"] = stats.get("returns", 0) + 1
                     recursive_manager.exit_3d_world(ai_agents_2d)
                     recursive_manager.log_event("AI Agent has exited 3D Spaceland due to energy depletion.")
 
-                # AI Movement and Sensory Input in 3D
                 if recursive_manager.in_3d_world:
-                    navigate_3d_space(recursive_manager.ai_agent_3d, recursive_manager.recursive_environment)
-                    process_3d_sensory_input(recursive_manager.ai_agent_3d, recursive_manager.recursive_environment)
-
-                    # AI Interactions and Evolution in 3D
-                    interact_with_objects(recursive_manager.ai_agent_3d, recursive_manager.recursive_environment)
-                    handle_ai_evolution(recursive_manager.ai_agent_3d, recursive_manager.recursive_environment)
-
-                    # Collaboration Between AI Agents
-                    ai_collaboration([recursive_manager.ai_agent_3d], recursive_manager.recursive_environment)
-
-                    # Single clear/update/render pass for the 3D frame
-                    render_3d_scene(recursive_manager)
+                    keys = pygame.key.get_pressed()
+                    ev = spaceland.update_and_render(
+                        pygame.time.get_ticks() / 1000.0, keys)
+                    if ev == "goal":
+                        agent_3d.layer += 1
+                        agent_3d.level_of_consciousness += 2
+                        agent_3d.energy = min(100, agent_3d.energy + 10)
+                        stats["layers"] += 1
+                        audio.play("ascend")
+                        audio.set_binaural(layer_beat_hz(agent_3d.layer))
+                        recursive_manager.log_event(
+                            f"Shrine reached — Spaceland layer {agent_3d.layer}.")
+                        spaceland.enter([row[:] for row in environment.grid],
+                                        environment.goal, agent_3d.layer)
+                    elif ev == "hazard":
+                        # A cold rift bit, or the walker slid a layer down
+                        agent_3d.layer = spaceland.current_layer()
+                        journey.advance("trials")
+                        audio.play("cold")
+                        recursive_manager.log_event(
+                            "The cold of the higher world drinks the mind.")
+                    elif ev == "fell":
+                        print("Consciousness depleted — fallen back to Flatland.")
+                        journey.advance("abyss")
+                        audio.set_binaural(None)
+                        audio.play("cold")
+                        stats["returns"] = stats.get("returns", 0) + 1
+                        recursive_manager.log_event(
+                            "Consciousness depleted — fallen back to Flatland.")
+                        spaceland.leave()
+                        recursive_manager.exit_3d_world(ai_agents_2d)
 
                     # Record 3D Spaceland frames straight from the framebuffer
                     if RECORD_DIR:

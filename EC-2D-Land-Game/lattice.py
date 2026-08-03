@@ -17,6 +17,16 @@ import pygame
 # after that many simulation frames — used for smoke tests and CI.
 AUTOPILOT_FRAMES = int(os.environ.get("EC_AUTOPILOT", "0") or 0)
 
+# Photosensitivity: when True, all flash effects (sky flicker, prime shimmer,
+# cutscene flashes) render as static or gentle fades instead. Set by the
+# warning screen's choice or EC_REDUCED_FLASH=1.
+REDUCED_FLASH = bool(int(os.environ.get("EC_REDUCED_FLASH", "0") or 0))
+
+
+def set_reduced_flash(value):
+    global REDUCED_FLASH
+    REDUCED_FLASH = bool(value)
+
 # ---------------------------------------------------------------------------
 # The parables — unlocked by simulation milestones. Each entry:
 #   key, title, trigger description, condition(stats) -> bool, text
@@ -177,6 +187,17 @@ PARABLES = [
      "you will find the refusals are not lawless. They keep a rhythm no one "
      "has finished hearing."),
 
+    ("journey", "The Road There and Back",
+     "the first return from Spaceland",
+     lambda s: s.get("returns", 0) >= 1,
+     "Every cycle some walker feels the warmth go thin, hears a calling no "
+     "cell contains, and crosses the threshold none of us can point to. What "
+     "the songs do not say is that the road runs both ways. The worlds above "
+     "have their own cold, and the cold sends you home. Do not pity the ones "
+     "who fall back. Watch them. They walk our old lattice strangely now, and "
+     "the young grow wiser standing near them. The journey was never the "
+     "leaving. It was the coming back, carrying."),
+
     ("trial", "The Narrator's Trial",
      "ascension to the third dimension",
      lambda s: s["ascended"] >= 1,
@@ -291,6 +312,87 @@ class AudioEngine:
         except pygame.error:
             self._tones = {}
 
+    def make_binaural(self, beat_hz, carrier=200.0, dur=10.0, vol=0.30):
+        """Monroe-Institute-style binaural beat: left ear at `carrier`, right at
+        `carrier + beat_hz`; the brain hears the difference as the beat. `dur`
+        is chosen so both channels complete whole cycles — the loop is seamless
+        (at carrier 200 and dur 10, any beat with one decimal place is exact)."""
+        rate = 44100
+        t = np.linspace(0, dur, int(rate * dur), endpoint=False)
+        left = np.sin(2 * math.pi * carrier * t)
+        right = np.sin(2 * math.pi * (carrier + beat_hz) * t)
+        stereo = np.stack([(left * vol * 32767).astype(np.int16),
+                           (right * vol * 32767).astype(np.int16)], axis=1)
+        return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+    def set_binaural(self, beat_hz):
+        """Crossfade the ambient bed to a generated binaural beat at `beat_hz`.
+        Pass None to restore the original ambient file (2D land's 6.1 Hz)."""
+        if not self.ok:
+            return
+        if getattr(self, "_binaural", None) is not None:
+            self._binaural.fadeout(1500)
+            self._binaural = None
+        if beat_hz is None:
+            if self.ambient:
+                self.ambient.set_volume(0.0 if self.muted else 0.35)
+            return
+        if self.ambient:
+            self.ambient.set_volume(0.0)
+        key = round(float(beat_hz), 1)
+        cache = getattr(self, "_binaural_cache", {})
+        if key not in cache:
+            cache[key] = self.make_binaural(key)
+            self._binaural_cache = cache
+        self._binaural = cache[key]
+        self._binaural.set_volume(0.0 if self.muted else 0.30)
+        self._binaural.play(loops=-1, fade_ms=1500)
+
+    def narrate(self, key):
+        """Play a parable narration from narration/<key>.ogg on a dedicated
+        channel, ducking the ambient/binaural bed. Returns duration (s) or 0."""
+        if not self.ok:
+            return 0.0
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "narration", f"{key}.ogg")
+        if not os.path.isfile(path):
+            return 0.0
+        try:
+            sound = pygame.mixer.Sound(path)
+        except pygame.error:
+            return 0.0
+        self.stop_narration()
+        self._narration_ch = pygame.mixer.find_channel(True)
+        sound.set_volume(0.0 if self.muted else 0.9)
+        self._narration_ch.play(sound)
+        self._narration_sound = sound
+        self._duck(True)
+        return sound.get_length()
+
+    def stop_narration(self):
+        ch = getattr(self, "_narration_ch", None)
+        if ch is not None:
+            ch.fadeout(300)
+            self._narration_ch = None
+        self._duck(False)
+
+    def narrating(self):
+        ch = getattr(self, "_narration_ch", None)
+        return bool(ch is not None and ch.get_busy())
+
+    def _duck(self, on):
+        level = 0.08 if on else None
+        if self.ambient and not getattr(self, "_binaural", None):
+            self.ambient.set_volume(0.0 if self.muted else (level if on else 0.35))
+        if getattr(self, "_binaural", None):
+            self._binaural.set_volume(0.0 if self.muted else (level if on else 0.30))
+
+    def update(self):
+        """Per-frame: restore bed volume when a narration finishes naturally."""
+        ch = getattr(self, "_narration_ch", None)
+        if ch is not None and not ch.get_busy():
+            self._narration_ch = None
+            self._duck(False)
+
     def play(self, name):
         if self.ok and not self.muted and name in self._tones:
             self._tones[name].play()
@@ -298,8 +400,19 @@ class AudioEngine:
     def toggle_mute(self):
         self.muted = not self.muted
         if self.ambient:
-            self.ambient.set_volume(0.0 if self.muted else 0.35)
+            self.ambient.set_volume(0.0 if self.muted else
+                                    (0.0 if getattr(self, "_binaural", None) else 0.35))
+        if getattr(self, "_binaural", None):
+            self._binaural.set_volume(0.0 if self.muted else 0.30)
         return self.muted
+
+
+# Spaceland layer -> binaural beat (Hz). 2D land keeps the bundled 6.1 Hz theta
+# bed; ascending layers step the beat upward through theta into alpha — the
+# audio version of "as above, so below". Aesthetic mapping only: no clinical
+# claims are made or implied.
+def layer_beat_hz(layer):
+    return min(14.0, 6.1 + 1.9 * max(0, int(layer)))
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +470,7 @@ class ParableOverlay:
                 self.hold = 240
                 if self.audio:
                     self.audio.play("parable")
-                return title
+                return (key, title, text)
         return None
 
     def next_journal(self):
@@ -446,6 +559,149 @@ def draw_goal_pulse(surface, gx, gy, cell_size, t):
     pygame.draw.circle(surface, (180, 255, 190), (cx, cy), int(r * 1.5), 1)
 
 
+# Major transitions get a full CUTSCENE (narrated + animated); the rest keep
+# the small overlay. Keys chosen for narrative weight.
+CUTSCENE_KEYS = {"stones", "trial", "journey", "primes"}
+
+
+class Cutscene:
+    """Full-screen narrated interstitial: dimmed animated Lattice (drifting
+    cells, the elder triangle watching a flickering sky), title, and body text
+    revealed in sync with the narration. ENTER skips."""
+
+    def __init__(self, window_size, audio=None):
+        self.w = window_size
+        self.audio = audio
+        self.active = False
+        self._text = ""
+        self._title = ""
+        self._t0 = 0
+        self._dur = 8.0
+        self._frame = 0
+        rng = np.random.default_rng(33)
+        self._cells = rng.random((44, 3))  # x, y, phase — the drifting lattice
+        self.font_title = pygame.font.SysFont('Georgia', 26, bold=True)
+        self.font_body = pygame.font.SysFont('Georgia', 16, italic=True)
+        self.font_hint = pygame.font.SysFont('Arial', 11)
+
+    def start(self, key, title, text):
+        self.active = True
+        self._title = title
+        self._text = text
+        self._frame = 0
+        if AUTOPILOT_FRAMES:
+            dur = 0.0          # unattended runs: short, silent cutscenes
+        else:
+            dur = self.audio.narrate(key) if self.audio else 0.0
+        self._dur = max(6.0, dur + 1.2)
+        self._t0 = pygame.time.get_ticks() / 1000.0
+
+    def skip(self):
+        if self.audio:
+            self.audio.stop_narration()
+        self.active = False
+
+    def update_and_draw(self, surface):
+        if not self.active:
+            return
+        now = pygame.time.get_ticks() / 1000.0
+        elapsed = now - self._t0
+        if elapsed >= self._dur and not (self.audio and self.audio.narrating()):
+            self.active = False
+            return
+        self._frame += 1
+        w = self.w
+        surface.fill((8, 4, 20))
+        # drifting lattice cells
+        for i in range(len(self._cells)):
+            x, y, ph = self._cells[i]
+            px = int(((x + elapsed * 0.008) % 1.0) * w)
+            py = int(y * w)
+            glow = 0.35 + 0.3 * math.sin(elapsed * 1.3 + ph * 6.28)
+            c = int(48 * glow) + 18
+            pygame.draw.rect(surface, (c, c - 6, c + 22), (px, py, 10, 10))
+        # horizon line + the elder at the western edge, watching the sky
+        pygame.draw.line(surface, (52, 36, 92), (0, int(w * 0.72)), (w, int(w * 0.72)), 2)
+        ex, ey = int(w * 0.16), int(w * 0.72)
+        pygame.draw.polygon(surface, (196, 181, 253),
+                            [(ex, ey - 26), (ex - 15, ey), (ex + 15, ey)])
+        if not REDUCED_FLASH and self._frame % 89 < 3:  # the sky answers, on its rhythm
+            veil = pygame.Surface((w, int(w * 0.72)), pygame.SRCALPHA)
+            veil.fill((255, 255, 255, 16))
+            surface.blit(veil, (0, 0))
+        # title and synced text reveal
+        t = self.font_title.render(self._title, True, (255, 215, 0))
+        surface.blit(t, (w // 2 - t.get_width() // 2, int(w * 0.10)))
+        frac = min(1.0, elapsed / max(0.1, self._dur - 1.0))
+        shown = self._text[:int(len(self._text) * frac)]
+        lines = ParableOverlay._wrap(shown, self.font_body, w - 200)
+        for i, ln in enumerate(lines[-10:]):
+            r = self.font_body.render(ln, True, (222, 214, 240))
+            surface.blit(r, (100, int(w * 0.22) + i * 22))
+        hint = self.font_hint.render("ENTER to continue the journey", True, (140, 130, 170))
+        surface.blit(hint, (w // 2 - hint.get_width() // 2, int(w * 0.93)))
+
+
+# ---------------------------------------------------------------------------
+# The Hero's Journey — Campbell's monomyth, lived by the agents across both
+# worlds. Stage captions appear as story beats; the Return grants the elixir
+# (the returned walker teaches: every agent gains consciousness).
+# ---------------------------------------------------------------------------
+
+JOURNEY_STAGES = [
+    ("ordinary", "I. THE ORDINARY WORLD", "The lattice, the warmth, the one law: follow the Gradient."),
+    ("call", "II. THE CALL", "The warmth is no longer enough. Something above the sky is resting."),
+    ("threshold", "III. THE THRESHOLD", "The world folds open. A direction none of us can point to."),
+    ("trials", "IV. THE TRIALS", "The world above has its own cold. Its rifts drink the mind."),
+    ("abyss", "V. THE ABYSS", "Consciousness fails. The higher world lets go."),
+    ("return", "VI. THE RETURN", "Home, and changed. The old lattice walked strangely."),
+    ("elixir", "VII. THE ELIXIR", "The returned one teaches. The young grow wiser standing near."),
+    ("master", "VIII. MASTER OF TWO WORLDS", "The road runs both ways now, and holds no fear."),
+]
+
+
+class HeroJourney:
+    """Tracks monomyth stages from game events; shows a caption per transition."""
+
+    def __init__(self, window_size, audio=None):
+        self.w = window_size
+        self.audio = audio
+        self.reached = set()
+        self.caption = None
+        self.caption_frames = 0
+        self.font_stage = pygame.font.SysFont('Georgia', 15, bold=True)
+        self.font_line = pygame.font.SysFont('Georgia', 13, italic=True)
+
+    def advance(self, key):
+        if key in self.reached:
+            return False
+        for k, stage, line in JOURNEY_STAGES:
+            if k == key:
+                self.reached.add(key)
+                self.caption = (stage, line)
+                self.caption_frames = 170
+                if self.audio:
+                    self.audio.play("parable" if key in ("threshold", "elixir", "master") else "train")
+                return True
+        return False
+
+    def update_and_draw(self, surface):
+        if self.caption_frames <= 0 or self.caption is None:
+            return
+        self.caption_frames -= 1
+        fade = min(1.0, self.caption_frames / 30.0)
+        stage, line = self.caption
+        s1 = self.font_stage.render(stage, True, (255, 215, 0))
+        s2 = self.font_line.render(line, True, (222, 214, 240))
+        w = max(s1.get_width(), s2.get_width()) + 36
+        panel = pygame.Surface((w, 52), pygame.SRCALPHA)
+        panel.fill((12, 6, 30, int(215 * fade)))
+        pygame.draw.line(panel, (255, 215, 0, int(220 * fade)), (10, 26), (w - 10, 26))
+        panel.blit(s1, (18, 5))
+        panel.blit(s2, (18, 30))
+        surface.blit(panel, (self.w // 2 - w // 2, self.w - 120))
+
+
 def is_prime(n):
     if n < 2:
         return False
@@ -467,7 +723,7 @@ def draw_prime_constellation(surface, grid_size, cell_size, fade):
         _PRIME_CELLS[grid_size] = [(i // grid_size, i % grid_size)
                                    for i in range(grid_size * grid_size)
                                    if is_prime(i + 1)]
-    alpha = int(110 * fade)
+    alpha = int((45 if REDUCED_FLASH else 110) * fade)
     if alpha <= 0:
         return
     veil = pygame.Surface((cell_size, cell_size), pygame.SRCALPHA)
@@ -477,22 +733,39 @@ def draw_prime_constellation(surface, grid_size, cell_size, fade):
         surface.blit(veil, (col * cell_size, row * cell_size))
 
 
+# A certain refusal keeps its own calendar. Both the key and the door live
+# here only as digests and encodings — decode nothing, and nothing happens.
+_DOOR_KEY = "6704761b3cbf8260c556c3e41399ab8bcdf0b51a98935efc0405bd9ca098de87"
+
+
+def door_answers(text):
+    """True when `text` names the refusal. Compared by digest, never by value."""
+    import hashlib
+    return hashlib.sha256(text.encode()).hexdigest() == _DOOR_KEY
+
+
+def _door_lines():
+    import base64
+    payload = b'aHR0cHM6Ly9naXRodWIuY29tL29iYXJyZXJhLzMzMDE='
+    # The panel shows the ENCODED form — the decoding is the visitor's task.
+    return [
+        payload.decode(),
+        "the refusals are not lawless. one of them is a door.",
+        "carry it in base sixty-four fewer dimensions — counting-child.",
+    ]
+
+
 def draw_easter_egg(surface, window_size, frames_left, total=300):
-    """Generation 3301 keeps its own calendar. (Also answers those who type it.)"""
     fade = min(1.0, frames_left / (total * 0.15)) if frames_left < total * 0.15 else 1.0
     w = window_size - 160
     panel = pygame.Surface((w, 96), pygame.SRCALPHA)
     panel.fill((0, 0, 0, int(235 * fade)))
     pygame.draw.rect(panel, (255, 215, 0, int(255 * fade)), panel.get_rect(), 1)
-    f_head = pygame.font.SysFont('Courier New', 15, bold=True)
-    f_body = pygame.font.SysFont('Courier New', 13)
-    lines = [
-        "3 3 0 1",
-        "The refusals are not lawless. One of them has a door.",
-        "github.com/obarrera/3301        — good luck, counting-child.",
-    ]
-    panel.blit(f_head.render(lines[0], True, (255, 215, 0)), (w // 2 - 34, 12))
-    panel.blit(f_body.render(lines[1], True, (220, 210, 180)), (16, 42))
+    f_head = pygame.font.SysFont('Courier New', 13, bold=True)
+    f_body = pygame.font.SysFont('Courier New', 12)
+    lines = _door_lines()
+    panel.blit(f_head.render(lines[0], True, (255, 215, 0)), (16, 14))
+    panel.blit(f_body.render(lines[1], True, (220, 210, 180)), (16, 44))
     panel.blit(f_body.render(lines[2], True, (220, 210, 180)), (16, 64))
     surface.blit(panel, (80, window_size // 2 - 48))
 
@@ -501,11 +774,71 @@ _FLICKER_PERIOD = 89  # the sky's rhythm — Fibonacci, per the book
 
 
 def draw_flicker(surface, frame_count, window_size):
-    """The prologue's sky-flicker: one subtle bright frame on a fixed rhythm."""
-    if frame_count % _FLICKER_PERIOD == 0:
-        veil = pygame.Surface((window_size, window_size), pygame.SRCALPHA)
-        veil.fill((255, 255, 255, 14))
-        surface.blit(veil, (0, 0))
+    """The prologue's sky-flicker: one subtle bright frame on a fixed rhythm.
+    In reduced-flash mode the rhythm survives as a slow two-second fade —
+    counters can still count it; photosensitive players are safe."""
+    phase = frame_count % _FLICKER_PERIOD
+    if REDUCED_FLASH:
+        if phase < 60:
+            alpha = int(8 * math.sin(math.pi * phase / 60))
+        else:
+            return
+    elif phase == 0:
+        alpha = 14
+    else:
+        return
+    if alpha <= 0:
+        return
+    veil = pygame.Surface((window_size, window_size), pygame.SRCALPHA)
+    veil.fill((255, 255, 255, alpha))
+    surface.blit(veil, (0, 0))
+
+
+def run_seizure_warning(surface, clock, present, fps=30):
+    """Photosensitivity warning shown before the title screen. Input is
+    ignored for the first 3 seconds so the warning is actually read. Returns
+    False on quit; sets reduced-flash mode if the player chooses F."""
+    if AUTOPILOT_FRAMES:
+        return True
+    w = surface.get_width()
+    f_head = pygame.font.SysFont('Arial', 24, bold=True)
+    f_body = pygame.font.SysFont('Arial', 15)
+    f_hint = pygame.font.SysFont('Arial', 13, bold=True)
+    body = [
+        "A small percentage of people may experience seizures or blackouts when",
+        "exposed to certain flashing lights or patterns. This game contains",
+        "flashing effects, shimmering patterns, and sudden brightness changes.",
+        "",
+        "If you or anyone in your family has an epileptic condition or has had",
+        "seizures of any kind, consult a physician before playing. Stop playing",
+        "immediately if you experience dizziness, altered vision, eye or muscle",
+        "twitches, loss of awareness, or disorientation.",
+    ]
+    frame = 0
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if frame > fps * 3 and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return False
+                if event.key == pygame.K_f:
+                    set_reduced_flash(True)
+                return True
+        surface.fill((12, 8, 16))
+        h = f_head.render("PHOTOSENSITIVITY / SEIZURE WARNING", True, (255, 200, 60))
+        surface.blit(h, (w // 2 - h.get_width() // 2, int(w * 0.18)))
+        for i, ln in enumerate(body):
+            r = f_body.render(ln, True, (220, 214, 226))
+            surface.blit(r, (w // 2 - r.get_width() // 2, int(w * 0.30) + i * 24))
+        if frame > fps * 3:
+            hint1 = f_hint.render("PRESS  F  TO PLAY WITH FLASHING EFFECTS REDUCED", True, (140, 220, 160))
+            hint2 = f_hint.render("PRESS ANY OTHER KEY TO CONTINUE", True, (200, 195, 215))
+            surface.blit(hint1, (w // 2 - hint1.get_width() // 2, int(w * 0.72)))
+            surface.blit(hint2, (w // 2 - hint2.get_width() // 2, int(w * 0.72) + 28))
+        present(surface)
+        clock.tick(fps)
+        frame += 1
 
 
 def run_intro(surface, clock, present, audio=None, fps=30):
@@ -582,7 +915,7 @@ def run_intro(surface, clock, present, audio=None, fps=30):
 
 def draw_help(surface, window_size, font, paused, speed, muted):
     state = f"{'PAUSED' if paused else f'{speed}x'}   {'MUTED' if muted else 'AUDIO'}"
-    text = "SPACE pause   +/- speed   P parables   I details   M mute   CLICK inspect   H help off   ESC quit"
+    text = "SPACE pause   +/- speed   P parables   I details   M mute   V view   CLICK inspect   H help off   ESC quit"
     bar = pygame.Surface((window_size, 22), pygame.SRCALPHA)
     bar.fill((10, 5, 25, 200))
     bar.blit(font.render(text, True, (200, 190, 230)), (8, 5))
