@@ -27,6 +27,30 @@ def set_reduced_flash(value):
     global REDUCED_FLASH
     REDUCED_FLASH = bool(value)
 
+
+# ---------------------------------------------------------------------------
+# The Oracle hook — ouroboros.py registers an embellisher here so every
+# parable gains an iteration-specific closing line. The Nth turning's elders
+# do not tell quite the same stories.
+# ---------------------------------------------------------------------------
+
+_ORACLE = None
+
+
+def set_oracle(fn):
+    """Register `fn(key, text) -> text` (idempotent) as the parable oracle."""
+    global _ORACLE
+    _ORACLE = fn
+
+
+def oracle_text(key, text):
+    if _ORACLE is None:
+        return text
+    try:
+        return _ORACLE(key, text)
+    except Exception:
+        return text
+
 # ---------------------------------------------------------------------------
 # The parables — unlocked by simulation milestones. Each entry:
 #   key, title, trigger description, condition(stats) -> bool, text

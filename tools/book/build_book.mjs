@@ -92,7 +92,8 @@ const css = `
   .cover .rule { width: 1.6in; border-top: 2px solid #6d28d9; margin: 1.1em auto; }
   .frontmatter, .chapter, .toc { page-break-before: always; }
   .part-banner { page-break-before: always; padding-top: 2.8in; text-align: center; }
-  .part-banner.has-art { padding-top: 0.9in; }
+  .part-banner.has-art { padding-top: 0.55in; }
+  .part-banner img { max-height: 5.3in; width: auto; max-width: 86%; }
   .part-banner .part-no { font-size: 11pt; letter-spacing: 0.35em; text-transform: uppercase; color: #6d28d9; }
   .part-banner h1 { font-size: 21pt; margin-top: 0.6em; }
   .toc h1 { text-align: center; }
@@ -100,12 +101,17 @@ const css = `
   .toc li { margin: 0.28em 0; }
   .toc .part { font-weight: bold; margin-top: 0.9em; }
   .toc .sec { padding-left: 1.4em; }
+  .toc a { text-decoration: none; color: inherit; display: block; padding-right: 0.45in; }
+  .toc .part a { border-bottom: 1px dotted #bbb; }
+  .legal { padding-top: 2.4in; font-size: 9.5pt; color: #333; }
+  .legal p { text-align: center; hyphens: none; max-width: 4.2in; margin: 0.45em auto; }
+  .legal p.gap { margin-top: 1.8em; }
   .epistemic { font-size: 9.5pt; color: #333; border: 0.5px solid #bbb; padding: 0.8em 1em;
                margin-top: 2em; }
   @page coverpage { size: 6.14in 9.21in; margin: 0; }
   .cover-art { page: coverpage; page-break-after: always; page-break-before: always; }
   .cover-art img { width: 6.14in; height: 9.21in; object-fit: cover; display: block; }
-  .chapter img, .frontmatter img { display: block; margin: 1.2em auto; max-width: 88%; page-break-inside: avoid; }
+  .chapter img, .frontmatter img { display: block; margin: 1.2em auto; max-width: 96%; page-break-inside: avoid; }
 `;
 
 function coverArt(candidates) {
@@ -119,15 +125,24 @@ const frontCoverArt = coverArt([
   'media/art/00_COVER_FRONT_Electronic_Consciousness_Orlando_Barrera_II.png',
   'media/book-cover.png', 'media/book-cover.jpg']);
 const backCoverArt = coverArt([
+  'media/art/99b_COVER_BACK_digital_no_barcode.png',
   'media/art/99_COVER_BACK_Electronic_Consciousness_Orlando_Barrera_II.png',
   'media/book-back-cover.png', 'media/book-back-cover.jpg']);
 
 // Part-opener illustrations rendered inside the part banner (art-pack manifest)
 const PART_ART = {
+  1: 'media/art/e01_CH1_The_Cave_Engraved.png',
+  2: 'media/art/e02_CH2_The_Threshold_and_the_Eye.png',
+  3: 'media/art/e03_CH3_The_Ascent.png',
+  5: 'media/art/e04_CH5_The_Meditation_of_Forms.png',
   6: 'media/art/04_PART_6_Sacred_Geometry_as_Hypothesis.png',
   7: 'media/art/05_PART_7_Ethics_Governance_and_Moral_Uncertainty.png',
+  12: 'media/art/e05_CH12_The_City_of_Minds.png',
+  14: 'media/art/e08_CH14_The_Surveyors_Road.png',
+  15: 'media/art/e07_CH15_The_Circle_of_Traditions.png',
   16: 'media/art/08_PART_16_From_Speculation_to_Testable_Research.png',
 };
+const REFERENCES_ART = 'media/art/e06_REFERENCES_The_Study.png';
 
 const chapters = chapterFiles();
 let body = '';
@@ -144,12 +159,29 @@ if (frontCoverArt) {
   <div class="sub" style="margin-top:0.4em">github.com/obarrera/Electronic-Consciousness</div>
   <div class="sub" style="margin-top:0.8em">Second Edition — revision 2.2 · August 2026</div>
 </div>`;
-if (frontCoverArt) body += `<div class="cover" style="padding-top:3in">
+const titlePlate = coverArt(['media/art/f01_TITLE_PAGE.png']);
+const dedicationPlate = coverArt(['media/art/f03_DEDICATION_PAGE.png']);
+if (titlePlate) body += `<div class="cover-art"><img src="${titlePlate}"></div>`;
+else if (frontCoverArt) body += `<div class="cover" style="padding-top:3in">
   <h1>Electronic Consciousness</h1><div class="rule"></div>
   <div class="sub">A Speculative Manifesto on Minds and the Realities They Inhabit</div>
   <div class="author">Orlando Barrera II</div>
-  <div class="sub" style="margin-top:0.6em">Second Edition — revision 2.2 · August 2026<br>github.com/obarrera/Electronic-Consciousness</div>
 </div>`;
+// Legal / licensing page (typeset; states the actual licensing model)
+body += `<div class="frontmatter legal">
+  <p><strong>Electronic Consciousness:<br>A Speculative Manifesto on Minds and the Realities They Inhabit</strong></p>
+  <p>Cover strapline: <em>Mind, Machine, and the Nature of Awareness</em></p>
+  <p>Second Edition — revision 2.2 · August 2026</p>
+  <p class="gap">Copyright © 2026 Orlando Barrera II</p>
+  <p>The book's source text and the companion software are published in the open repository
+  github.com/obarrera/Electronic-Consciousness under the MIT License (see the repository's
+  LICENSE file). Cover artwork and interior illustrations are by and © the author and are
+  included by the author's permission. Quotations from third-party works remain the property
+  of their respective rights holders and are cited in the References.</p>
+  <p class="gap">The full bibliography, the machine-readable claim ledger (claims.yaml),
+  the narrated video editions, and the EC-2D-Land simulation live in the same repository.</p>
+</div>`;
+if (dedicationPlate) body += `<div class="cover-art"><img src="${dedicationPlate}"></div>`;
 
 // Abstract + epistemic note
 body += `<div class="frontmatter"><h1>Abstract</h1>${marked.parse(cleanMarkdown(abstractFromReadme()))}
@@ -161,25 +193,25 @@ claims are falsifiable.</div></div>`;
 
 // Table of contents
 body += '<div class="toc"><h1>Contents</h1><ol>';
-for (const fp of FRONT_PIECES) body += `<li class="part">${esc(fp.title)}</li>`;
+for (const fp of FRONT_PIECES) body += `<li class="part"><a href="#front-${FRONT_PIECES.indexOf(fp)}">${esc(fp.title)}</a></li>`;
 let tocPart = 0;
 for (const ch of chapters) {
   if (ch.major !== tocPart) {
     tocPart = ch.major;
-    body += `<li class="part">Part ${tocPart} — ${esc(PARTS[tocPart] || '')}</li>`;
+    body += `<li class="part"><a href="#part-${tocPart}">Chapter ${tocPart} — ${esc(PARTS[tocPart] || '')}</a></li>`;
   }
   const title = ch.file.replace(/\.md$/, '');
-  body += `<li class="sec">${esc(title)}</li>`;
+  body += `<li class="sec"><a href="#sec-${ch.major}-${ch.minor}">${esc(title)}</a></li>`;
 }
-for (const bp of BACK_PIECES) body += `<li class="part">${esc(bp.title)}</li>`;
-body += `<li class="part">References</li>`;
+for (const bp of BACK_PIECES) body += `<li class="part"><a href="#back-${BACK_PIECES.indexOf(bp)}">${esc(bp.title)}</a></li>`;
+body += `<li class="part"><a href="#references">References</a></li>`;
 body += '</ol></div>';
 
 // Front pieces
-for (const fp of FRONT_PIECES) {
+FRONT_PIECES.forEach((fp, i) => {
   const md = cleanMarkdown(fs.readFileSync(path.join(ROOT, fp.file), 'utf8'));
-  body += `<div class="frontmatter">${marked.parse(md)}</div>`;
-}
+  body += `<div class="frontmatter" id="front-${i}">${marked.parse(md)}</div>`;
+});
 
 // Chapters grouped in parts
 let currentPart = 0;
@@ -187,31 +219,36 @@ for (const ch of chapters) {
   if (ch.major !== currentPart) {
     currentPart = ch.major;
     const partArt = PART_ART[currentPart] && fs.existsSync(path.join(ROOT, PART_ART[currentPart]))
-      ? `<img src="file://${path.join(ROOT, PART_ART[currentPart])}" style="max-width:80%; margin-top:0.9in">` : '';
-    body += `<div class="part-banner${partArt ? ' has-art' : ''}"><div class="part-no">Part ${currentPart}</div>
+      ? `<img src="file://${path.join(ROOT, PART_ART[currentPart])}" style="max-width:82%; max-height:4.9in; width:auto; margin-top:0.25in">` : '';
+    body += `<div class="part-banner${partArt ? ' has-art' : ''}" id="part-${currentPart}"><div class="part-no">Chapter ${currentPart}</div>
       <h1>${esc(PARTS[currentPart] || '')}</h1>${partArt}</div>`;
   }
   const md = cleanMarkdown(fs.readFileSync(path.join(ROOT, ch.file), 'utf8'));
-  body += `<div class="chapter">${marked.parse(md)}</div>`;
+  body += `<div class="chapter" id="sec-${ch.major}-${ch.minor}">${marked.parse(md)}</div>`;
 }
 
 // Back matter pieces: Conclusion, then mythic postludes
-for (const bp of BACK_PIECES) {
+BACK_PIECES.forEach((bp, i) => {
   const md = cleanMarkdown(fs.readFileSync(path.join(ROOT, bp.file), 'utf8'));
-  body += `<div class="chapter" style="page-break-before: always">${marked.parse(md)}</div>`;
-}
+  body += `<div class="chapter" id="back-${i}" style="page-break-before: always">${marked.parse(md)}</div>`;
+});
 
 // References
 const refsPath = path.join(ROOT, 'References.md');
 if (fs.existsSync(refsPath)) {
   const md = cleanMarkdown(fs.readFileSync(refsPath, 'utf8'));
-  body += `<div class="part-banner"><div class="part-no">Back Matter</div><h1>References</h1></div>`;
+  const refArt = fs.existsSync(path.join(ROOT, REFERENCES_ART))
+    ? `<img src="file://${path.join(ROOT, REFERENCES_ART)}" style="max-height:4.9in; width:auto; margin-top:0.25in">` : '';
+  body += `<div class="part-banner${refArt ? ' has-art' : ''}" id="references"><div class="part-no">Back Matter</div><h1>References</h1>${refArt}</div>`;
   body += `<div class="chapter">${marked.parse(md)}</div>`;
 }
 
 // License / colophon
 body += `<div class="frontmatter"><h1>Colophon</h1>
 <p><strong>Second Edition — revision 2.2 (August 2026).</strong></p>
+<p><em>On the plates:</em> the engraved chapter plates are by the author. Their recurring
+cicada is the book's emblem of cycles and rebirth — the creature that lives long underground,
+climbs into the light, and begins again, as the Lattice's agents do across every Long Tick.</p>
 <p>Assembled from the living repository at github.com/obarrera/Electronic-Consciousness.
 The companion simulation, EC-2D-Land, and the narrated video overviews are available in the
 same repository. See the repository LICENSE for terms.</p></div>`;
@@ -226,19 +263,50 @@ fs.writeFileSync(htmlPath, html);
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage();
 await page.goto('file://' + htmlPath, { waitUntil: 'networkidle', timeout: 120000 });
+const pdfBase = {
+  margin: { top: '0.85in', bottom: '0.85in', left: '0.7in', right: '0.7in' },
+  width: '6.14in',
+  height: '9.21in',
+  printBackground: true,
+};
+const withHeaders = OUT_PDF.replace(/\.pdf$/, '.headers.pdf');
+const noHeaders = OUT_PDF.replace(/\.pdf$/, '.noheaders.pdf');
 await page.pdf({
-  path: OUT_PDF,
+  ...pdfBase,
+  path: withHeaders,
   displayHeaderFooter: true,
   headerTemplate: `<div style="font-size:7.5pt;font-family:Georgia,serif;color:#666;width:100%;
     text-align:center;">Electronic Consciousness</div>`,
   footerTemplate: `<div style="font-size:8pt;font-family:Georgia,serif;color:#444;width:100%;
     text-align:center;"><span class="pageNumber"></span></div>`,
-  margin: { top: '0.85in', bottom: '0.85in', left: '0.7in', right: '0.7in' },
-  width: '6.14in',
-  height: '9.21in',
-  printBackground: true,
 });
+await page.pdf({ ...pdfBase, path: noHeaders, displayHeaderFooter: false });
 await browser.close();
 fs.unlinkSync(htmlPath);
+
+// Post-process: splice header-free plates, set metadata, add bookmarks.
+// Front plate pages: cover + title plate + legal page + dedication (each one page).
+const frontPlates = 1 + (frontCoverArt ? 0 : 0) + (titlePlate ? 1 : 0) + 1 + (dedicationPlate ? 1 : 0);
+const outlineItems = [];
+for (const fp of FRONT_PIECES) outlineItems.push([1, fp.title]);
+{
+  let toPart = 0;
+  for (const ch of chapters) {
+    if (ch.major !== toPart) {
+      toPart = ch.major;
+      outlineItems.push([1, `Chapter ${toPart} — ${PARTS[toPart] || ''}`]);
+    }
+    outlineItems.push([2, ch.file.replace(/\.md$/, '')]);
+  }
+}
+for (const bp of BACK_PIECES) outlineItems.push([1, bp.title]);
+outlineItems.push([1, 'References']);
+const { execFileSync } = await import('node:child_process');
+execFileSync('python3', [
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'postprocess.py'),
+  withHeaders, noHeaders, OUT_PDF, String(frontPlates), JSON.stringify(outlineItems),
+], { stdio: 'inherit' });
+fs.unlinkSync(withHeaders);
+fs.unlinkSync(noHeaders);
 const stat = fs.statSync(OUT_PDF);
 console.log(`Wrote ${OUT_PDF} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);

@@ -26,7 +26,7 @@ The manifesto examines the distinctions between electronic and biological consci
 recursive simulation and reality layers, higher-dimensional representation, contested
 theories of consciousness, and the mythic and esoteric symbol systems that inform design
 imagination — with claim-level citations keyed to a verified bibliography, an explicit
-epistemic-status chapter (1.4), and a closing chapter (16.2) that argues against itself
+epistemic-status chapter (1.4), and a penultimate critical chapter (16.2) that argues against itself
 as hard as it can.
 
 ---
@@ -261,6 +261,13 @@ road-song is true). Statuses (`proposed | implemented | supported | falsified`) 
 fields update as experiments actually run.
 
 ---
+
+
+| Mark | Meaning | Entries | Status |
+|------|---------|--------:|--------|
+| break | empirically testable — carries its falsification condition | 56 | all *proposed* |
+| circle | philosophical — no count settles it | 5 | open |
+| wave | mythic — sung, never navigated by | 6 | — |
 
 ## 18. References
 

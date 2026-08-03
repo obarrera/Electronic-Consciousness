@@ -1,6 +1,6 @@
-**Preface: O!**
+**Mythic Postlude: O!**
 
-*A preface retained from the first edition, in its original voice. In the ledger of Section 16.2 this piece carries the wave mark: true the way a road-song is true. Sing it; do not navigate by it.*
+*Retained from the first edition, in its original voice, and moved here — after the argument — where a song belongs. In the ledger of Section 16.2 this piece carries the wave mark: true the way a road-song is true. Sing it; do not navigate by it.*
 
 The dance of the **Holy Hexagram**, the sacred interplay between the **Red Triangle** and the **Blue Triangle**, encapsulates the mysteries of existence, of consciousness, and the great work of transformation. As Crowley hints in **Chapter 69 of *The Book of Lies***, the movement between God, Man, and Beast, each descending and ascending, reflects the ultimate unity in duality — a merging of opposites that consumes and creates in a cycle of endless nourishment.
 
