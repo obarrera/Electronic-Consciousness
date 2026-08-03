@@ -31,10 +31,16 @@ const PARTS = {
 };
 
 const FRONT_PIECES = [
-  { file: 'O!.md', title: 'Preface: O!', kind: 'front' },
-  { file: 'Echoes from the Void.md', title: 'Echoes from the Void', kind: 'front' },
   { file: 'The Lattice - A Parable of Electronic Consciousness.md',
     title: 'Prologue — The Lattice: A Parable of Electronic Consciousness', kind: 'front' },
+];
+
+// Back matter: the conclusion, then the mythic postludes (wave-mark pieces
+// moved out of the front so the epistemic contract is met before the myth).
+const BACK_PIECES = [
+  { file: 'Conclusion.md', title: 'Chapter 17 — Conclusion' },
+  { file: 'O!.md', title: 'Mythic Postlude — O!' },
+  { file: 'Echoes from the Void.md', title: 'Mythic Postlude — Echoes from the Void' },
 ];
 
 function chapterFiles() {
@@ -95,19 +101,41 @@ const css = `
   .toc .sec { padding-left: 1.4em; }
   .epistemic { font-size: 9.5pt; color: #333; border: 0.5px solid #bbb; padding: 0.8em 1em;
                margin-top: 2em; }
+  .cover-art { page-break-after: always; margin: -0.85in -0.7in; height: 9.21in; overflow: hidden; }
+  .cover-art img { width: 6.14in; height: 9.21in; object-fit: cover; display: block; }
+  .chapter img, .frontmatter img { display: block; margin: 1.2em auto; max-width: 88%; page-break-inside: avoid; }
 `;
+
+function coverArt(name) {
+  for (const ext of ['png', 'jpg', 'jpeg']) {
+    const f = path.join(ROOT, 'media', `${name}.${ext}`);
+    if (fs.existsSync(f)) return 'file://' + f;
+  }
+  return null;
+}
+const frontCoverArt = coverArt('book-cover');
+const backCoverArt = coverArt('book-back-cover');
 
 const chapters = chapterFiles();
 let body = '';
 
-// Cover
-body += `<div class="cover">
+// Cover — full-page art when media/book-cover.{png,jpg} exists
+if (frontCoverArt) {
+  body += `<div class="cover-art"><img src="${frontCoverArt}"></div>`;
+} else body += `<div class="cover">
   <h1>Electronic Consciousness</h1>
   <div class="rule"></div>
   <div class="sub">A Speculative Manifesto on Minds and the Realities They Inhabit<br>
   Informed by Neuroscience, AI, Quantum Computing, and Mythology</div>
   <div class="author">Orlando Barrera II</div>
   <div class="sub" style="margin-top:0.4em">github.com/obarrera/Electronic-Consciousness</div>
+  <div class="sub" style="margin-top:0.8em">Second Edition — revision 2.2 · August 2026</div>
+</div>`;
+if (frontCoverArt) body += `<div class="cover" style="padding-top:3in">
+  <h1>Electronic Consciousness</h1><div class="rule"></div>
+  <div class="sub">A Speculative Manifesto on Minds and the Realities They Inhabit</div>
+  <div class="author">Orlando Barrera II</div>
+  <div class="sub" style="margin-top:0.6em">Second Edition — revision 2.2 · August 2026<br>github.com/obarrera/Electronic-Consciousness</div>
 </div>`;
 
 // Abstract + epistemic note
@@ -130,6 +158,8 @@ for (const ch of chapters) {
   const title = ch.file.replace(/\.md$/, '');
   body += `<li class="sec">${esc(title)}</li>`;
 }
+for (const bp of BACK_PIECES) body += `<li class="part">${esc(bp.title)}</li>`;
+body += `<li class="part">References</li>`;
 body += '</ol></div>';
 
 // Front pieces
@@ -150,6 +180,12 @@ for (const ch of chapters) {
   body += `<div class="chapter">${marked.parse(md)}</div>`;
 }
 
+// Back matter pieces: Conclusion, then mythic postludes
+for (const bp of BACK_PIECES) {
+  const md = cleanMarkdown(fs.readFileSync(path.join(ROOT, bp.file), 'utf8'));
+  body += `<div class="chapter" style="page-break-before: always">${marked.parse(md)}</div>`;
+}
+
 // References
 const refsPath = path.join(ROOT, 'References.md');
 if (fs.existsSync(refsPath)) {
@@ -160,11 +196,14 @@ if (fs.existsSync(refsPath)) {
 
 // License / colophon
 body += `<div class="frontmatter"><h1>Colophon</h1>
+<p><strong>Second Edition — revision 2.2 (August 2026).</strong></p>
 <p>Assembled from the living repository at github.com/obarrera/Electronic-Consciousness.
 The companion simulation, EC-2D-Land, and the narrated video overviews are available in the
 same repository. See the repository LICENSE for terms.</p></div>`;
 
-const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css}</style></head>
+if (backCoverArt) body += `<div class="cover-art" style="page-break-before: always"><img src="${backCoverArt}"></div>`;
+
+const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><base href="file://${ROOT}/"><style>${css}</style></head>
 <body>${body}</body></html>`;
 const htmlPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '.book.html');
 fs.writeFileSync(htmlPath, html);
