@@ -424,51 +424,12 @@ This combination—a unified architecture stated plainly alongside its own falsi
 
 ## 18. References
 
-1. Bostrom, N. (2014). *Superintelligence: Paths, Dangers, Strategies*. Oxford University Press.
-
-2. Chalmers, D. J. (1996). *The Conscious Mind: In Search of a Fundamental Theory*. Oxford University Press.
-
-3. Dehaene, S. (2014). *Consciousness and the Brain: Deciphering How the Brain Codes Our Thoughts*. Viking Press.
-
-4. Floridi, L. (2016). *The Ethics of Information*. Oxford University Press.
-
-5. Nielsen, M. A., & Chuang, I. L. (2010). *Quantum Computation and Quantum Information*. Cambridge University Press.
-
-6. Preskill, J. (2018). Quantum Computing in the NISQ era and beyond. *Quantum*, 2, 79.
-
-7. Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach* (4th ed.). Pearson.
-
-8. Tononi, G. (2012). *Phi: A Voyage from the Brain to the Soul*. Pantheon Books.
-
-9. Crowley, A. (1913). *The Book of Lies*. Weiser Books.
-
-10. Jung, C. G. (1968). *The Archetypes and the Collective Unconscious*. Princeton University Press.
-
-11. Hofstadter, D. R. (1979). *Gödel, Escher, Bach: An Eternal Golden Braid*. Basic Books.
-
-12. Mitchell, M. (2021). Why AI is Harder Than We Think. *arXiv preprint* arXiv:2104.12871.
-
-13. Scholem, G. (1974). *Kabbalah*. Keter Publishing.
-
-14. Lao Tzu. *Tao Te Ching*. Various translations.
-
-15. Searle, J. R. (1980). Minds, brains, and programs. *Behavioral and Brain Sciences*, 3(3), 417–424.
-
-16. Block, N. (1995). On a confusion about a function of consciousness. *Behavioral and Brain Sciences*, 18(2), 227–247.
-
-17. Aaronson, S. (2014). Why I Am Not An Integrated Information Theorist (or, The Unconscious Expander). *Shtetl-Optimized* (blog).
-
-18. Baars, B. J. (1988). *A Cognitive Theory of Consciousness*. Cambridge University Press.
-
-19. Plato. *The Republic*, Book VII (the Allegory of the Cave). Various translations.
-
-20. Three Initiates. (1908). *The Kybalion: A Study of the Hermetic Philosophy of Ancient Egypt and Greece*. Yogi Publication Society.
-
-21. Nagel, T. (1974). What is it like to be a bat? *The Philosophical Review*, 83(4), 435–450.
-
-22. Bostrom, N. (2003). Are You Living in a Computer Simulation? *Philosophical Quarterly*, 53(211), 243–255.
-
-23. Good, I. J. (1965). Speculations Concerning the First Ultraintelligent Machine. *Advances in Computers*, 6, 31–88.
+The full bibliography lives in **[References.md](References.md)** — 133 sources, each
+verified against its publisher of record (journal page, DOI, arXiv listing, court reporter,
+or publisher catalogue), organized by field and indexed by the bracketed author–year keys
+the chapters cite inline (e.g. `[Butlin et al. 2023]`, `[Cogitate Consortium 2025]`,
+`[Markowsky 1992]`). Entries that are not peer-reviewed — blog essays, historical esoteric
+texts, popular books — are labeled as such where they appear.
 
 ---
 
