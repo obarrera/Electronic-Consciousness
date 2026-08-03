@@ -353,7 +353,7 @@ class AudioEngine:
         channel, ducking the ambient/binaural bed. Returns duration (s) or 0."""
         if not self.ok:
             return 0.0
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "narration", f"{key}.ogg")
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "narration", f"{key}.mp3")
         if not os.path.isfile(path):
             return 0.0
         try:
@@ -509,6 +509,8 @@ class ParableOverlay:
         key, title, trigger, cond, text = PARABLES[self.active]
         self.reveal = min(len(text), self.reveal + 2.2)
         if self.reveal >= len(text):
+            if self.audio and self.audio.narrating():
+                self.hold = max(self.hold, 30)  # stays while the elder speaks
             self.hold -= 1
             if self.hold <= 0:
                 self.active = None
@@ -591,9 +593,13 @@ class Cutscene:
         self._frame = 0
         if AUTOPILOT_FRAMES:
             dur = 0.0          # unattended runs: short, silent cutscenes
+            reading_floor = 6.0
         else:
             dur = self.audio.narrate(key) if self.audio else 0.0
-        self._dur = max(6.0, dur + 1.2)
+            # No narration available? Hold long enough to READ the text
+            # comfortably (~16 chars/sec) — never a 6-second flash card.
+            reading_floor = max(8.0, len(text) * 0.062)
+        self._dur = max(reading_floor, dur + 1.2)
         self._t0 = pygame.time.get_ticks() / 1000.0
 
     def skip(self):

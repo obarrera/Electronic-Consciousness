@@ -29,7 +29,7 @@ def main():
         sys.exit("Kokoro not found — see the book video pipeline's setup notes.")
     OUT.mkdir(exist_ok=True)
     for key, title, trigger, cond, text in PARABLES:
-        ogg = OUT / f"{key}.ogg"
+        ogg = OUT / f"{key}.mp3"
         spoken = f"{title}. {text}"
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             wav = tmp.name
@@ -42,7 +42,7 @@ def main():
         )
         subprocess.run([str(PY), "-c", script], check=True)
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav,
-                        "-ac", "1", "-ar", "24000", "-b:a", "48k", str(ogg)], check=True)
+                        "-ac", "1", "-ar", "24000", "-c:a", "libmp3lame", "-b:a", "48k", str(ogg)], check=True)
         os.unlink(wav)
         print(f"{ogg.name}: {ogg.stat().st_size // 1024} KB")
     print(f"Done: {len(PARABLES)} narrations in {OUT}/")
