@@ -109,8 +109,8 @@ if chapters:
     lines += ["## Chapters", ""]
     lines += [f"{fmt_ts(t)} {title}" for t, title in chapters]
     lines += [""]
-tags = "socket, supply chain security, dependency security"
-tags += ", socket academy" if cfg.get("video_type") == "training" else ", software supply chain"
+tags = "electronic consciousness, philosophy of mind, plato, flatland, simulation theory"
+tags += ", speculative philosophy"
 video_note = "final video (chapters embedded)" if chapters else "final video"
 lines += ["## Files", "",
           f"- `{name}` — {video_note}",

@@ -326,11 +326,11 @@ async function callout(page, text) {
       // transformed ancestor would drag the fixed-position callout with it.
       document.documentElement.appendChild(el);
     }
-    el.innerHTML = `<img class="socket-mark" src="${mark}" alt=""><span>${html}</span>`;
+    el.innerHTML = `<span class="socket-mark" style="font-size:26px;line-height:1;">&#9651;</span><span>${html}</span>`;
   // .catch: these run in the scene-loop preamble OUTSIDE the per-scene try — an
   // "Execution context was destroyed" during an in-flight navigation must not
   // kill the whole recording.
-  }, { html: esc(text), mark: SOCKET_MARK_DATA_URI }).catch(() => {});
+  }, { html: esc(text), mark: null }).catch(() => {});
 }
 
 async function clearHighlights(page) {
