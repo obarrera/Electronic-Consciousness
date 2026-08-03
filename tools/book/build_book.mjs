@@ -104,8 +104,8 @@ let body = '';
 body += `<div class="cover">
   <h1>Electronic Consciousness</h1>
   <div class="rule"></div>
-  <div class="sub">A Comprehensive Exploration of Theories, Applications, and Implications<br>
-  A Speculative Philosophical and Interdisciplinary Synthesis</div>
+  <div class="sub">A Visionary Speculative Manifesto on Consciousness and Reality<br>
+  Informed by Neuroscience, AI, Quantum Computing, and Mythology</div>
   <div class="author">Orlando Barrera II</div>
   <div class="sub" style="margin-top:0.4em">github.com/obarrera/Electronic-Consciousness</div>
 </div>`;
@@ -147,6 +147,14 @@ for (const ch of chapters) {
       <h1>${esc(PARTS[currentPart] || '')}</h1></div>`;
   }
   const md = cleanMarkdown(fs.readFileSync(path.join(ROOT, ch.file), 'utf8'));
+  body += `<div class="chapter">${marked.parse(md)}</div>`;
+}
+
+// References
+const refsPath = path.join(ROOT, 'References.md');
+if (fs.existsSync(refsPath)) {
+  const md = cleanMarkdown(fs.readFileSync(refsPath, 'utf8'));
+  body += `<div class="part-banner"><div class="part-no">Back Matter</div><h1>References</h1></div>`;
   body += `<div class="chapter">${marked.parse(md)}</div>`;
 }
 
