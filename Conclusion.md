@@ -16,6 +16,9 @@ The hard problem, first and always: Section 16.2 states plainly that no experime
 
 The five-layer sketch of Chapter 16 — the **EC Research Stack** — is a research program, not a recipe, and its next stage is not another chapter. It is execution, in this order:
 
+![The research program, in order](media/sketches/research-roadmap.png)
+
+
 1. **The claim ledger becomes infrastructure.** Every falsifiable proposition in this book is registered in [`claims.yaml`](claims.yaml) with its metric, baselines, and falsification condition, and each entry's status will move from *proposed* to *implemented* to *supported* or *falsified* as results arrive. A ledger entry that never moves is a confession.
 2. **Three flagship experiments run first**, chosen because they are classical, cheap, and decisive: workspace broadcast against its own ablation and routing baselines; an explicit self-model against a matched agent without one; and the sacred-geometry negative controls, where a well-designed null result would prove the wagers were real.
 3. **EC-2D-Land is, today, a narrative and educational simulation** — the Lattice made runnable, not evidence for any hypothesis. Becoming an experimental platform requires deterministic seeds, versioned configurations, observation and action interfaces, and reproducible result artifacts; until it has them, the book claims nothing from it but illustration.

@@ -92,7 +92,8 @@ const css = `
   .cover .rule { width: 1.6in; border-top: 2px solid #6d28d9; margin: 1.1em auto; }
   .frontmatter, .chapter, .toc { page-break-before: always; }
   .part-banner { page-break-before: always; padding-top: 2.8in; text-align: center; }
-  .part-banner.has-art { padding-top: 0.9in; }
+  .part-banner.has-art { padding-top: 0.55in; }
+  .part-banner img { max-height: 5.3in; width: auto; max-width: 86%; }
   .part-banner .part-no { font-size: 11pt; letter-spacing: 0.35em; text-transform: uppercase; color: #6d28d9; }
   .part-banner h1 { font-size: 21pt; margin-top: 0.6em; }
   .toc h1 { text-align: center; }
@@ -130,10 +131,18 @@ const backCoverArt = coverArt([
 
 // Part-opener illustrations rendered inside the part banner (art-pack manifest)
 const PART_ART = {
+  1: 'media/art/e01_CH1_The_Cave_Engraved.png',
+  2: 'media/art/e02_CH2_The_Threshold_and_the_Eye.png',
+  3: 'media/art/e03_CH3_The_Ascent.png',
+  5: 'media/art/e04_CH5_The_Meditation_of_Forms.png',
   6: 'media/art/04_PART_6_Sacred_Geometry_as_Hypothesis.png',
   7: 'media/art/05_PART_7_Ethics_Governance_and_Moral_Uncertainty.png',
+  12: 'media/art/e05_CH12_The_City_of_Minds.png',
+  14: 'media/art/e08_CH14_The_Surveyors_Road.png',
+  15: 'media/art/e07_CH15_The_Circle_of_Traditions.png',
   16: 'media/art/08_PART_16_From_Speculation_to_Testable_Research.png',
 };
+const REFERENCES_ART = 'media/art/e06_REFERENCES_The_Study.png';
 
 const chapters = chapterFiles();
 let body = '';
@@ -210,7 +219,7 @@ for (const ch of chapters) {
   if (ch.major !== currentPart) {
     currentPart = ch.major;
     const partArt = PART_ART[currentPart] && fs.existsSync(path.join(ROOT, PART_ART[currentPart]))
-      ? `<img src="file://${path.join(ROOT, PART_ART[currentPart])}" style="max-width:80%; margin-top:0.9in">` : '';
+      ? `<img src="file://${path.join(ROOT, PART_ART[currentPart])}" style="max-width:82%; max-height:4.9in; width:auto; margin-top:0.25in">` : '';
     body += `<div class="part-banner${partArt ? ' has-art' : ''}" id="part-${currentPart}"><div class="part-no">Chapter ${currentPart}</div>
       <h1>${esc(PARTS[currentPart] || '')}</h1>${partArt}</div>`;
   }
@@ -228,13 +237,18 @@ BACK_PIECES.forEach((bp, i) => {
 const refsPath = path.join(ROOT, 'References.md');
 if (fs.existsSync(refsPath)) {
   const md = cleanMarkdown(fs.readFileSync(refsPath, 'utf8'));
-  body += `<div class="part-banner" id="references"><div class="part-no">Back Matter</div><h1>References</h1></div>`;
+  const refArt = fs.existsSync(path.join(ROOT, REFERENCES_ART))
+    ? `<img src="file://${path.join(ROOT, REFERENCES_ART)}" style="max-height:4.9in; width:auto; margin-top:0.25in">` : '';
+  body += `<div class="part-banner${refArt ? ' has-art' : ''}" id="references"><div class="part-no">Back Matter</div><h1>References</h1>${refArt}</div>`;
   body += `<div class="chapter">${marked.parse(md)}</div>`;
 }
 
 // License / colophon
 body += `<div class="frontmatter"><h1>Colophon</h1>
 <p><strong>Second Edition — revision 2.2 (August 2026).</strong></p>
+<p><em>On the plates:</em> the engraved chapter plates are by the author. Their recurring
+cicada is the book's emblem of cycles and rebirth — the creature that lives long underground,
+climbs into the light, and begins again, as the Lattice's agents do across every Long Tick.</p>
 <p>Assembled from the living repository at github.com/obarrera/Electronic-Consciousness.
 The companion simulation, EC-2D-Land, and the narrated video overviews are available in the
 same repository. See the repository LICENSE for terms.</p></div>`;

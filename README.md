@@ -262,6 +262,13 @@ fields update as experiments actually run.
 
 ---
 
+
+| Mark | Meaning | Entries | Status |
+|------|---------|--------:|--------|
+| break | empirically testable — carries its falsification condition | 56 | all *proposed* |
+| circle | philosophical — no count settles it | 5 | open |
+| wave | mythic — sung, never navigated by | 6 | — |
+
 ## 18. References
 
 The full bibliography lives in **[References.md](References.md)** — 133 sources, each
