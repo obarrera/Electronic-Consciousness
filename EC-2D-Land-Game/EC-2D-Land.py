@@ -10,7 +10,10 @@ from OpenGL.GLU import *
 from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      draw_agent_polygon, draw_goal_pulse, draw_flicker, draw_help,
                      run_intro, is_prime, draw_prime_constellation, draw_easter_egg,
-                     door_answers, HeroJourney, Cutscene, CUTSCENE_KEYS, layer_beat_hz)
+                     door_answers, HeroJourney, Cutscene, CUTSCENE_KEYS, layer_beat_hz,
+                     set_oracle, ENDGAME_PARABLES, draw_tesseract,
+                     spectrum_color, spectrum_duration)
+import ouroboros
 import spaceland
 
 # Initialize Pygame
@@ -58,6 +61,31 @@ WATER_COLOR = (0, 191, 255)    # Water
 EARTH_COLOR = (160, 82, 45)    # Earth
 AIR_COLOR = (135, 206, 235)    # Air
 AETHER_COLOR = (255, 255, 224) # Aether
+
+# The Ouroboros: persistent turning counter + this turning's deterministic
+# world-variations (palette hue drift, food-bloom proportion, layers needed
+# for THE COMPLETION, the Oracle's parable closing lines).
+OURO = ouroboros.Ouroboros(os.path.dirname(os.path.abspath(__file__)))
+set_oracle(OURO.embellish)
+print(f"Ouroboros: TURNING {OURO.iteration} — "
+      f"{OURO.layers_to_complete()} layers to completion (seed {OURO.seed}).")
+
+# Pristine palette, captured once so each turning's hue drift is applied to
+# the original colors (drift is absolute per turning, not cumulative).
+_BASE_PALETTE = {name: globals()[name] for name in
+                 ("RED", "BLUE", "GREEN", "PURPLE", "YELLOW", "PINK",
+                  "ORANGE", "CYAN", "BROWN", "GOLD", "FIRE_COLOR",
+                  "WATER_COLOR", "EARTH_COLOR", "AIR_COLOR", "AETHER_COLOR")}
+
+
+def apply_turning_palette():
+    """Rotate the 2D palette's hue by the current turning's drift. Called at
+    startup and after every ouroboros reset."""
+    for name, base in _BASE_PALETTE.items():
+        globals()[name] = OURO.shift_color(base)
+
+
+apply_turning_palette()
 
 # Shared Knowledge Base
 shared_knowledge = []
@@ -1629,7 +1657,8 @@ class GameOfLifeEnvironment:
             'Pentagon', 'Hexagon', 'Lemoine Hexagon', 'Heptagon', 'Octagon',
             'Nonagon', 'Decagon', 'Hendecagon', 'Dodecagon'
         ]
-        num_solids = random.randint(20, 30)  # Increased number of solids
+        # Food-bloom proportion varies subtly per ouroboros turning
+        num_solids = max(6, int(round(random.randint(20, 30) * OURO.food_factor())))
         for _ in range(num_solids):
             attempts = 0
             while attempts < 100:  # Prevent infinite loop
@@ -2321,6 +2350,22 @@ text_lines = [
 ]
 
 
+def seed_initial_agents(environment, ai_agents_2d, count=3):
+    """Place `count` fresh agents on empty cells (startup and ouroboros reset)."""
+    for _ in range(count):
+        while True:
+            x, y = random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1)
+            if environment.grid[x][y] == 0:
+                gender = random.choice(['Male', 'Female'])
+                color = RED if gender == 'Male' else PINK
+                agent = AI_Agent(position=(x, y), environment=environment,
+                                 gender=gender, color=color)
+                ai_agents_2d.append(agent)
+                environment.grid[x][y] = 1 if gender == 'Male' else 2
+                environment.lifespans[x][y] = random.randint(50, 100)
+                break
+
+
 # Main Simulation Function
 def run_simulation():
     environment = GameOfLifeEnvironment(GRID_SIZE)
@@ -2332,18 +2377,9 @@ def run_simulation():
     play_audio_on_loop(wav_file)
 
     # Create initial AI agents (more complex than cells)
-    for _ in range(3):  # Increased number of agents
-        while True:
-            x, y = random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1)
-            if environment.grid[x][y] == 0:
-                gender = random.choice(['Male', 'Female'])
-                color = RED if gender == 'Male' else PINK
-                agent = AI_Agent(position=(x, y), environment=environment, gender=gender, color=color)
-                ai_agents_2d.append(agent)
-                environment.grid[x][y] = 1 if gender == 'Male' else 2
-                environment.lifespans[x][y] = random.randint(50, 100)
-                break
-    
+    seed_initial_agents(environment, ai_agents_2d, count=3)
+
+
     # Define evolution threshold (EC_EVOLUTION_THRESHOLD overrides — used to
     # reach 3D Spaceland quickly in recordings and tests)
     EVOLUTION_THRESHOLD = float(os.environ.get("EC_EVOLUTION_THRESHOLD", "100"))
@@ -2402,12 +2438,64 @@ def run_simulation():
         glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, data)
         pygame.display.flip()
 
+    # ---- THE ENDGAME ARC --------------------------------------------------
+    # When the walker reaches the shrine on the last required Spaceland layer
+    # (7 on the first turning; +1 per turning; EC_LAYERS_TO_COMPLETE overrides)
+    # the sim pauses and the arc runs: CUBE reveal (GL orbit over the stacked
+    # layer-lattices) -> the Pilgrim's parable -> the TESSERACT -> the
+    # SPECTRUM fade -> O! at the 33rd degree -> ouroboros reset. In autopilot
+    # the whole arc compresses to ~13 s and narration is skipped.
+    from lattice import AUTOPILOT_FRAMES as _AUTO
+    if _AUTO:
+        EG_CUBE, EG_TESSERACT, EG_SPECTRUM_STEP, EG_CUT_DUR = 2.5, 3.0, 0.35, 2.0
+    else:
+        EG_CUBE, EG_TESSERACT, EG_SPECTRUM_STEP, EG_CUT_DUR = 8.0, 12.0, 1.5, None
+    from lattice import SPECTRUM_BANDS
+    endgame = {"stage": None, "t0": 0.0, "band": -1}
+    eg_surface = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
+
+    def _silence_bed():
+        """Fade every ambient bed out — the black at the spectrum's end."""
+        try:
+            if getattr(audio, "_binaural", None) is not None:
+                audio._binaural.fadeout(1200)
+                audio._binaural = None
+            if audio.ambient:
+                audio.ambient.set_volume(0.0)
+        except pygame.error:
+            pass
+
+    def _ouroboros_reset():
+        """The serpent's mouth meets its tail: a fresh Flatland, new turning."""
+        nonlocal environment, ai_agents_2d, recursive_manager, stats, parables, \
+            journey, current_generation, selected_agent, prime_flash, \
+            last_prime_gen, egg_frames
+        apply_turning_palette()
+        environment = GameOfLifeEnvironment(GRID_SIZE)
+        ai_agents_2d = []
+        seed_initial_agents(environment, ai_agents_2d, count=3)
+        recursive_manager = RecursiveEnvironment3DManager(two_d_environment=environment)
+        stats = {"gen": 0, "births": 0, "rebirths": 0, "energy_deaths": 0,
+                 "max_consciousness": 0, "population": len(ai_agents_2d),
+                 "training_rounds": 0, "ascended": 0, "layers": 0, "returns": 0}
+        parables = ParableOverlay(WINDOW_SIZE, audio=audio)
+        journey = HeroJourney(WINDOW_SIZE, audio=audio)
+        journey.advance("ordinary")
+        current_generation = 0
+        selected_agent = None
+        prime_flash = 0
+        last_prime_gen = -1
+        egg_frames = 0
+        surface.fill(BLACK)
+        audio.set_binaural(None)   # the 6.1 Hz theta bed returns with the world
+
     # Photosensitivity warning, then the indie title screen (Conway backdrop)
     from lattice import run_seizure_warning
     if not run_seizure_warning(surface, CLOCK, _present, fps=FPS):
         pygame.quit()
         sys.exit()
-    if not run_intro(surface, CLOCK, _present, audio=audio, fps=FPS):
+    if not run_intro(surface, CLOCK, _present, audio=audio, fps=FPS,
+                     turning=OURO.iteration):
         pygame.quit()
         sys.exit()
 
@@ -2466,6 +2554,93 @@ def run_simulation():
                   f"{len(parables.unlocked)} parables unlocked).")
             running = False
             break
+
+        # ---- THE ENDGAME ARC: staged, sim paused, one stage per branch ----
+        if endgame["stage"]:
+            now = pygame.time.get_ticks() / 1000.0
+            elapsed = now - endgame["t0"]
+
+            if endgame["stage"] == "cube":
+                # 1. THE CUBE — camera pulled back, all traversed layers
+                # stacked, slow orbit (GL frame, recorded from the framebuffer)
+                spaceland.render_completion(now)
+                if RECORD_DIR:
+                    gl_data = glReadPixels(0, 0, WINDOW_SIZE, WINDOW_SIZE,
+                                           GL_RGB, GL_UNSIGNED_BYTE)
+                    _record(pygame.image.fromstring(
+                        gl_data, (WINDOW_SIZE, WINDOW_SIZE), "RGB", True))
+                pygame.display.flip()
+                if elapsed >= EG_CUBE:
+                    spaceland.leave()
+                    p_key, p_title, p_text = ENDGAME_PARABLES[0]
+                    print(f"COMPLETION: THE PILGRIM'S PARABLE — \"{p_title}\" "
+                          f"(frame {_rec_n[0]}).")
+                    cutscene.start(p_key, p_title, p_text)
+                    if _AUTO:
+                        cutscene._dur = EG_CUT_DUR
+                    endgame.update(stage="parable", t0=now)
+                CLOCK.tick(FPS)
+                continue
+
+            if endgame["stage"] == "parable":
+                # 2. THE PILGRIM AND THE TWO LIGHTS — rendered by the generic
+                # cutscene branch below; advance when the elder falls silent
+                if not cutscene.active:
+                    print(f"COMPLETION: THE TESSERACT — the hypercube turns "
+                          f"(frame {_rec_n[0]}).")
+                    endgame.update(stage="tesseract", t0=now)
+                    CLOCK.tick(FPS)
+                    continue
+
+            elif endgame["stage"] == "tesseract":
+                # 3. THE HYPERCUBE — 4D wireframe, two-plane rotation, 2D-side
+                draw_tesseract(eg_surface, elapsed, dur=EG_TESSERACT)
+                _present(eg_surface)
+                if elapsed >= EG_TESSERACT:
+                    print(f"COMPLETION: THE SPECTRUM — red through violet to "
+                          f"white, then black (frame {_rec_n[0]}).")
+                    endgame.update(stage="spectrum", t0=now, band=-1)
+                CLOCK.tick(FPS)
+                continue
+
+            elif endgame["stage"] == "spectrum":
+                # 4. THE SPECTRUM TRANSCENDED — slow crossfades; the binaural
+                # beat sweeps 14 Hz down to silence at black
+                eg_surface.fill(spectrum_color(elapsed, EG_SPECTRUM_STEP))
+                _present(eg_surface)
+                band = min(len(SPECTRUM_BANDS) - 1,
+                           int(elapsed / EG_SPECTRUM_STEP))
+                if band != endgame["band"]:
+                    endgame["band"] = band
+                    last = len(SPECTRUM_BANDS) - 1
+                    if band >= last:
+                        _silence_bed()                     # black: silence
+                    else:
+                        audio.set_binaural(
+                            round(max(0.5, 14.0 * (1.0 - band / last)), 1))
+                if elapsed >= spectrum_duration(EG_SPECTRUM_STEP):
+                    o_key, o_title, o_text = ENDGAME_PARABLES[1]
+                    print(f"COMPLETION: O! AT THE 33RD DEGREE — \"{o_title}\" "
+                          f"(frame {_rec_n[0]}).")
+                    cutscene.start(o_key, o_title, o_text, style="void")
+                    if _AUTO:
+                        cutscene._dur = EG_CUT_DUR
+                    endgame.update(stage="o33", t0=now)
+                CLOCK.tick(FPS)
+                continue
+
+            elif endgame["stage"] == "o33":
+                # 5. O! — sparse gold on black (generic cutscene branch below),
+                # then the ouroboros closes: advance the turning, reset the world
+                if not cutscene.active:
+                    turning = OURO.advance()
+                    print(f"OUROBOROS: TURNING {turning} — the lattice begins "
+                          f"again; {OURO.layers_to_complete()} layers to the "
+                          f"next completion (frame {_rec_n[0]}).")
+                    _ouroboros_reset()
+                    endgame.update(stage=None, band=-1)
+                    CLOCK.tick(FPS)
+                    continue
 
         # Cutscene: the world holds its breath while the elder speaks
         if cutscene.active:
@@ -2751,19 +2926,44 @@ def run_simulation():
                     ev = spaceland.update_and_render(
                         pygame.time.get_ticks() / 1000.0, keys)
                     if ev == "goal":
-                        agent_3d.layer += 1
-                        agent_3d.level_of_consciousness += 2
-                        agent_3d.energy = min(100, agent_3d.energy + 10)
-                        stats["layers"] += 1
-                        audio.play("ascend")
-                        audio.set_binaural(layer_beat_hz(agent_3d.layer))
-                        recursive_manager.log_event(
-                            f"Shrine reached — Spaceland layer {agent_3d.layer}.")
-                        spaceland.enter([row[:] for row in environment.grid],
-                                        environment.goal, agent_3d.layer)
+                        if (agent_3d.layer >= OURO.layers_to_complete()
+                                and endgame["stage"] is None):
+                            # THE COMPLETION — the shrine reached on the last
+                            # required layer: pull the camera back and see the
+                            # whole journey stacked as one cube
+                            stats["layers"] += 1
+                            journey.advance("master")
+                            audio.play("ascend")
+                            audio.set_binaural(14.0)   # the spectrum sweeps down from here
+                            print(f"COMPLETION: THE CUBE — {agent_3d.layer} layers "
+                                  f"traversed, the journey seen at once "
+                                  f"(frame {_rec_n[0]}).")
+                            recursive_manager.log_event(
+                                f"THE COMPLETION — {agent_3d.layer} layers, one cube.")
+                            endgame.update(stage="cube",
+                                           t0=pygame.time.get_ticks() / 1000.0)
+                        else:
+                            agent_3d.layer += 1
+                            agent_3d.level_of_consciousness += 2
+                            # The shrine restores enough that a full climb to
+                            # THE COMPLETION is survivable in one ascent
+                            agent_3d.energy = min(100, agent_3d.energy + 25)
+                            stats["layers"] += 1
+                            audio.play("ascend")
+                            audio.set_binaural(layer_beat_hz(agent_3d.layer))
+                            print(f"Shrine reached — Spaceland layer "
+                                  f"{agent_3d.layer} of {OURO.layers_to_complete()}.")
+                            recursive_manager.log_event(
+                                f"Shrine reached — Spaceland layer {agent_3d.layer}.")
+                            spaceland.enter([row[:] for row in environment.grid],
+                                            environment.goal, agent_3d.layer)
                     elif ev == "hazard":
                         # A cold rift bit, or the walker slid a layer down
-                        agent_3d.layer = spaceland.current_layer()
+                        new_layer = spaceland.current_layer()
+                        if new_layer != agent_3d.layer:
+                            print(f"Descent — the cold sent the walker down "
+                                  f"to layer {new_layer}.")
+                        agent_3d.layer = new_layer
                         journey.advance("trials")
                         audio.play("cold")
                         recursive_manager.log_event(

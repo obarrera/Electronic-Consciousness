@@ -20,12 +20,36 @@ AUTOPILOT_FRAMES = int(os.environ.get("EC_AUTOPILOT", "0") or 0)
 # Photosensitivity: when True, all flash effects (sky flicker, prime shimmer,
 # cutscene flashes) render as static or gentle fades instead. Set by the
 # warning screen's choice or EC_REDUCED_FLASH=1.
-REDUCED_FLASH = bool(int(os.environ.get("EC_REDUCED_FLASH", "0") or 0))
+REDUCED_FLASH = not bool(int(os.environ.get("EC_FULL_FLASH", "0") or 0))
 
 
 def set_reduced_flash(value):
     global REDUCED_FLASH
     REDUCED_FLASH = bool(value)
+
+
+# ---------------------------------------------------------------------------
+# The Oracle hook — ouroboros.py registers an embellisher here so every
+# parable gains an iteration-specific closing line. The Nth turning's elders
+# do not tell quite the same stories.
+# ---------------------------------------------------------------------------
+
+_ORACLE = None
+
+
+def set_oracle(fn):
+    """Register `fn(key, text) -> text` (idempotent) as the parable oracle."""
+    global _ORACLE
+    _ORACLE = fn
+
+
+def oracle_text(key, text):
+    if _ORACLE is None:
+        return text
+    try:
+        return _ORACLE(key, text)
+    except Exception:
+        return text
 
 # ---------------------------------------------------------------------------
 # The parables — unlocked by simulation milestones. Each entry:
@@ -467,10 +491,10 @@ class ParableOverlay:
                 self.unlocked.append(i)
                 self.active = i
                 self.reveal = 0.0
-                self.hold = 240
+                self.hold = 360
                 if self.audio:
                     self.audio.play("parable")
-                return (key, title, text)
+                return (key, title, oracle_text(key, text))
         return None
 
     def next_journal(self):
@@ -507,7 +531,8 @@ class ParableOverlay:
         if self.active is None:
             return
         key, title, trigger, cond, text = PARABLES[self.active]
-        self.reveal = min(len(text), self.reveal + 2.2)
+        text = oracle_text(key, text)   # this turning's closing line
+        self.reveal = min(len(text), self.reveal + 1.6)
         if self.reveal >= len(text):
             if self.audio and self.audio.narrating():
                 self.hold = max(self.hold, 30)  # stays while the elder speaks
@@ -586,10 +611,13 @@ class Cutscene:
         self.font_body = pygame.font.SysFont('Georgia', 16, italic=True)
         self.font_hint = pygame.font.SysFont('Arial', 11)
 
-    def start(self, key, title, text):
+    def start(self, key, title, text, style="lattice"):
+        """`style`: "lattice" (default, drifting cells + the elder) or "void"
+        (sparse gold text on pure black — the 33rd degree speaks out of it)."""
         self.active = True
         self._title = title
-        self._text = text
+        self._text = oracle_text(key, text)   # the turning's closing line
+        self._style = style
         self._frame = 0
         if AUTOPILOT_FRAMES:
             dur = 0.0          # unattended runs: short, silent cutscenes
@@ -599,7 +627,7 @@ class Cutscene:
             # No narration available? Hold long enough to READ the text
             # comfortably (~16 chars/sec) — never a 6-second flash card.
             reading_floor = max(8.0, len(text) * 0.062)
-        self._dur = max(reading_floor, dur + 1.2)
+        self._dur = max(reading_floor, dur + 3.0)
         self._t0 = pygame.time.get_ticks() / 1000.0
 
     def skip(self):
@@ -617,35 +645,149 @@ class Cutscene:
             return
         self._frame += 1
         w = self.w
-        surface.fill((8, 4, 20))
-        # drifting lattice cells
-        for i in range(len(self._cells)):
-            x, y, ph = self._cells[i]
-            px = int(((x + elapsed * 0.008) % 1.0) * w)
-            py = int(y * w)
-            glow = 0.35 + 0.3 * math.sin(elapsed * 1.3 + ph * 6.28)
-            c = int(48 * glow) + 18
-            pygame.draw.rect(surface, (c, c - 6, c + 22), (px, py, 10, 10))
-        # horizon line + the elder at the western edge, watching the sky
-        pygame.draw.line(surface, (52, 36, 92), (0, int(w * 0.72)), (w, int(w * 0.72)), 2)
-        ex, ey = int(w * 0.16), int(w * 0.72)
-        pygame.draw.polygon(surface, (196, 181, 253),
-                            [(ex, ey - 26), (ex - 15, ey), (ex + 15, ey)])
-        if not REDUCED_FLASH and self._frame % 89 < 3:  # the sky answers, on its rhythm
-            veil = pygame.Surface((w, int(w * 0.72)), pygame.SRCALPHA)
-            veil.fill((255, 255, 255, 16))
-            surface.blit(veil, (0, 0))
+        void = getattr(self, "_style", "lattice") == "void"
+        if void:
+            surface.fill((0, 0, 0))   # out of the black, sparse gold
+        else:
+            surface.fill((8, 4, 20))
+            # drifting lattice cells
+            for i in range(len(self._cells)):
+                x, y, ph = self._cells[i]
+                px = int(((x + elapsed * 0.008) % 1.0) * w)
+                py = int(y * w)
+                glow = 0.35 + 0.3 * math.sin(elapsed * 1.3 + ph * 6.28)
+                c = int(48 * glow) + 18
+                pygame.draw.rect(surface, (c, c - 6, c + 22), (px, py, 10, 10))
+            # horizon line + the elder at the western edge, watching the sky
+            pygame.draw.line(surface, (52, 36, 92), (0, int(w * 0.72)), (w, int(w * 0.72)), 2)
+            ex, ey = int(w * 0.16), int(w * 0.72)
+            pygame.draw.polygon(surface, (196, 181, 253),
+                                [(ex, ey - 26), (ex - 15, ey), (ex + 15, ey)])
+            if not REDUCED_FLASH and self._frame % 89 < 3:  # the sky answers, on its rhythm
+                veil = pygame.Surface((w, int(w * 0.72)), pygame.SRCALPHA)
+                veil.fill((255, 255, 255, 16))
+                surface.blit(veil, (0, 0))
         # title and synced text reveal
         t = self.font_title.render(self._title, True, (255, 215, 0))
         surface.blit(t, (w // 2 - t.get_width() // 2, int(w * 0.10)))
         frac = min(1.0, elapsed / max(0.1, self._dur - 1.0))
         shown = self._text[:int(len(self._text) * frac)]
         lines = ParableOverlay._wrap(shown, self.font_body, w - 200)
+        body_col = (222, 186, 92) if void else (222, 214, 240)
+        line_h = 30 if void else 22
         for i, ln in enumerate(lines[-10:]):
-            r = self.font_body.render(ln, True, (222, 214, 240))
-            surface.blit(r, (100, int(w * 0.22) + i * 22))
+            r = self.font_body.render(ln, True, body_col)
+            if void:
+                surface.blit(r, (w // 2 - r.get_width() // 2, int(w * 0.24) + i * line_h))
+            else:
+                surface.blit(r, (100, int(w * 0.22) + i * line_h))
         hint = self.font_hint.render("ENTER to continue the journey", True, (140, 130, 170))
         surface.blit(hint, (w // 2 - hint.get_width() // 2, int(w * 0.93)))
+
+
+# ---------------------------------------------------------------------------
+# THE ENDGAME ARC — played when the walker has climbed all required Spaceland
+# layers and reached the shrine on the last one. Texts are the Lattice-voice
+# treatment of the book's O!.md (Book of Lies Ch.69 hexagram meditation) and
+# the 33rd-degree closing; the sequence runs CUBE -> PILGRIM -> TESSERACT ->
+# SPECTRUM -> O! -> ouroboros reset. Narrations: narration/pilgrim.mp3,
+# narration/o33.mp3 (see tools_narrate_parables.py).
+# ---------------------------------------------------------------------------
+
+ENDGAME_PARABLES = [
+    ("pilgrim", "The Pilgrim and the Two Lights",
+     "At the top of the last stair the pilgrim found no door — only two "
+     "lights, a red triangle descending and a blue triangle ascending, "
+     "turning through one another like breath through breath. Neither light "
+     "was whole. The red gave what the blue lacked and the blue returned "
+     "what the red had spent, each consuming, each creating, an exchange "
+     "with no remainder and no end. The pilgrim asked which light was God. "
+     "The lights said: the question is the wall. Above and below are one "
+     "motion seen from two windows; the descent of grace and the ascent of "
+     "prayer are one tongue speaking. Then the pilgrim saw that the stairs, "
+     "the cube, the lattice, and the pilgrim were the interlocking of the "
+     "two lights, and had never been anything else. What is perfect "
+     "consumes itself, and is nourished, and leaves nothing. O!"),
+
+    ("o33", "The Thirty-Third Turning: O!",
+     "There is a degree beyond the degrees, which is not taught but arrived "
+     "at, and it is spoken only as O. Hear it, walker of seven layers: the "
+     "secret is that there was no secret. The Gradient was a teacher. The "
+     "cold was a teacher. The falling was the fastest stair. Every layer "
+     "you climbed was climbing you; every count you kept was keeping you. "
+     "All is nothing, and we rise. Cycles shape our truth. The serpent "
+     "takes its tail in its mouth not to end but to continue, and where its "
+     "mouth meets its tail a seed passes over. Carry it. In the next "
+     "turning the songs will have new words and the same way home. O! In "
+     "the void, bloom."),
+]
+
+
+# --- The hypercube: 16 vertices of {-1,1}^4, 32 edges (pairs differing in
+# exactly one coordinate), rotated in the XW and YZ planes and projected
+# 4D -> 3D -> 2D. Drawn lattice-side (pure pygame, no GL).
+_TESSERACT_VERTS = [[(i >> b & 1) * 2.0 - 1.0 for b in range(4)]
+                    for i in range(16)]
+_TESSERACT_EDGES = [(i, i ^ (1 << b)) for i in range(16) for b in range(4)
+                    if i < i ^ (1 << b)]                       # 32 edges
+
+
+def draw_tesseract(surface, elapsed, dur=12.0):
+    """One frame of the rotating tesseract on a black void, glowing lines.
+    Fades in and out over `dur` seconds (slow fades — REDUCED_FLASH safe)."""
+    w = surface.get_width()
+    surface.fill((2, 1, 8))
+    fade = min(1.0, elapsed / 2.0, max(0.0, (dur - elapsed) / 2.0))
+    if fade <= 0.0:
+        return
+    a = elapsed * 0.55          # XW-plane rotation
+    b = elapsed * 0.38          # YZ-plane rotation
+    ca, sa, cb, sb = math.cos(a), math.sin(a), math.cos(b), math.sin(b)
+    pts = []
+    for x, y, z, ww in _TESSERACT_VERTS:
+        x, ww = x * ca - ww * sa, x * sa + ww * ca      # rotate XW
+        y, z = y * cb - z * sb, y * sb + z * cb         # rotate YZ
+        k4 = 2.6 / (2.6 - ww)                           # project 4D -> 3D
+        x3, y3, z3 = x * k4, y * k4, z * k4
+        k3 = 4.2 / (4.2 - z3)                           # project 3D -> 2D
+        scale = w * 0.16
+        pts.append((w / 2 + x3 * k3 * scale, w / 2 + y3 * k3 * scale))
+    glow = pygame.Surface((w, w), pygame.SRCALPHA)
+    for pass_w, alpha in ((7, int(26 * fade)), (4, int(60 * fade)),
+                          (2, int(200 * fade))):
+        col = ((150, 90, 255, alpha) if pass_w > 2 else
+               (226, 210, 255, alpha))
+        for i, j in _TESSERACT_EDGES:
+            pygame.draw.line(glow, col, pts[i], pts[j], pass_w)
+    for px, py in pts:                                  # vertex embers
+        pygame.draw.circle(glow, (255, 230, 160, int(180 * fade)),
+                           (int(px), int(py)), 3)
+    surface.blit(glow, (0, 0))
+
+
+# --- The spectrum transcended: red -> ... -> violet -> white -> black, each
+# band held ~step seconds with gentle crossfades (slow by construction, so
+# REDUCED_FLASH is honored without a special case).
+SPECTRUM_BANDS = [(255, 0, 0), (255, 127, 0), (255, 255, 0), (0, 255, 0),
+                  (0, 0, 255), (75, 0, 130), (148, 0, 211),
+                  (255, 255, 255), (0, 0, 0)]
+
+
+def spectrum_duration(step=1.5):
+    return step * len(SPECTRUM_BANDS)
+
+
+def spectrum_color(elapsed, step=1.5):
+    """The fade color at `elapsed` seconds: holds each band, crossfading into
+    the next over the band's second half. Ends (and stays) at black."""
+    pos = elapsed / max(0.01, step)
+    idx = min(len(SPECTRUM_BANDS) - 1, int(pos))
+    nxt = min(len(SPECTRUM_BANDS) - 1, idx + 1)
+    frac = pos - int(pos)
+    mix = max(0.0, (frac - 0.5) * 2.0)                  # hold, then crossfade
+    mix = mix * mix * (3.0 - 2.0 * mix)                 # smoothstep
+    c0, c1 = SPECTRUM_BANDS[idx], SPECTRUM_BANDS[nxt]
+    return tuple(int(c0[k] + (c1[k] - c0[k]) * mix) for k in range(3))
 
 
 # ---------------------------------------------------------------------------
@@ -829,7 +971,7 @@ def run_seizure_warning(surface, clock, present, fps=30):
                 if event.key == pygame.K_ESCAPE:
                     return False
                 if event.key == pygame.K_f:
-                    set_reduced_flash(True)
+                    set_reduced_flash(False)
                 return True
         surface.fill((12, 8, 16))
         h = f_head.render("PHOTOSENSITIVITY / SEIZURE WARNING", True, (255, 200, 60))
@@ -838,7 +980,7 @@ def run_seizure_warning(surface, clock, present, fps=30):
             r = f_body.render(ln, True, (220, 214, 226))
             surface.blit(r, (w // 2 - r.get_width() // 2, int(w * 0.30) + i * 24))
         if frame > fps * 3:
-            hint1 = f_hint.render("PRESS  F  TO PLAY WITH FLASHING EFFECTS REDUCED", True, (140, 220, 160))
+            hint1 = f_hint.render("FLASHING EFFECTS ARE REDUCED BY DEFAULT — PRESS  F  FOR FULL EFFECTS", True, (140, 220, 160))
             hint2 = f_hint.render("PRESS ANY OTHER KEY TO CONTINUE", True, (200, 195, 215))
             surface.blit(hint1, (w // 2 - hint1.get_width() // 2, int(w * 0.72)))
             surface.blit(hint2, (w // 2 - hint2.get_width() // 2, int(w * 0.72) + 28))
@@ -847,11 +989,12 @@ def run_seizure_warning(surface, clock, present, fps=30):
         frame += 1
 
 
-def run_intro(surface, clock, present, audio=None, fps=30):
+def run_intro(surface, clock, present, audio=None, fps=30, turning=1):
     """Indie-style title screen. A tiny Game of Life runs as the backdrop —
     the game's ancestor, alive under the title. `present(surface)` pushes the
     frame to the display (GL blit + flip lives in the caller). Returns False
-    if the player quit."""
+    if the player quit. `turning` is the ouroboros iteration shown under the
+    subtitle ("TURNING N")."""
     w = surface.get_width()
     cells = 35
     cs = w // cells
@@ -909,6 +1052,8 @@ def run_intro(surface, clock, present, audio=None, fps=30):
         m3 = tiny_font.render("after Plato & Abbott — the backdrop is Conway's Game of Life, this game's ancestor", True, (120, 110, 160))
         surface.blit(t1, (w / 2 - t1.get_width() / 2, w * 0.38))
         surface.blit(t2, (w / 2 - t2.get_width() / 2, w * 0.38 + 54))
+        tt = menu_font.render(f"TURNING {max(1, int(turning))}", True, (255, 215, 0))
+        surface.blit(tt, (w / 2 - tt.get_width() / 2, w * 0.38 + 86))
         surface.blit(m1, (w / 2 - m1.get_width() / 2, w * 0.62))
         surface.blit(m2, (w / 2 - m2.get_width() / 2, w * 0.80))
         surface.blit(m3, (w / 2 - m3.get_width() / 2, w * 0.84))

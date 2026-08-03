@@ -13,3 +13,6 @@ env/
 .idea/
 .vscode/
 *.swp
+
+# EC-2D-Land ouroboros seed (per-machine save state)
+.ouroboros.json
