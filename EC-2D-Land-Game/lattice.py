@@ -20,7 +20,7 @@ AUTOPILOT_FRAMES = int(os.environ.get("EC_AUTOPILOT", "0") or 0)
 # Photosensitivity: when True, all flash effects (sky flicker, prime shimmer,
 # cutscene flashes) render as static or gentle fades instead. Set by the
 # warning screen's choice or EC_REDUCED_FLASH=1.
-REDUCED_FLASH = bool(int(os.environ.get("EC_REDUCED_FLASH", "0") or 0))
+REDUCED_FLASH = not bool(int(os.environ.get("EC_FULL_FLASH", "0") or 0))
 
 
 def set_reduced_flash(value):
@@ -467,7 +467,7 @@ class ParableOverlay:
                 self.unlocked.append(i)
                 self.active = i
                 self.reveal = 0.0
-                self.hold = 240
+                self.hold = 360
                 if self.audio:
                     self.audio.play("parable")
                 return (key, title, text)
@@ -507,7 +507,7 @@ class ParableOverlay:
         if self.active is None:
             return
         key, title, trigger, cond, text = PARABLES[self.active]
-        self.reveal = min(len(text), self.reveal + 2.2)
+        self.reveal = min(len(text), self.reveal + 1.6)
         if self.reveal >= len(text):
             if self.audio and self.audio.narrating():
                 self.hold = max(self.hold, 30)  # stays while the elder speaks
@@ -599,7 +599,7 @@ class Cutscene:
             # No narration available? Hold long enough to READ the text
             # comfortably (~16 chars/sec) — never a 6-second flash card.
             reading_floor = max(8.0, len(text) * 0.062)
-        self._dur = max(reading_floor, dur + 1.2)
+        self._dur = max(reading_floor, dur + 3.0)
         self._t0 = pygame.time.get_ticks() / 1000.0
 
     def skip(self):
@@ -829,7 +829,7 @@ def run_seizure_warning(surface, clock, present, fps=30):
                 if event.key == pygame.K_ESCAPE:
                     return False
                 if event.key == pygame.K_f:
-                    set_reduced_flash(True)
+                    set_reduced_flash(False)
                 return True
         surface.fill((12, 8, 16))
         h = f_head.render("PHOTOSENSITIVITY / SEIZURE WARNING", True, (255, 200, 60))
@@ -838,7 +838,7 @@ def run_seizure_warning(surface, clock, present, fps=30):
             r = f_body.render(ln, True, (220, 214, 226))
             surface.blit(r, (w // 2 - r.get_width() // 2, int(w * 0.30) + i * 24))
         if frame > fps * 3:
-            hint1 = f_hint.render("PRESS  F  TO PLAY WITH FLASHING EFFECTS REDUCED", True, (140, 220, 160))
+            hint1 = f_hint.render("FLASHING EFFECTS ARE REDUCED BY DEFAULT — PRESS  F  FOR FULL EFFECTS", True, (140, 220, 160))
             hint2 = f_hint.render("PRESS ANY OTHER KEY TO CONTINUE", True, (200, 195, 215))
             surface.blit(hint1, (w // 2 - hint1.get_width() // 2, int(w * 0.72)))
             surface.blit(hint2, (w // 2 - hint2.get_width() // 2, int(w * 0.72) + 28))
