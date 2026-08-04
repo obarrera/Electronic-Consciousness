@@ -136,8 +136,12 @@ def _git_info(cwd):
 
 
 def write_manifest(run_dir, root_seed, tick, final_hash, started_at,
-                   headless):
-    """manifest.json for a completed run; failures are non-fatal."""
+                   headless, extra=None):
+    """manifest.json for a completed run; failures are non-fatal.
+
+    extra: optional dict merged in (e.g. genome version, mirror summary) —
+    experiment conditions belong in the run artifact, not in a lab notebook.
+    """
     try:
         os.makedirs(run_dir, exist_ok=True)
         commit, dirty = _git_info(os.path.dirname(os.path.abspath(__file__)))
@@ -153,6 +157,8 @@ def write_manifest(run_dir, root_seed, tick, final_hash, started_at,
             "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "final_state_hash": final_hash,
         }
+        if extra:
+            manifest.update(extra)
         path = os.path.join(run_dir, "manifest.json")
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(manifest, fh, indent=2)

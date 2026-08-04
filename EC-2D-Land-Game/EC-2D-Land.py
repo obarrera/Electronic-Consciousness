@@ -26,6 +26,8 @@ from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      ToastSystem, draw_legend)
 import ouroboros
 import simcore
+import json
+import mirror
 import spaceland
 from simcore import WORLD as R_WORLD, AGENTS as R_AGENTS, FX as R_FX, \
     NP_WORLD, NP_AGENTS
@@ -1518,6 +1520,23 @@ def display_detailed_ai_info(screen, ai_agent, recursive_manager):
         f"  - Consciousness Level: {ai_agent.level_of_consciousness}",
         f"  - Thoughts: {', '.join(ai_agent.get_thoughts())}"
     ]
+    # The Mirror: what this agent's models believe vs. what is true — the
+    # world itself and an agent's representation of it are not the same thing.
+    _mir = getattr(ai_agent, "_mirror", None)
+    if _mir is not None:
+        _stage = ("world", "world+others", "world+others+SELF")[_mir.stage() - 1]
+        ai_info_lines.append(f"  - Models: {_stage}"
+                             + ("  ·  MIRRORED" if _mir.mirrored else ""))
+        ai_info_lines.append(
+            f"  - Fidelity: world {_mir.world.acc:.2f} (n={_mir.world.n}) · "
+            f"others {_mir.others.acc:.2f} (n={_mir.others.n}) · "
+            f"self {_mir.self_m.acc:.2f} (n={_mir.self_m.n}, "
+            f"cal err {_mir.self_m.cal_err:.2f})")
+        if _mir.world._pending is not None:
+            _ctx, _pred, _conf = _mir.world._pending
+            ai_info_lines.append(
+                f"  - Believes: Gradient will lie {_pred} of it "
+                f"(confidence {_conf:.0%}) — the engine knows the truth")
 
     for i, line in enumerate(ai_info_lines):
         text_surface = FONT.render(line, True, BLACK)
@@ -2889,6 +2908,9 @@ def run_simulation():
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "run")
         if HEADLESS else None)
     UNCAPPED = bool(int(os.environ.get("EC_UNCAPPED", "0") or 0))
+    # EC_MIRROR=0: ablation control — agents build no models of the world,
+    # of others, or of themselves (the baseline the mirrored runs compare to)
+    MIRROR_ON = os.environ.get("EC_MIRROR", "1") not in ("0", "off")
     run_started_at = __import__("time").strftime("%Y-%m-%dT%H:%M:%S%z")
 
     def _record(frame_surface):
@@ -3155,9 +3177,13 @@ def run_simulation():
             print(f"Ticks: clean exit at tick {current_generation} "
                   f"(frame {frame_count}) — final_state_hash {final_hash}")
             if RUN_DIR:
-                _mp = simcore.write_manifest(RUN_DIR, ROOT_SEED,
-                                             current_generation, final_hash,
-                                             run_started_at, HEADLESS)
+                _mp = simcore.write_manifest(
+                    RUN_DIR, ROOT_SEED, current_generation, final_hash,
+                    run_started_at, HEADLESS,
+                    extra={"genome_version": DNA.version,
+                           "mirror_enabled": MIRROR_ON,
+                           "mirror": (mirror.stats(ai_agents_2d)
+                                      if MIRROR_ON and ai_agents_2d else None)})
                 if _mp:
                     print(f"Manifest: {_mp}")
             chronicle.flush(force=True)
@@ -3607,6 +3633,10 @@ def run_simulation():
                              f"brain {stats['training_rounds']} trainings{eff_s} · "
                              f"parables {len(parables.unlocked)}/18 · "
                              f"{DNA.hud_tag()}")
+                    _nmir = (mirror.stats(ai_agents_2d)["mirrored"]
+                             if MIRROR_ON and ai_agents_2d else 0)
+                    if _nmir:
+                        strip += f" · mirrored {_nmir}"
                     bar = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
                     bar.fill((10, 5, 25, 190))
                     bar.blit(STRIP_FONT.render(strip, True, (208, 198, 235)), (8, 3))
@@ -3898,6 +3928,46 @@ def run_simulation():
             print(f"Number of AI agents: {len(ai_agents_2d)}")
 
         # Update generation count
+        # The Mirror: every agent's modeling ladder advances one rung —
+        # world, then others, then itself. EC_MIRROR=0 is the ablation
+        # control: no models, no mirror moments, nothing attached.
+        if MIRROR_ON and ai_agents_2d:
+            for _seer in mirror.tick(ai_agents_2d, environment.goal):
+                _seer.level_of_consciousness += mirror.MIRROR_CONSCIOUSNESS_GAIN
+                _name = getattr(_seer, "name_base", "An agent")
+                chronicle.record(
+                    current_generation,
+                    f"{_name} drew a map of the town, and found in it a "
+                    f"small figure, drawing a map. The Mirror held.")
+                print(f"MIRROR: {_name} predicted itself — accuracy "
+                      f"{_seer._mirror.self_m.acc:.2f}, calibration error "
+                      f"{_seer._mirror.self_m.cal_err:.2f} "
+                      f"(gen {current_generation})")
+                toasts.hint("mirror",
+                            "An agent has begun to predict itself — "
+                            "accurately, and knowing how accurate it is. "
+                            "Click it: a thin ring marks the mirrored.")
+
+        # Structured event log (reproducibility core): when EC_RUN_DIR is
+        # set, append measurable state every 25 generations — the run is a
+        # dataset, not an anecdote.
+        if RUN_DIR and current_generation % 25 == 0 and ai_agents_2d:
+            try:
+                os.makedirs(RUN_DIR, exist_ok=True)
+                _avg_c = (sum(a.level_of_consciousness for a in ai_agents_2d)
+                          / len(ai_agents_2d))
+                with open(os.path.join(RUN_DIR, "events.jsonl"), "a",
+                          encoding="utf-8") as _fh:
+                    _fh.write(json.dumps({
+                        "tick": current_generation,
+                        "agents": len(ai_agents_2d),
+                        "avg_consciousness": round(_avg_c, 3),
+                        "mirror": mirror.stats(ai_agents_2d) if MIRROR_ON else None,
+                        "genome_version": DNA.version,
+                    }) + "\n")
+            except OSError:
+                pass
+
         current_generation += 1
 
         # Mid-run genome milestone: every 500th generation the game proposes

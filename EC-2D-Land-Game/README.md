@@ -67,6 +67,42 @@ eating it — the player literally teaches), `SHIFT`+click to **chill** one (a c
 that drains energy until it thaws). A small regenerating **attention meter** (three
 dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a god-mode.
 
+## The Mirror — agents that model the world, each other, and themselves
+
+What happens when an emergent pattern inside such a world begins constructing
+a model of the world, of other agents, and eventually of itself? The Mirror
+answers with a discipline: **a model is a predictor, and a predictor has a
+score.** Each agent carries three tiny transition predictors, and the ladder
+unlocks by accuracy, never by script:
+
+1. **World** — predict where the Gradient will point next tick. Fidelity dips
+   whenever the goal jumps (which the genome's `goal_period` gene governs).
+2. **Others** — unlocked by world-model fidelity: predict the nearest
+   neighbor's next move (functional theory of mind, built from the same
+   machinery the agent points at rocks).
+3. **Self** — unlocked by other-model fidelity: predict its *own* next move,
+   and track **calibration** — whether its confidence matches how right it is.
+
+When self-prediction is accurate, calibrated, and sustained, the agent has its
+**mirror moment**: a bounded consciousness gain, a Chronicle line (*"…found in
+it a small figure, drawing a map"*), and a thin white ring worn ever after.
+Click any agent to see what its models believe beside what the engine knows —
+the world itself and an agent's representation of it are not the same thing.
+
+**Epistemic status, per Section 1.4 of the book:** this is *functional*
+self-modeling — measurable, ablatable, falsifiable. It establishes nothing
+about subjective experience, and neither the code nor this README claims
+otherwise.
+
+**Measure it, don't anecdote it.** `EC_MIRROR=0` is the ablation control;
+`EC_RUN_DIR` writes structured event logs (`events.jsonl`) and a run manifest;
+and the multi-seed runner compares conditions over many seeds with a
+determinism check:
+
+```bash
+python3 tools_experiment.py --seeds 5 --ticks 600
+```
+
 ## The Genome — the game rewrites itself
 
 EC-2D-Land is **self-modifying**: ten of its world constants — metabolism, food

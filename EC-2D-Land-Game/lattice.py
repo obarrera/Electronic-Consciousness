@@ -949,6 +949,11 @@ def draw_agent_polygon(surface, agent, cell_size, t):
     surface.blit(glow, (cx - cell_size, cy - cell_size))
     pygame.draw.polygon(surface, agent.color, pts)
     pygame.draw.polygon(surface, (255, 255, 255), pts, 1)
+    # The mirrored — agents that predict themselves — wear a thin ring
+    _mir = getattr(agent, "_mirror", None)
+    if _mir is not None and _mir.mirrored:
+        pygame.draw.circle(surface, (245, 245, 255), (int(cx), int(cy)),
+                           int(radius * 1.45), 1)
 
 
 def draw_goal_pulse(surface, gx, gy, cell_size, t):
