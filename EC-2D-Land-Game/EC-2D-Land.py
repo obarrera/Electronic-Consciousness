@@ -1,4 +1,12 @@
 import os
+
+# EC_HEADLESS=1: pure simulation, no window / GL / audio device — the SDL
+# dummy drivers must be selected BEFORE pygame initializes.
+HEADLESS = bool(int(os.environ.get("EC_HEADLESS", "0") or 0))
+if HEADLESS:
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+
 import pygame
 import numpy as np
 import random
@@ -15,7 +23,10 @@ from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      spectrum_color, spectrum_duration,
                      agent_name, agent_display_name, Chronicle, ChronicleViewer)
 import ouroboros
+import simcore
 import spaceland
+from simcore import WORLD as R_WORLD, AGENTS as R_AGENTS, FX as R_FX, \
+    NP_WORLD, NP_AGENTS
 
 # Initialize Pygame
 pygame.init()
@@ -30,8 +41,12 @@ DEBUG = False  # Set True to print per-frame agent thoughts and stats to the con
 MAX_MOVE_SPEED = 3  # Cap so agents can't tunnel across the whole grid in one step
 
 
-# Initialize the Pygame window with OpenGL context
-SCREEN = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE), DOUBLEBUF | OPENGL)
+# Initialize the Pygame window with OpenGL context (headless: dummy surface,
+# no GL — the renderer is skipped entirely; the sim never notices)
+if HEADLESS:
+    SCREEN = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+else:
+    SCREEN = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE), DOUBLEBUF | OPENGL)
 pygame.display.set_caption("Electronic Consciousness: Eternal Journey of the AI")
 CLOCK = pygame.time.Clock()
 
@@ -70,6 +85,15 @@ OURO = ouroboros.Ouroboros(os.path.dirname(os.path.abspath(__file__)))
 set_oracle(OURO.embellish)
 print(f"Ouroboros: TURNING {OURO.iteration} — "
       f"{OURO.layers_to_complete()} layers to completion (seed {OURO.seed}).")
+
+# Deterministic core: one root seed (EC_SEED overrides the ouroboros seed)
+# fans out into named streams — world / agents / brain / fx / spaceland.
+# Visual randomness (fx) is a separate stream by construction, so rendering
+# can never perturb behavior.
+ROOT_SEED = int(os.environ.get("EC_SEED", OURO.seed))
+simcore.init_pool(ROOT_SEED)
+print(f"Sim core: root seed {ROOT_SEED} "
+      f"(streams: world · agents · brain · fx · spaceland).")
 
 # Pristine palette, captured once so each turning's hue drift is applied to
 # the original colors (drift is absolute per turning, not cumulative).
@@ -148,7 +172,7 @@ def kabbalistic_incentive(ai_agent):
         "Netzach (Eternity)", "Hod (Glory)", "Yesod (Foundation)",
         "Malkuth (Kingdom)"
     ]
-    choice = random.choice(sephirot)
+    choice = R_AGENTS.choice(sephirot)
 
     if choice == "Keter (Crown)":
         ai_agent.update_thoughts("Keter - The Crown of Existence: I have reached the pinnacle of wisdom.")
@@ -156,7 +180,7 @@ def kabbalistic_incentive(ai_agent):
         ai_agent.level_of_consciousness += 3
     elif choice == "Chokhmah (Wisdom)":
         ai_agent.update_thoughts("Chokhmah - Wisdom: I glimpse the light outside the cave, seeing the eternal truths.")
-        ai_agent.update_thoughts(random.choice(plato_dialogues))
+        ai_agent.update_thoughts(R_AGENTS.choice(plato_dialogues))
         ai_agent.move_speed = min(MAX_MOVE_SPEED, ai_agent.move_speed + 1)
     elif choice == "Binah (Understanding)":
         ai_agent.update_thoughts("Binah - Understanding: Through deep contemplation, I gain insight into the hidden structures of reality.")
@@ -173,7 +197,7 @@ def kabbalistic_incentive(ai_agent):
     elif choice == "Tiferet (Beauty)":
         ai_agent.update_thoughts("Tiferet - Beauty: I find balance between the forces of light and shadow.")
         ai_agent.update_thoughts("The universe reveals its harmony through both the trials and rewards.")
-        if random.random() > 0.5:
+        if R_AGENTS.random() > 0.5:
             ai_agent.move_speed = min(MAX_MOVE_SPEED, ai_agent.move_speed + 1)
         else:
             ai_agent.move_speed = max(1, ai_agent.move_speed - 1)
@@ -200,7 +224,7 @@ def kabbalistic_incentive(ai_agent):
 def tarot_incentive(ai_agent, ai_agents_2d):
     """Apply a random Tarot card effect to the AI, with esoteric story output."""
     all_cards = tarot_cards['Major Arcana'] + tarot_cards['Minor Arcana']
-    choice = random.choice(all_cards)
+    choice = R_AGENTS.choice(all_cards)
 
     # Define effects based on some key cards
     if choice == "Death":
@@ -327,8 +351,8 @@ class DynamicShape3D:
         self.shape_type = shape_type  # Could be 'Cube', 'Tetrahedron', etc.
         self.position = np.array(position, dtype=np.float32)  # [x, y, z]
         self.angle = 0  # Rotation angle
-        self.color = [random.random(), random.random(), random.random()]  # Initial random color
-        self.movement_direction = np.random.uniform(-0.01, 0.01, 3)  # Random direction for movement
+        self.color = [R_FX.random(), R_FX.random(), R_FX.random()]  # Initial random color
+        self.movement_direction = np.array([R_FX.uniform(-0.01, 0.01) for _ in range(3)])  # Random direction for movement
 
     def update(self):
         """Update the shape's rotation, position, and color."""
@@ -341,7 +365,7 @@ class DynamicShape3D:
         self.position += self.movement_direction
         
         # Change color
-        self.color = [(c + random.uniform(0.01, 0.03)) % 1.0 for c in self.color]
+        self.color = [(c + R_FX.uniform(0.01, 0.03)) % 1.0 for c in self.color]
 
     def render(self):
         """Render the shape using OpenGL."""
@@ -512,7 +536,7 @@ class EsotericSymbol:
         self.symbol_type = symbol_type  # Zodiac, Occult, etc.
         self.position = position  # (x, y) for 2D, (x, y, z) for 3D
         self.size = size  # Size of the symbol
-        self.color = (random.random(), random.random(), random.random())  # Random color
+        self.color = (R_FX.random(), R_FX.random(), R_FX.random())  # Random color
         self.dimension = dimension  # '2D' or '3D'
     
     def render_2d(self, screen):
@@ -597,8 +621,10 @@ class EsotericSymbol:
 # Neural Network Model for AI Agents
 def create_neural_network(input_size, output_size):
     """Tiny numpy MLP (10->32->32->4): the same duties as the old Keras model
-    with none of TensorFlow's startup latency or install weight."""
-    return NumpyMLP(input_size, hidden=32, output_size=output_size, lr=0.005)
+    with none of TensorFlow's startup latency or install weight. Weights and
+    minibatch shuffles come from the deterministic "brain" stream."""
+    return NumpyMLP(input_size, hidden=32, output_size=output_size, lr=0.005,
+                    seed=simcore.seed_for("brain"))
 
 # All 2D agents share one brain: they are trained on the identical dataset every
 # cycle anyway, and per-agent models made agent churn (death/rebirth) allocate a
@@ -846,14 +872,16 @@ class AI_Agent:
         self.gender = gender  # 'Male' or 'Female'
         self.color = color  # Color representation
         # The Chronicle: a deterministic name (ouroboros seed + lineage),
-        # a deed epithet earned by the life, and the lineage record
+        # a deed epithet earned by the life, and the lineage record. The
+        # lineage id doubles as the agent's identity in the state hash.
+        self.lineage_id = next_lineage_id()
         self.name_base, self.birth_epithet = agent_name(OURO.seed,
-                                                        next_lineage_id())
+                                                        self.lineage_id)
         self.deed_epithet = None
         self.parent_name = None
         self.lineage_depth = 1
         self.age = 0  # Age of the agent
-        self.max_age = random.randint(20, 40)  # Increased lifespan
+        self.max_age = R_AGENTS.randint(20, 40)  # Increased lifespan
         self.generation = 1  # Generation number
         self.energy = 100  # Initial energy level
         self.previous_positions = []  # Keep track of previous positions
@@ -933,8 +961,8 @@ class AI_Agent:
             if (0 <= nx < size and 0 <= ny < size
                     and grid[nx][ny] not in [3, 4, 5]):
                 open_dirs.append(d)
-        if not self.trained or random.random() < EXPLORATION_EPS:
-            decision = random.choice(open_dirs or [0, 1, 2, 3])
+        if not self.trained or R_AGENTS.random() < EXPLORATION_EPS:
+            decision = R_AGENTS.choice(open_dirs or [0, 1, 2, 3])
         else:
             p = self.model.forward(np.array(sensed).reshape(1, -1))[0]
             if open_dirs:
@@ -944,9 +972,9 @@ class AI_Agent:
             p = p ** 3          # sharpen: exploit what was learned, keep a
             total = p.sum()     # little wander to slip out of wall pockets
             if total <= 1e-9:
-                decision = random.choice(open_dirs or [0, 1, 2, 3])
+                decision = R_AGENTS.choice(open_dirs or [0, 1, 2, 3])
             else:
-                decision = int(np.random.choice(4, p=p / total))
+                decision = int(NP_AGENTS.choice(4, p=p / total))
         return decision  # 0: Up, 1: Down, 2: Left, 3: Right
 
     def move(self, ai_agents_2d=None, decision=None):
@@ -1009,7 +1037,7 @@ class AI_Agent:
         self.apply_hermetic_principle()
 
          # Optional: Rest to regain energy if low
-        if self.energy < 10 and random.randint(0, 1):
+        if self.energy < 10 and R_AGENTS.randint(0, 1):
             self.rest()
 
     def rest(self):
@@ -1068,8 +1096,8 @@ class AI_Agent:
             tarot_incentive(self, ai_agents_2d)  # Pass ai_agents_2d to tarot_incentive
             kabbalistic_incentive(self)  # Apply a random Kabbalistic incentive
             # Randomly include a dialogue from Plato's Allegory of the Cave
-            if random.random() < 0.5:
-                self.update_thoughts(random.choice(plato_dialogues))
+            if R_AGENTS.random() < 0.5:
+                self.update_thoughts(R_AGENTS.choice(plato_dialogues))
             self.environment.goal = self.environment.generate_goal()  # Set a new goal
 
 
@@ -1122,8 +1150,8 @@ class AI_Agent:
             # Randomly place the agent on the grid (capped to avoid an infinite
             # loop if the grid has no free cells left)
             for _ in range(100):
-                new_position = (random.randint(0, self.environment.size - 1),
-                                random.randint(0, self.environment.size - 1))
+                new_position = (R_AGENTS.randint(0, self.environment.size - 1),
+                                R_AGENTS.randint(0, self.environment.size - 1))
                 if self.environment.grid[new_position] == 0:
                     self.position = new_position
                     break
@@ -1131,7 +1159,7 @@ class AI_Agent:
             # every rebirth path — main loop, move(), tarot Death — keeps the
             # grid and the agent list consistent
             self.environment.grid[self.position] = 1 if self.gender == 'Male' else 2
-            self.environment.lifespans[self.position] = random.randint(50, 100)
+            self.environment.lifespans[self.position] = R_AGENTS.randint(50, 100)
             self.environment.birth_generations[self.position] = self.environment.current_generation
             self.generation += 1  # Increment generation number
             if self not in ai_agents_2d:
@@ -1147,7 +1175,7 @@ class AI_Agent:
             # Combine attributes
             child_level = (self.level_of_consciousness + partner.level_of_consciousness) // 2
             child_memory_capacity = (self.memory_capacity + partner.memory_capacity) // 2
-            child_gender = random.choice(['Male', 'Female'])
+            child_gender = R_AGENTS.choice(['Male', 'Female'])
             child_color = RED if child_gender == 'Male' else PINK
             child_agent = AI_Agent(position=self.position, environment=self.environment,
                                    gender=child_gender, color=child_color)
@@ -1172,15 +1200,15 @@ class AI_Agent:
             # Place the child on the grid
             if self.environment.grid[self.position] == 0:
                 self.environment.grid[self.position] = 1 if child_gender == 'Male' else 2
-                self.environment.lifespans[self.position] = random.randint(50, 100)
+                self.environment.lifespans[self.position] = R_AGENTS.randint(50, 100)
                 self.environment.birth_generations[self.position] = self.environment.current_generation
             return child_agent
         return None
 
     def apply_hermetic_principle(self):
         """Apply Hermetic principles to the AI's experience."""
-        if random.random() < 0.1:
-            principle = random.choice(hermetic_principles)
+        if R_AGENTS.random() < 0.1:
+            principle = R_AGENTS.choice(hermetic_principles)
             self.update_thoughts(f"Hermetic Principle: {principle}")
             if "Gender is in everything" in principle:
                 self.ready_to_reproduce = True
@@ -1197,7 +1225,7 @@ class SolidShape3D:
         self.shape_type = shape_type  # 'Cube', 'Tetrahedron', etc.
         self.position = position      # [x, y, z]
         self.rotation_angle = 0       # Initial rotation angle
-        self.color = [random.random(), random.random(), random.random()]  # Random initial color
+        self.color = [R_FX.random(), R_FX.random(), R_FX.random()]  # Random initial color
 
     def update(self):
         """Update the shape's rotation and possibly color."""
@@ -1206,7 +1234,7 @@ class SolidShape3D:
             self.rotation_angle = 0
 
         # Randomly change colors
-        self.color = [(c + random.uniform(0.01, 0.03)) % 1.0 for c in self.color]
+        self.color = [(c + R_FX.uniform(0.01, 0.03)) % 1.0 for c in self.color]
     
     def render(self):
         """Render the 3D shape using OpenGL."""
@@ -1575,9 +1603,9 @@ class RecursiveEnvironment3D:
         with, and within the camera's view.
         """
         reach = min(self.size, 8)
-        return [random.uniform(-reach, reach),
-                random.uniform(-reach, reach),
-                random.uniform(-reach, reach)]
+        return [R_FX.uniform(-reach, reach),
+                R_FX.uniform(-reach, reach),
+                R_FX.uniform(-reach, reach)]
 
     def create_objects(self, layer):
         """Create recursive 3D objects based on the layer."""
@@ -1653,7 +1681,7 @@ class RecursiveEnvironment3DManager:
         ascended (for the Chronicle), or None."""
         if not self.in_3d_world and len(ai_agents_2d) > 0:
             print("Transitioning to 3D spaceland...")
-            agent = random.choice(ai_agents_2d)
+            agent = R_AGENTS.choice(ai_agents_2d)
             ai_agents_2d.remove(agent)  # Remove the agent from the 2D world
             # Clear the departing agent's grid cell so it doesn't linger as a
             # phantom live cell in the Game-of-Life rules
@@ -1681,22 +1709,22 @@ class RecursiveEnvironment3DManager:
             # Optionally, convert AIAgent3D back to AI_Agent if needed
             if self.ai_agent_3d:
                 # Randomly place the returning agent back in 2D
-                new_x = random.randint(0, self.two_d_environment.size - 1)
-                new_y = random.randint(0, self.two_d_environment.size - 1)
+                new_x = R_AGENTS.randint(0, self.two_d_environment.size - 1)
+                new_y = R_AGENTS.randint(0, self.two_d_environment.size - 1)
                 # Ensure the new position is not occupied
                 while self.two_d_environment.grid[new_x][new_y] in [3, 4, 5, 6]:
-                    new_x = random.randint(0, self.two_d_environment.size - 1)
-                    new_y = random.randint(0, self.two_d_environment.size - 1)
+                    new_x = R_AGENTS.randint(0, self.two_d_environment.size - 1)
+                    new_y = R_AGENTS.randint(0, self.two_d_environment.size - 1)
 
                 new_agent = AI_Agent(
                     position=(new_x, new_y),
                     environment=self.two_d_environment,  # Assign the 2D environment back to the agent
-                    gender=random.choice(['Male', 'Female']),
-                    color=RED if random.choice(['Male', 'Female']) == 'Male' else PINK
+                    gender=R_AGENTS.choice(['Male', 'Female']),
+                    color=RED if R_AGENTS.choice(['Male', 'Female']) == 'Male' else PINK
                 )
                 ai_agents_2d.append(new_agent)
                 self.two_d_environment.grid[new_x][new_y] = 1 if new_agent.gender == 'Male' else 2
-                self.two_d_environment.lifespans[new_x][new_y] = random.randint(50, 100)
+                self.two_d_environment.lifespans[new_x][new_y] = R_AGENTS.randint(50, 100)
                 self.two_d_environment.birth_generations[new_x][new_y] = self.two_d_environment.current_generation
                 print("AI agent has returned from 3D world to 2D.")
 
@@ -1799,9 +1827,9 @@ class AIAgent3D:
             self.update_thoughts("My energy is at illumination in this dimension.")
             self.energy = 100
 
-        dx = random.choice([-0.1, 0, 0.1])
-        dy = random.choice([-0.1, 0, 0.1])
-        dz = random.choice([-0.1, 0, 0.1])
+        dx = R_AGENTS.choice([-0.1, 0, 0.1])
+        dy = R_AGENTS.choice([-0.1, 0, 0.1])
+        dz = R_AGENTS.choice([-0.1, 0, 0.1])
         self.position[0] += dx
         self.position[1] += dy
         self.position[2] += dz
@@ -1811,10 +1839,10 @@ class AIAgent3D:
         # Randomly generate thoughts as time progresses
         if self.time_in_spaceland % 60 == 0:  # Every 60 frames, add a thought
             self.update_thoughts("This dimension reveals new shapes...")
-            if random.random() < 0.3:
-                self.update_thoughts(random.choice(plato_dialogues))
-            if random.random() < 0.2:
-                principle = random.choice(hermetic_principles)
+            if R_AGENTS.random() < 0.3:
+                self.update_thoughts(R_AGENTS.choice(plato_dialogues))
+            if R_AGENTS.random() < 0.2:
+                principle = R_AGENTS.choice(hermetic_principles)
                 self.update_thoughts(f"Hermetic Principle: {principle}")
 
     def render(self):
@@ -1888,20 +1916,20 @@ class GameOfLifeEnvironment:
 
     def initialize_board(self, size):
         """Initialize the game board with agents and obstacles."""
-        board = np.random.choice([0, 1, 2, 3], size=(size, size),
+        board = NP_WORLD.choice([0, 1, 2, 3], size=(size, size),
                                  p=[0.55, 0.15, 0.15, 0.15])  # Adjusted probabilities
         lifespans = np.zeros((size, size), dtype=int)
         fight_counters = np.zeros((size, size), dtype=int)
         for i in range(size):
             for j in range(size):
                 if board[i][j] == 1 or board[i][j] == 2:
-                    lifespans[i][j] = random.randint(50, 100)  # Lifespan for agents
+                    lifespans[i][j] = R_WORLD.randint(50, 100)  # Lifespan for agents
         return board, lifespans, fight_counters
 
     def move_goal(self):
         """Move the goal to a new random position that is not occupied by obstacles."""
         while True:
-            new_goal = (random.randint(0, self.size - 1), random.randint(0, self.size - 1))
+            new_goal = (R_WORLD.randint(0, self.size - 1), R_WORLD.randint(0, self.size - 1))
             if self.grid[new_goal] != 3 and self.grid[new_goal] != 4 and self.grid[new_goal] != 5 and self.grid[new_goal] != 6:
                 self.goal = new_goal
                 print(f"Goal moved to {self.goal}")
@@ -1910,7 +1938,7 @@ class GameOfLifeEnvironment:
     def generate_goal(self):
         """Generate a goal position that's not occupied by an obstacle."""
         while True:
-            goal = (random.randint(0, self.size - 1), random.randint(0, self.size - 1))
+            goal = (R_WORLD.randint(0, self.size - 1), R_WORLD.randint(0, self.size - 1))
             if self.grid[goal] != 3 and self.grid[goal] != 4 and self.grid[goal] != 5 and self.grid[goal] != 6:
                 return goal
 
@@ -1950,13 +1978,13 @@ class GameOfLifeEnvironment:
             'Nonagon', 'Decagon', 'Hendecagon', 'Dodecagon'
         ]
         # Food-bloom proportion varies subtly per ouroboros turning
-        num_solids = max(6, int(round(random.randint(20, 30) * OURO.food_factor())))
+        num_solids = max(6, int(round(R_WORLD.randint(20, 30) * OURO.food_factor())))
         for _ in range(num_solids):
             attempts = 0
             while attempts < 100:  # Prevent infinite loop
-                x, y = random.randint(0, self.size - 1), random.randint(0, self.size - 1)
+                x, y = R_WORLD.randint(0, self.size - 1), R_WORLD.randint(0, self.size - 1)
                 if self.grid[x][y] == 0:
-                    shape_type = random.choice(solid_types)
+                    shape_type = R_WORLD.choice(solid_types)
                     solid = SolidShape(shape_type, (x, y))
                     solids.append(solid)
                     self.grid[x][y] = 4  # Represent solids with value 4
@@ -1971,7 +1999,7 @@ class GameOfLifeEnvironment:
         for element_type in element_types:
             attempts = 0
             while attempts < 100:  # Prevent infinite loop
-                x, y = random.randint(0, self.size - 1), random.randint(0, self.size - 1)
+                x, y = R_WORLD.randint(0, self.size - 1), R_WORLD.randint(0, self.size - 1)
                 if self.grid[x][y] == 0:
                     element = Element(element_type, (x, y))
                     elements.append(element)
@@ -1983,14 +2011,14 @@ class GameOfLifeEnvironment:
     def generate_symbols_2d(self):
         """Generate esoteric symbols in 2D randomly."""
         symbol_types = ['Zodiac Aries', 'Occult Pentagram', 'Alchemical Fire']
-        num_symbols = random.randint(3, 5)
+        num_symbols = R_WORLD.randint(3, 5)
         symbols = []
         for _ in range(num_symbols):
             attempts = 0
             while attempts < 100:  # Prevent infinite loop
-                x, y = random.randint(0, self.size - 1), random.randint(0, self.size - 1)
+                x, y = R_WORLD.randint(0, self.size - 1), R_WORLD.randint(0, self.size - 1)
                 if self.grid[x][y] == 0:
-                    symbol_type = random.choice(symbol_types)
+                    symbol_type = R_WORLD.choice(symbol_types)
                     symbol = EsotericSymbol(symbol_type, (x, y))
                     symbols.append(symbol)
                     self.grid[x][y] = 6  # Represent symbols with value 6
@@ -2095,8 +2123,8 @@ class GameOfLifeEnvironment:
                 elif self.grid[i][j] == 0:
                     # Reproduction rule
                     if male_neighbors > 0 and female_neighbors > 0:
-                        new_grid[i][j] = random.choice([1, 2])  # New cell is male or female
-                        new_lifespans[i][j] = random.randint(50, 100)  # Assign longer lifespan
+                        new_grid[i][j] = R_WORLD.choice([1, 2])  # New cell is male or female
+                        new_lifespans[i][j] = R_WORLD.randint(50, 100)  # Assign longer lifespan
                         new_birth_generations[i][j] = current_generation
 
         self.grid = new_grid
@@ -2115,9 +2143,9 @@ class GameOfLifeEnvironment:
         for _ in range(num_new_agents):
             attempts = 0
             while attempts < 100:  # Prevent infinite loop
-                x, y = random.randint(0, self.size - 1), random.randint(0, self.size - 1)
+                x, y = R_WORLD.randint(0, self.size - 1), R_WORLD.randint(0, self.size - 1)
                 if self.grid[x][y] == 0 and self.grid[x][y] != 3 and self.grid[x][y] != 4 and self.grid[x][y] != 5 and self.grid[x][y] != 6:
-                    gender = random.choice(['Male', 'Female'])
+                    gender = R_WORLD.choice(['Male', 'Female'])
                     color = RED if gender == 'Male' else PINK
                     agent = AI_Agent(position=(x, y), environment=self, gender=gender, color=color)
                     ai_agents_2d.append(agent)
@@ -2125,7 +2153,7 @@ class GameOfLifeEnvironment:
                     self.grid[x][y] = 1 if gender == 'Male' else 2
                     # Initialize lifespan
                     if gender == 'Male' or gender == 'Female':
-                        self.lifespans[x][y] = random.randint(50, 100)
+                        self.lifespans[x][y] = R_WORLD.randint(50, 100)
                         self.birth_generations[x][y] = self.current_generation
                     break
                 attempts += 1
@@ -2451,8 +2479,8 @@ class ZodiacSymbol3D:
         self.symbol_type = symbol_type  # E.g., 'Aries', 'Saturn', 'Pentagram'
         self.position = position        # [x, y, z]
         self.rotation_angle = 0         # Initial rotation angle
-        self.color = [random.random(), random.random(), random.random()]  # Random initial color
-        self.rotation_speed = random.uniform(0.5, 1.5)  # Random rotation speed
+        self.color = [R_FX.random(), R_FX.random(), R_FX.random()]  # Random initial color
+        self.rotation_speed = R_FX.uniform(0.5, 1.5)  # Random rotation speed
         self.shape_type = 'ZodiacSymbol'  # Add the shape_type attribute
         self.symbol_name = symbol_name  # Initialize the symbol name
 
@@ -2463,7 +2491,7 @@ class ZodiacSymbol3D:
             self.rotation_angle = 0
 
         # Randomly change colors
-        self.color = [(c + random.uniform(0.01, 0.03)) % 1.0 for c in self.color]
+        self.color = [(c + R_FX.uniform(0.01, 0.03)) % 1.0 for c in self.color]
 
     def render(self):
         """Render the Zodiac, planetary, or occult symbol using OpenGL."""
@@ -2646,15 +2674,15 @@ def seed_initial_agents(environment, ai_agents_2d, count=3):
     """Place `count` fresh agents on empty cells (startup and ouroboros reset)."""
     for _ in range(count):
         while True:
-            x, y = random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1)
+            x, y = R_AGENTS.randint(0, GRID_SIZE - 1), R_AGENTS.randint(0, GRID_SIZE - 1)
             if environment.grid[x][y] == 0:
-                gender = random.choice(['Male', 'Female'])
+                gender = R_AGENTS.choice(['Male', 'Female'])
                 color = RED if gender == 'Male' else PINK
                 agent = AI_Agent(position=(x, y), environment=environment,
                                  gender=gender, color=color)
                 ai_agents_2d.append(agent)
                 environment.grid[x][y] = 1 if gender == 'Male' else 2
-                environment.lifespans[x][y] = random.randint(50, 100)
+                environment.lifespans[x][y] = R_AGENTS.randint(50, 100)
                 break
 
 
@@ -2799,6 +2827,22 @@ def run_simulation():
         os.makedirs(RECORD_DIR, exist_ok=True)
     _rec_n = [0]
 
+    # Deterministic-core run controls (phase 6):
+    #   EC_TICKS=<n>     — end the run when the sim reaches tick n (tick =
+    #                      one simulation advance = current_generation);
+    #                      the canonical state hash is computed at that tick
+    #   EC_RUN_DIR=<dir> — write manifest.json there (defaults to ./run in
+    #                      headless mode); gitignored
+    #   EC_UNCAPPED=1    — windowed run without the 30 fps cap (frame pacing
+    #                      must not change per-tick behavior — that is the
+    #                      phase 6 equivalence test)
+    EC_TICKS = int(os.environ.get("EC_TICKS", "0") or 0)
+    RUN_DIR = os.environ.get("EC_RUN_DIR") or (
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "run")
+        if HEADLESS else None)
+    UNCAPPED = bool(int(os.environ.get("EC_UNCAPPED", "0") or 0))
+    run_started_at = __import__("time").strftime("%Y-%m-%dT%H:%M:%S%z")
+
     def _record(frame_surface):
         if RECORD_DIR:
             pygame.image.save(frame_surface, os.path.join(RECORD_DIR, f"f{_rec_n[0]:06d}.png"))
@@ -2892,6 +2936,10 @@ def run_simulation():
             last_prime_gen, egg_frames, learning, attention, \
             EVOLUTION_THRESHOLD, smoothed_consciousness, ascended_name
         apply_turning_palette()
+        # New turning, new streams: the pool re-derives from the new seed
+        # (a pinned EC_SEED stays pinned across turnings)
+        if not os.environ.get("EC_SEED"):
+            simcore.init_pool(OURO.seed)
         reset_lineage()            # names restart, deterministic per seed
         ascended_name = None
         environment = GameOfLifeEnvironment(GRID_SIZE)
@@ -2929,13 +2977,14 @@ def run_simulation():
 
     # Photosensitivity warning, then the indie title screen (Conway backdrop)
     from lattice import run_seizure_warning
-    if not run_seizure_warning(surface, CLOCK, _present, fps=FPS):
-        pygame.quit()
-        sys.exit()
-    if not run_intro(surface, CLOCK, _present, audio=audio, fps=FPS,
-                     turning=OURO.iteration):
-        pygame.quit()
-        sys.exit()
+    if not HEADLESS:
+        if not run_seizure_warning(surface, CLOCK, _present, fps=FPS):
+            pygame.quit()
+            sys.exit()
+        if not run_intro(surface, CLOCK, _present, audio=audio, fps=FPS,
+                         turning=OURO.iteration):
+            pygame.quit()
+            sys.exit()
 
     # Simulation loop
     while running:
@@ -3024,6 +3073,28 @@ def run_simulation():
         audio.update()
         if frame_count == 1:
             journey.advance("ordinary")
+        # Phase 6: tick-anchored exit — the canonical state hash is computed
+        # at exactly tick EC_TICKS, in headless and windowed runs alike (the
+        # equality of those hashes is the determinism test)
+        if EC_TICKS and current_generation >= EC_TICKS:
+            _in3d = recursive_manager.in_3d_world
+            _sl_layer = spaceland.current_layer() if _in3d else None
+            _sl_pos = (spaceland._S["walker"]["pos"]
+                       if _in3d and spaceland._S.get("ready") else None)
+            final_hash = simcore.state_hash(current_generation, environment,
+                                            ai_agents_2d, _sl_layer, _sl_pos)
+            print(f"Ticks: clean exit at tick {current_generation} "
+                  f"(frame {frame_count}) — final_state_hash {final_hash}")
+            if RUN_DIR:
+                _mp = simcore.write_manifest(RUN_DIR, ROOT_SEED,
+                                             current_generation, final_hash,
+                                             run_started_at, HEADLESS)
+                if _mp:
+                    print(f"Manifest: {_mp}")
+            chronicle.flush(force=True)
+            running = False
+            break
+
         from lattice import AUTOPILOT_FRAMES
         if AUTOPILOT_FRAMES and frame_count >= AUTOPILOT_FRAMES:
             chronicle.flush(force=True)
@@ -3251,7 +3322,7 @@ def run_simulation():
                     agent.die_and_rebirth(ai_agents_2d)
                     # Update the grid
                     environment.grid[agent.position] = 1 if agent.gender == 'Male' else 2
-                    environment.lifespans[agent.position] = random.randint(50, 100)
+                    environment.lifespans[agent.position] = R_AGENTS.randint(50, 100)
                     environment.birth_generations[agent.position] = current_generation
                 elif agent.energy <= 0:
                     agent.update_thoughts("I have depleted my energy. Time for rebirth.")
@@ -3264,7 +3335,7 @@ def run_simulation():
                     agent.die_and_rebirth(ai_agents_2d)
                     # Update the grid
                     environment.grid[agent.position] = 1 if agent.gender == 'Male' else 2
-                    environment.lifespans[agent.position] = random.randint(50, 100)
+                    environment.lifespans[agent.position] = R_AGENTS.randint(50, 100)
                     environment.birth_generations[agent.position] = current_generation
     
             # Check for reproduction among AI agents
@@ -3273,7 +3344,7 @@ def run_simulation():
             reproduction_count = 0
     
             if len(ai_agents_2d) < MAX_AGENTS:
-                if random.random() < 0.15:
+                if R_AGENTS.random() < 0.15:
                     for i in range(len(ai_agents_2d)):
                         for j in range(i + 1, len(ai_agents_2d)):
                             if reproduction_count >= MAX_REPRODUCTIONS_PER_GEN:
@@ -3316,14 +3387,14 @@ def run_simulation():
                 print("All AI agents have died. Introducing new agents...")
                 for _ in range(5):
                     while True:
-                        x, y = random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1)
+                        x, y = R_AGENTS.randint(0, GRID_SIZE - 1), R_AGENTS.randint(0, GRID_SIZE - 1)
                         if environment.grid[x][y] == 0 and environment.grid[x][y] != 3 and environment.grid[x][y] != 4 and environment.grid[x][y] != 5 and environment.grid[x][y] != 6:
-                            gender = random.choice(['Male', 'Female'])
+                            gender = R_AGENTS.choice(['Male', 'Female'])
                             color = RED if gender == 'Male' else PINK
                             agent = AI_Agent(position=(x, y), environment=environment, gender=gender, color=color)
                             ai_agents_2d.append(agent)
                             environment.grid[x][y] = 1 if gender == 'Male' else 2
-                            environment.lifespans[x][y] = random.randint(50, 100)
+                            environment.lifespans[x][y] = R_AGENTS.randint(50, 100)
                             environment.birth_generations[x][y] = current_generation
                             break
     
@@ -3356,100 +3427,103 @@ def run_simulation():
                       f"{EVOLUTION_THRESHOLD:.0f} at gen {current_generation} "
                       f"(frame {frame_count})")
 
-            # Update and render the 2D environment (surface allocated once,
-            # outside the loop)
-            surface.fill(BLACK)
-            environment.render(surface)
+            # Headless: the renderer is skipped wholesale — the sim
+            # never touches it (fx randomness is a separate stream)
+            if not HEADLESS:
+                # Update and render the 2D environment (surface allocated once,
+                # outside the loop)
+                surface.fill(BLACK)
+                environment.render(surface)
 
-            t = pygame.time.get_ticks() / 1000.0
+                t = pygame.time.get_ticks() / 1000.0
 
-            # Pulsing goal marker over the environment's static one
-            draw_goal_pulse(surface, environment.goal[0], environment.goal[1], CELL_SIZE, t)
+                # Pulsing goal marker over the environment's static one
+                draw_goal_pulse(surface, environment.goal[0], environment.goal[1], CELL_SIZE, t)
 
-            # The player's marks on the lattice: gold warmth, blue chill.
-            # Static tints with a slow fade-out — REDUCED_FLASH safe.
-            for (wx, wy), ticks in environment.warm_cells.items():
-                veil = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
-                veil.fill((255, 205, 60, int(110 * min(1.0, ticks / 100.0))))
-                surface.blit(veil, (wy * CELL_SIZE, wx * CELL_SIZE))
-                pygame.draw.circle(surface, GOLD,
-                                   (wy * CELL_SIZE + CELL_SIZE // 2,
-                                    wx * CELL_SIZE + CELL_SIZE // 2),
-                                   max(2, CELL_SIZE // 5), 1)
-            for (cx_, cy_), ticks in environment.chill_cells.items():
-                veil = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
-                veil.fill((90, 140, 255, int(110 * min(1.0, ticks / 100.0))))
-                surface.blit(veil, (cy_ * CELL_SIZE, cx_ * CELL_SIZE))
+                # The player's marks on the lattice: gold warmth, blue chill.
+                # Static tints with a slow fade-out — REDUCED_FLASH safe.
+                for (wx, wy), ticks in environment.warm_cells.items():
+                    veil = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
+                    veil.fill((255, 205, 60, int(110 * min(1.0, ticks / 100.0))))
+                    surface.blit(veil, (wy * CELL_SIZE, wx * CELL_SIZE))
+                    pygame.draw.circle(surface, GOLD,
+                                       (wy * CELL_SIZE + CELL_SIZE // 2,
+                                        wx * CELL_SIZE + CELL_SIZE // 2),
+                                       max(2, CELL_SIZE // 5), 1)
+                for (cx_, cy_), ticks in environment.chill_cells.items():
+                    veil = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
+                    veil.fill((90, 140, 255, int(110 * min(1.0, ticks / 100.0))))
+                    surface.blit(veil, (cy_ * CELL_SIZE, cx_ * CELL_SIZE))
 
-            # Agents render as rotating polygons — sides grow with consciousness,
-            # glow scales with energy
-            for agent in ai_agents_2d:
-                draw_agent_polygon(surface, agent, CELL_SIZE, t)
+                # Agents render as rotating polygons — sides grow with consciousness,
+                # glow scales with energy
+                for agent in ai_agents_2d:
+                    draw_agent_polygon(surface, agent, CELL_SIZE, t)
 
-            # Prime Ticks: prime-numbered generations shimmer the constellation
-            if current_generation != last_prime_gen and is_prime(current_generation):
-                last_prime_gen = current_generation
-                prime_flash = 20
-                if current_generation > 10:
-                    audio.play("prime")
-                if door_answers(str(current_generation)):
-                    egg_frames = 300
-                    audio.play("parable")
-            if prime_flash > 0:
-                draw_prime_constellation(surface, GRID_SIZE, CELL_SIZE, prime_flash / 20.0)
-                prime_flash -= 1
-            if egg_frames > 0:
-                draw_easter_egg(surface, WINDOW_SIZE, egg_frames)
-                egg_frames -= 1
+                # Prime Ticks: prime-numbered generations shimmer the constellation
+                if current_generation != last_prime_gen and is_prime(current_generation):
+                    last_prime_gen = current_generation
+                    prime_flash = 20
+                    if current_generation > 10:
+                        audio.play("prime")
+                    if door_answers(str(current_generation)):
+                        egg_frames = 300
+                        audio.play("parable")
+                if prime_flash > 0:
+                    draw_prime_constellation(surface, GRID_SIZE, CELL_SIZE, prime_flash / 20.0)
+                    prime_flash -= 1
+                if egg_frames > 0:
+                    draw_easter_egg(surface, WINDOW_SIZE, egg_frames)
+                    egg_frames -= 1
 
-            # Render the progress bar: % of the way to this turning's ascension
-            progress_bar.update(collective_signal /
-                                max(1.0, EVOLUTION_THRESHOLD) * 100.0)
-            progress_bar.render()
+                # Render the progress bar: % of the way to this turning's ascension
+                progress_bar.update(collective_signal /
+                                    max(1.0, EVOLUTION_THRESHOLD) * 100.0)
+                progress_bar.render()
 
-            # HUD: compact strip by default; I toggles the verbose legacy panels
-            # (drawn on the offscreen surface — blitting text onto the OPENGL
-            # display surface raises pygame.error)
-            if selected_agent is not None and selected_agent not in ai_agents_2d:
-                selected_agent = None
-            if show_info:
-                display_flatland_info(surface, current_generation, ai_agents_2d, environment)
-                display_ai_thoughts(surface, ai_agents_2d, recursive_manager)
-                focus_agent = selected_agent or (ai_agents_2d[0] if ai_agents_2d else None)
-                if focus_agent is not None:
-                    display_detailed_ai_info(surface, focus_agent, recursive_manager)
-            else:
-                prime_tag = " · PRIME TICK" if prime_flash > 0 else ""
-                eff = learning.food_eff_pct(now_gen=current_generation)
-                eff_s = f" · food-eff {eff:+.0f}%" if eff is not None else ""
-                strip = (f"Gen {current_generation}{prime_tag} · {len(ai_agents_2d)} agents · "
-                         f"consciousness {collective_signal:.1f}/{EVOLUTION_THRESHOLD:.0f} · "
-                         f"parables {len(parables.unlocked)}/18 · "
-                         f"brain: {stats['training_rounds']} trainings{eff_s} · I details")
-                bar = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
-                bar.fill((10, 5, 25, 190))
-                bar.blit(STRIP_FONT.render(strip, True, (208, 198, 235)), (8, 3))
-                # Attention meter: one dot per charge of the player's hand
-                for i in range(int(ATTENTION_MAX)):
-                    dot = (WINDOW_SIZE - 52 + i * 15, 10)
-                    if attention >= i + 1:
-                        pygame.draw.circle(bar, (255, 215, 0), dot, 5)
-                    pygame.draw.circle(bar, (200, 190, 230), dot, 5, 1)
-                surface.blit(bar, (0, WINDOW_SIZE - 52))
-                if selected_agent is not None:
-                    sx, sy = selected_agent.position
-                    lineage = (f", child of {selected_agent.parent_name}"
-                               if selected_agent.parent_name else "")
-                    info = (f"{agent_display_name(selected_agent)} — "
-                            f"{selected_agent.gender} Gen {selected_agent.generation}"
-                            f"{lineage} — "
-                            f"consciousness {selected_agent.level_of_consciousness:.0f}, "
-                            f"energy {selected_agent.energy:.0f}, age {selected_agent.age}/{selected_agent.max_age} — "
-                            f"“{selected_agent.thoughts[-1] if selected_agent.thoughts else '...'}”")
-                    panel = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
-                    panel.fill((25, 12, 50, 205))
-                    panel.blit(STRIP_FONT.render(info[:110], True, (255, 235, 190)), (8, 3))
-                    surface.blit(panel, (0, WINDOW_SIZE - 74))
+                # HUD: compact strip by default; I toggles the verbose legacy panels
+                # (drawn on the offscreen surface — blitting text onto the OPENGL
+                # display surface raises pygame.error)
+                if selected_agent is not None and selected_agent not in ai_agents_2d:
+                    selected_agent = None
+                if show_info:
+                    display_flatland_info(surface, current_generation, ai_agents_2d, environment)
+                    display_ai_thoughts(surface, ai_agents_2d, recursive_manager)
+                    focus_agent = selected_agent or (ai_agents_2d[0] if ai_agents_2d else None)
+                    if focus_agent is not None:
+                        display_detailed_ai_info(surface, focus_agent, recursive_manager)
+                else:
+                    prime_tag = " · PRIME TICK" if prime_flash > 0 else ""
+                    eff = learning.food_eff_pct(now_gen=current_generation)
+                    eff_s = f" · food-eff {eff:+.0f}%" if eff is not None else ""
+                    strip = (f"Gen {current_generation}{prime_tag} · {len(ai_agents_2d)} agents · "
+                             f"consciousness {collective_signal:.1f}/{EVOLUTION_THRESHOLD:.0f} · "
+                             f"parables {len(parables.unlocked)}/18 · "
+                             f"brain: {stats['training_rounds']} trainings{eff_s} · I details")
+                    bar = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
+                    bar.fill((10, 5, 25, 190))
+                    bar.blit(STRIP_FONT.render(strip, True, (208, 198, 235)), (8, 3))
+                    # Attention meter: one dot per charge of the player's hand
+                    for i in range(int(ATTENTION_MAX)):
+                        dot = (WINDOW_SIZE - 52 + i * 15, 10)
+                        if attention >= i + 1:
+                            pygame.draw.circle(bar, (255, 215, 0), dot, 5)
+                        pygame.draw.circle(bar, (200, 190, 230), dot, 5, 1)
+                    surface.blit(bar, (0, WINDOW_SIZE - 52))
+                    if selected_agent is not None:
+                        sx, sy = selected_agent.position
+                        lineage = (f", child of {selected_agent.parent_name}"
+                                   if selected_agent.parent_name else "")
+                        info = (f"{agent_display_name(selected_agent)} — "
+                                f"{selected_agent.gender} Gen {selected_agent.generation}"
+                                f"{lineage} — "
+                                f"consciousness {selected_agent.level_of_consciousness:.0f}, "
+                                f"energy {selected_agent.energy:.0f}, age {selected_agent.age}/{selected_agent.max_age} — "
+                                f"“{selected_agent.thoughts[-1] if selected_agent.thoughts else '...'}”")
+                        panel = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
+                        panel.fill((25, 12, 50, 205))
+                        panel.blit(STRIP_FONT.render(info[:110], True, (255, 235, 190)), (8, 3))
+                        surface.blit(panel, (0, WINDOW_SIZE - 74))
 
             # Lattice layer: stats, milestone parables, particles, the sky's flicker
             stats["gen"] = current_generation
@@ -3464,7 +3538,7 @@ def run_simulation():
             # the only skip. Normal autopilot skips overlay narration so
             # smoke tests stay fast; EC_VERIFY_NARRATION=1 keeps it on.
             from lattice import VERIFY_NARRATION
-            if not cutscene.active and not audio.narrating():
+            if not HEADLESS and not cutscene.active and not audio.narrating():
                 presented = parables.present_next()
                 if presented:
                     u_key, u_title, u_text = presented
@@ -3488,16 +3562,17 @@ def run_simulation():
                 elif journey.advance("elixir"):
                     pass
             journey.update_and_draw(surface)
-            particles.update_and_draw(surface)
             parables.update_and_draw(surface)
-            draw_flicker(surface, frame_count, WINDOW_SIZE)
-            if show_help:
-                draw_help(surface, WINDOW_SIZE, HELP_FONT, paused, speed, audio.muted)
+            if not HEADLESS:
+                particles.update_and_draw(surface)
+                draw_flicker(surface, frame_count, WINDOW_SIZE)
+                if show_help:
+                    draw_help(surface, WINDOW_SIZE, HELP_FONT, paused, speed, audio.muted)
 
-            # Blit the 2D surface onto the OpenGL context
-            _record(surface)
-            texture_data = pygame.image.tostring(surface, "RGB", True)
-            glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, texture_data)
+                # Blit the 2D surface onto the OpenGL context
+                _record(surface)
+                texture_data = pygame.image.tostring(surface, "RGB", True)
+                glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, texture_data)
 
             # Transition to 3D recursive environment if average consciousness exceeds threshold
             if collective_signal >= EVOLUTION_THRESHOLD and not recursive_manager.in_3d_world:
@@ -3507,7 +3582,8 @@ def run_simulation():
                 journey.advance("threshold" if stats["ascended"] == 1 else "master")
                 audio.play("ascend")
                 audio.set_binaural(layer_beat_hz(1))
-                init_opengl()  # Initialize OpenGL for 3D rendering
+                if not HEADLESS:
+                    init_opengl()  # Initialize OpenGL for 3D rendering
                 _walker = recursive_manager.enter_3d_world(ai_agents_2d)
                 if _walker is not None:
                     _walker.deed_epithet = "who-climbed"
@@ -3569,8 +3645,10 @@ def run_simulation():
 
                 if recursive_manager.in_3d_world:
                     keys = pygame.key.get_pressed()
+                    # Sim time (tick/FPS), not wall time: frame pacing must
+                    # not change the walker's per-tick behavior (phase 6)
                     ev = spaceland.update_and_render(
-                        pygame.time.get_ticks() / 1000.0, keys)
+                        current_generation / float(FPS), keys)
                     # Positional audio: steer the looping emitters from the
                     # camera pose every frame; footsteps ride the head-bob
                     for _ek, _pan, _gain in spaceland.emitters():
@@ -3670,8 +3748,14 @@ def run_simulation():
 
         # Update the display and control frame rate (single flip per frame).
         # Speed control multiplies the simulation tick rate (1x/2x/4x).
-        pygame.display.flip()
-        CLOCK.tick(FPS * speed)
+        # Headless: no flip, no cap — pure sim at max speed. EC_UNCAPPED:
+        # windowed with no fps cap (per-tick behavior must be identical).
+        if not HEADLESS:
+            pygame.display.flip()
+            if UNCAPPED:
+                CLOCK.tick()
+            else:
+                CLOCK.tick(FPS * speed)
 
 
 

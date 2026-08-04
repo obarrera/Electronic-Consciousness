@@ -13,7 +13,7 @@ phase-specific checks below.
 | 3 | [First-session pacing](phases/phase-03-pacing.md) | ✅ complete | 1 |
 | 4 | [Positional audio in Spaceland](phases/phase-04-positional-audio.md) | ✅ complete | — |
 | 5 | [The Chronicle — names, lineages, auto-written history](phases/phase-05-chronicle.md) | ✅ complete | — |
-| 6 | [Deterministic headless core](phases/phase-06-deterministic-core.md) | planned — queued after 1–5 | 1–5 |
+| 6 | [Deterministic headless core](phases/phase-06-deterministic-core.md) | ✅ complete | 1–5 |
 | 7 | [Narration coverage + quality pass](phases/phase-07-narration-quality.md) | planned — queued after 6 | 3, 6 |
 | 8 | [2D legibility — legend, toasts, labeled HUD, hover](phases/phase-08-legibility.md) | planned — queued after 7 (batch closes at 8) | 2, 5, 7 |
 

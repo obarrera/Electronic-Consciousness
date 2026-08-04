@@ -29,6 +29,13 @@ import random
 import numpy as np
 import pygame
 
+import simcore
+
+
+def _layer_rng(layer, salt=""):
+    """Deterministic per-layer RNG derived from the root seed (phase 6)."""
+    return random.Random(simcore.seed_for(f"spaceland:{salt}:{layer}"))
+
 try:
     from OpenGL.GL import *
     from OpenGL.GLU import *
@@ -420,16 +427,16 @@ def enter(grid, goal, layer=1):
                     seen |= comp
                     if len(comp) > len(best):
                         best = comp
-            goal = random.Random(layer).choice(sorted(best))
+            goal = _layer_rng(layer, 'goal').choice(sorted(best))
             field = _bfs_field(goal, walk, n)
 
         far = max(field.values())
-        spawn = random.Random(layer * 31).choice(
+        spawn = _layer_rng(layer, 'spawn').choice(
             [c for c, d in field.items() if d >= max(3, far - 2)] or [goal])
 
         # Hazards: cold rifts (+1 per layer) and one descent well, placed on
         # reachable open cells so they genuinely threaten the walk.
-        rng = random.Random(104729 * layer + 7)
+        rng = _layer_rng(layer, 'hazards')
         pool = [c for c in sorted(field) if g[c] == 0
                 and c not in (goal, spawn)]
         rng.shuffle(pool)
@@ -477,7 +484,7 @@ def enter(grid, goal, layer=1):
                         "yaw": 0.0, "path": _path_to_goal(spawn)}
         _S["solids"] = _place_solids(layer, rng)
         # Ghost footprint of the layer beneath (glows up through the floor)
-        brng = random.Random(104729 * (layer - 1) + 7)
+        brng = _layer_rng(layer - 1, 'hazards')
         opens = sorted(walk)
         _S["below_cells"] = [opens[brng.randrange(len(opens))]
                              for _ in range(min(40, len(opens)))]

@@ -402,6 +402,7 @@ class NumpyMLP:
         self.W2 = rng.normal(0, s2, (hidden, hidden));     self.b2 = np.zeros(hidden)
         self.W3 = rng.normal(0, s2, (hidden, output_size)); self.b3 = np.zeros(output_size)
         self.lr = lr
+        self._rng = rng     # minibatch shuffles stay on the same stream
 
     @staticmethod
     def _softmax(z):
@@ -424,7 +425,7 @@ class NumpyMLP:
             return
         n = len(X)
         for _ in range(int(epochs)):
-            idx = np.random.permutation(n)
+            idx = self._rng.permutation(n)
             for start in range(0, n, batch_size):
                 b = idx[start:start + batch_size]
                 x, y = X[b], Y[b]
@@ -723,16 +724,21 @@ def layer_beat_hz(layer):
 # ---------------------------------------------------------------------------
 
 class ParticleSystem:
+    """Visual-only: draws from the deterministic "fx" stream so particle
+    randomness can never perturb simulation behavior."""
+
     def __init__(self):
         self.particles = []
+        from simcore import FX
+        self._rng = FX
 
     def burst(self, pos, color, count=18, speed=2.4, life=26):
         x, y = pos
         for _ in range(count):
-            a = random.uniform(0, 2 * math.pi)
-            v = random.uniform(0.3, speed)
+            a = self._rng.uniform(0, 2 * math.pi)
+            v = self._rng.uniform(0.3, speed)
             self.particles.append([x, y, math.cos(a) * v, math.sin(a) * v,
-                                   random.randint(life // 2, life), color])
+                                   self._rng.randint(life // 2, life), color])
 
     def update_and_draw(self, surface):
         alive = []
