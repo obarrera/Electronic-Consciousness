@@ -22,7 +22,8 @@ from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      set_oracle, set_oracle_audio, PARABLES,
                      ENDGAME_PARABLES, draw_tesseract,
                      spectrum_color, spectrum_duration,
-                     agent_name, agent_display_name, Chronicle, ChronicleViewer)
+                     agent_name, agent_display_name, Chronicle, ChronicleViewer,
+                     ToastSystem, draw_legend)
 import ouroboros
 import simcore
 import spaceland
@@ -1597,6 +1598,12 @@ def display_flatland_info(screen, current_generation, ai_agents_2d, environment)
     energy_info = f"Average AI Agent Energy: {avg_energy:.2f}"
     screen.blit(font.render(energy_info, True, text_color), (12, info_offset + 6 * line_height))
 
+    # One-line stat explanations (phase 8 legibility)
+    explainer = ("Gen = tick · consciousness climbs toward ascension · "
+                 "energy feeds movement (0 = rebirth)")
+    screen.blit(FONT.render(explainer, True, (60, 50, 90)),
+                (12, info_offset + 7 * line_height))
+
 
 # Recursive Environment 3D
 class RecursiveEnvironment3D:
@@ -2808,6 +2815,8 @@ def run_simulation():
     chronicle.open_turning(_turning_heading(), OURO.oracle_line("chronicle"))
     chronicle_viewer = ChronicleViewer(WINDOW_SIZE)
     chronicle_open = False
+    legend_open = False            # L: the legend overlay (sim frozen)
+    toasts = ToastSystem(WINDOW_SIZE)   # first-time explainer hints
     ascended_name = None           # who is walking Spaceland right now
 
     # EC_TEST_KEYS="j@500,escape@700": post synthetic KEYDOWNs at frames —
@@ -2899,10 +2908,16 @@ def run_simulation():
             environment.warm_cells[cell] = 300
             particles.burst(px, GOLD, count=14, speed=1.2)
             audio.play("birth", vol=0.10)
+            toasts.hint("warm",
+                        "You warmed a cell — food blooms there, and the "
+                        "agents will learn to route to it.")
         else:
             environment.chill_cells[cell] = 150
             particles.burst(px, (120, 170, 255), count=10, speed=1.0)
             audio.play("cold", vol=0.10)
+            toasts.hint("chill",
+                        "You chilled a cell — agents that enter lose "
+                        "energy until it thaws (~150 ticks).")
         return True
 
     # EC_TEST_HAND="warm@120:5,5;chill@240:8,8" — scripted player touches for
@@ -3012,8 +3027,9 @@ def run_simulation():
         for tk in test_keys:
             if not tk["done"] and frame_count >= tk["frame"]:
                 tk["done"] = True
-                _kc = {"j": pygame.K_j, "escape": pygame.K_ESCAPE,
-                       "p": pygame.K_p, "return": pygame.K_RETURN}.get(tk["name"])
+                _kc = {"escape": pygame.K_ESCAPE,
+                       "return": pygame.K_RETURN}.get(
+                    tk["name"], getattr(pygame, f"K_{tk['name']}", None))
                 if _kc is not None:
                     pygame.event.post(pygame.event.Event(
                         pygame.KEYDOWN, key=_kc, unicode=""))
@@ -3030,10 +3046,19 @@ def run_simulation():
                         chronicle_open = False
                         print(f"Chronicle viewer closed (frame {frame_count}).")
                         continue
+                    if legend_open:
+                        legend_open = False
+                        print(f"Legend closed (frame {frame_count}).")
+                        continue
                     chronicle.flush(force=True)
                     running = False
                     pygame.quit()
                     sys.exit()
+                elif event.key == pygame.K_l:
+                    if not recursive_manager.in_3d_world:
+                        legend_open = not legend_open
+                        print(f"Legend {'opened' if legend_open else 'closed'} "
+                              f"(frame {frame_count}).")
                 elif event.key == pygame.K_j:
                     if not recursive_manager.in_3d_world:
                         chronicle_open = not chronicle_open
@@ -3091,10 +3116,11 @@ def run_simulation():
         # Reading-duck: while ANY narrative text is on screen (parable
         # overlay, cutscene, hero-stage caption, endgame arc) the effect
         # sounds duck to ~25% and the bed steps down — narration stays full
-        audio.set_reading(parables.active is not None or cutscene.active
-                          or (journey.caption is not None
-                              and journey.caption_frames > 0)
-                          or bool(endgame["stage"]))
+        reading_now = (parables.active is not None or cutscene.active
+                       or (journey.caption is not None
+                           and journey.caption_frames > 0)
+                       or bool(endgame["stage"]))
+        audio.set_reading(reading_now)
         audio.update()
         if frame_count == 1:
             journey.advance("ordinary")
@@ -3221,6 +3247,14 @@ def run_simulation():
                     CLOCK.tick(FPS)
                     continue
 
+        # The legend: time stands still while the player reads the key
+        if legend_open and not recursive_manager.in_3d_world:
+            frozen = surface.copy()
+            draw_legend(frozen, WINDOW_SIZE, CELL_SIZE)
+            _present(frozen)
+            CLOCK.tick(FPS)
+            continue
+
         # The Chronicle viewer: time stands still while the book is open
         if chronicle_open and not recursive_manager.in_3d_world:
             frozen = surface.copy()
@@ -3331,6 +3365,9 @@ def run_simulation():
                 if died:
                     agent.steps_since_food = 0
                 elif food:
+                    toasts.hint("food",
+                                "Food eaten — reaching the warmth feeds an "
+                                "agent and teaches the shared brain.")
                     learning.record_food(current_generation,
                                          agent.steps_since_food)
                     agent.steps_since_food = 0
@@ -3338,6 +3375,9 @@ def run_simulation():
             # Remove agents that have reached max age or depleted energy
             for agent in ai_agents_2d[:]:
                 if agent.age >= agent.max_age:
+                    toasts.hint("death",
+                                "An agent's cycle ended — it is reborn "
+                                "elsewhere, carrying +1 consciousness.")
                     agent.update_thoughts("My cycle continues through rebirth.")
                     px, py = agent.position
                     particles.burst((py * CELL_SIZE + CELL_SIZE // 2, px * CELL_SIZE + CELL_SIZE // 2),
@@ -3384,6 +3424,11 @@ def run_simulation():
                                         reproduction_count += 1
                                         stats["births"] += 1
                                         audio.play("birth")
+                                        toasts.hint(
+                                            "birth",
+                                            "A child is born — agents pass "
+                                            "consciousness and lineage to "
+                                            "their young.")
                                         if stats["births"] == 1:
                                             chronicle.record(
                                                 current_generation,
@@ -3442,6 +3487,10 @@ def run_simulation():
                                        smoothed_consciousness) / 450.0
             collective_signal = (smoothed_consciousness +
                                  1000.0 * (current_generation / 24000.0) ** 2)
+            if collective_signal >= EVOLUTION_THRESHOLD * 0.25:
+                toasts.hint("progress",
+                            "The collective signal is rising — at the full "
+                            "threshold, one agent ascends to Spaceland.")
 
             # Learning metrics window (prints + CSV every 100 generations)
             learning.tick_window(current_generation, average_consciousness,
@@ -3489,6 +3538,10 @@ def run_simulation():
                 if current_generation != last_prime_gen and is_prime(current_generation):
                     last_prime_gen = current_generation
                     prime_flash = 20
+                    toasts.hint("prime",
+                                "A prime-numbered generation — the lattice "
+                                "shimmers its constellation. The refusals "
+                                "keep a rhythm.")
                     if current_generation > 10:
                         audio.play("prime")
                     if door_answers(str(current_generation)):
@@ -3518,16 +3571,26 @@ def run_simulation():
                     if focus_agent is not None:
                         display_detailed_ai_info(surface, focus_agent, recursive_manager)
                 else:
-                    prime_tag = " · PRIME TICK" if prime_flash > 0 else ""
+                    prime_tag = " · PRIME" if prime_flash > 0 else ""
                     eff = learning.food_eff_pct(now_gen=current_generation)
-                    eff_s = f" · food-eff {eff:+.0f}%" if eff is not None else ""
-                    strip = (f"Gen {current_generation}{prime_tag} · {len(ai_agents_2d)} agents · "
-                             f"consciousness {collective_signal:.1f}/{EVOLUTION_THRESHOLD:.0f} · "
-                             f"parables {len(parables.unlocked)}/18 · "
-                             f"brain: {stats['training_rounds']} trainings{eff_s} · I details")
+                    eff_s = f", food-eff {eff:+.0f}%" if eff is not None else ""
+                    # Labeled HUD strip (phase 8): every number says what it is
+                    strip = (f"gen {current_generation}{prime_tag} · "
+                             f"agents {len(ai_agents_2d)} · "
+                             f"consciousness {collective_signal:.0f} of "
+                             f"{EVOLUTION_THRESHOLD:.0f} to ascend · "
+                             f"brain {stats['training_rounds']} trainings{eff_s} · "
+                             f"parables {len(parables.unlocked)}/18")
                     bar = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
                     bar.fill((10, 5, 25, 190))
                     bar.blit(STRIP_FONT.render(strip, True, (208, 198, 235)), (8, 3))
+                    # Tiny ascension fill-bar next to the attention dots
+                    frac = max(0.0, min(1.0, collective_signal /
+                                        max(1.0, EVOLUTION_THRESHOLD)))
+                    bx = WINDOW_SIZE - 118
+                    pygame.draw.rect(bar, (200, 190, 230), (bx, 5, 56, 10), 1)
+                    pygame.draw.rect(bar, (150, 110, 255),
+                                     (bx + 1, 6, max(1, int(54 * frac)), 8))
                     # Attention meter: one dot per charge of the player's hand
                     for i in range(int(ATTENTION_MAX)):
                         dot = (WINDOW_SIZE - 52 + i * 15, 10)
@@ -3549,6 +3612,42 @@ def run_simulation():
                         panel.fill((25, 12, 50, 205))
                         panel.blit(STRIP_FONT.render(info[:110], True, (255, 235, 190)), (8, 3))
                         surface.blit(panel, (0, WINDOW_SIZE - 74))
+
+            # Hover identification (phase 8): name what is under the cursor
+            if pygame.mouse.get_focused():
+                _mx, _my = pygame.mouse.get_pos()
+                _hcell = (_my // CELL_SIZE, _mx // CELL_SIZE)
+                _hlabel = None
+                if 0 <= _hcell[0] < GRID_SIZE and 0 <= _hcell[1] < GRID_SIZE:
+                    _hagent = next((a for a in ai_agents_2d
+                                    if a.position == _hcell), None)
+                    if _hagent is not None:
+                        _sides = min(9, 3 + int(_hagent.level_of_consciousness) // 15)
+                        _hlabel = (f"{agent_display_name(_hagent)} — "
+                                   f"{_sides} sides, energy {_hagent.energy:.0f}")
+                    elif _hcell == environment.goal:
+                        _hlabel = "food (the goal) — warm is true"
+                    elif _hcell in environment.warm_cells:
+                        _hlabel = "player-warmed bloom — one bite of food"
+                    elif _hcell in environment.chill_cells:
+                        _hlabel = "chilled cell — drains energy until it thaws"
+                    else:
+                        _hv = environment.grid[_hcell]
+                        _hlabel = {3: "continent (wall)",
+                                   4: "solid — a shape of the old geometry",
+                                   5: "element",
+                                   6: "esoteric symbol",
+                                   1: "life-cell (Conway layer, male)",
+                                   2: "life-cell (Conway layer, female)"}.get(int(_hv))
+                if _hlabel:
+                    _hr = STRIP_FONT.render(_hlabel, True, (255, 240, 200))
+                    _hp = pygame.Surface((_hr.get_width() + 12, 19),
+                                         pygame.SRCALPHA)
+                    _hp.fill((20, 10, 40, 215))
+                    _hp.blit(_hr, (6, 2))
+                    _hx = min(_mx + 14, WINDOW_SIZE - _hp.get_width() - 4)
+                    _hy = min(_my + 12, WINDOW_SIZE - 24)
+                    surface.blit(_hp, (_hx, _hy))
 
             # Lattice layer: stats, milestone parables, particles, the sky's flicker
             stats["gen"] = current_generation
@@ -3590,6 +3689,7 @@ def run_simulation():
             parables.update_and_draw(surface)
             if not HEADLESS:
                 particles.update_and_draw(surface)
+                toasts.update_and_draw(surface, reading_now)
                 draw_flicker(surface, frame_count, WINDOW_SIZE)
                 if show_help:
                     draw_help(surface, WINDOW_SIZE, HELP_FONT, paused, speed, audio.muted)
@@ -3637,6 +3737,9 @@ def run_simulation():
                                        interval=25):
                     stats["training_rounds"] += 1
                     audio.play("train")
+                    toasts.hint("training",
+                                "The shared brain just trained on its "
+                                "warmest moves — watch steps-to-food fall.")
 
         else:
             # AI in 3D recursive world — Doom-style first-person Spaceland

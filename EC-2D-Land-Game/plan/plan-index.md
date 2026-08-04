@@ -15,7 +15,7 @@ phase-specific checks below.
 | 5 | [The Chronicle — names, lineages, auto-written history](phases/phase-05-chronicle.md) | ✅ complete | — |
 | 6 | [Deterministic headless core](phases/phase-06-deterministic-core.md) | ✅ complete | 1–5 |
 | 7 | [Narration coverage + quality pass](phases/phase-07-narration-quality.md) | ✅ complete | 3, 6 |
-| 8 | [2D legibility — legend, toasts, labeled HUD, hover](phases/phase-08-legibility.md) | planned — queued after 7 (batch closes at 8) | 2, 5, 7 |
+| 8 | [2D legibility — legend, toasts, labeled HUD, hover](phases/phase-08-legibility.md) | ✅ complete | 2, 5, 7 |
 
 Invariants (verifier attacks every phase): read-only guardrails N/A here, but —
 no TensorFlow returns; autopilot must stay deterministic-enough to exit cleanly;

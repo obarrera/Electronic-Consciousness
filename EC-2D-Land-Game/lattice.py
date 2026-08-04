@@ -1484,9 +1484,129 @@ def run_intro(surface, clock, present, audio=None, fps=30, turning=1):
         frame += 1
 
 
+class ToastSystem:
+    """First-time explainer toasts (phase 8): one line, bottom-center, ~5 s,
+    gentle fade in/out. UI hints, not narrative — exempt from the read
+    floors, but they never show while a narrative overlay is up (deferred),
+    never stack (max one visible, the rest queue), fire once per run, are
+    suppressed in autopilot, and can be disabled with EC_NO_HINTS=1."""
+
+    def __init__(self, window_size):
+        self.w = window_size
+        self.enabled = (not AUTOPILOT_FRAMES
+                        and not os.environ.get("EC_NO_HINTS"))
+        self.seen = set()
+        self.queue = []
+        self.current = None
+        self.frames = 0
+        self.total = 150            # ~5 s at 30 fps
+        self.font = pygame.font.SysFont('Arial', 13)
+
+    def hint(self, key, text):
+        """Queue a first-time hint; repeats of `key` are ignored."""
+        if not self.enabled or key in self.seen:
+            return
+        self.seen.add(key)
+        self.queue.append(text)
+
+    def update_and_draw(self, surface, reading):
+        if reading:
+            return                  # defer (and freeze) under narrative text
+        if self.current is None:
+            if not self.queue:
+                return
+            self.current = self.queue.pop(0)
+            self.frames = self.total
+        self.frames -= 1
+        if self.frames <= 0:
+            self.current = None
+            return
+        fade = min(1.0, self.frames / 30.0,
+                   (self.total - self.frames) / 10.0)
+        r = self.font.render(self.current, True, (232, 226, 248))
+        r.set_alpha(int(255 * fade))
+        panel = pygame.Surface((r.get_width() + 26, 24), pygame.SRCALPHA)
+        panel.fill((14, 8, 32, int(205 * fade)))
+        pygame.draw.rect(panel, (109, 40, 217, int(190 * fade)),
+                         panel.get_rect(), 1)
+        panel.blit(r, (13, 5))
+        surface.blit(panel, (self.w // 2 - panel.get_width() // 2,
+                             self.w - 100))
+
+
+def draw_legend(surface, window_size, cell_size):
+    """The `L` overlay: one panel decoding every Flatland visual. The caller
+    freezes the sim while it is open (same pattern as the chronicle)."""
+    w = window_size
+    pad = 16
+    width = w - 120
+    f_head = pygame.font.SysFont('Georgia', 17, bold=True)
+    f_body = pygame.font.SysFont('Arial', 13)
+    f_small = pygame.font.SysFont('Arial', 11)
+    rows = [
+        ((236, 80, 80), "poly", "Rotating polygon — an agent. Sides grow "
+                                "with consciousness (triangle → circle); "
+                                "glow scales with energy."),
+        ((0, 200, 25), "dot", "Pulsing green-gold circle — food (the goal). "
+                              "Warm is true: agents learn to follow it."),
+        ((255, 205, 60), "cell", "Gold-tinted cell + ring — a bloom YOU "
+                                 "warmed (click an empty cell; 1 attention)."),
+        ((90, 140, 255), "cell", "Blue-tinted cell — a cell YOU chilled "
+                                 "(SHIFT+click); entering drains energy "
+                                 "until it thaws."),
+        ((70, 40, 60), "cell", "Dim blue / maroon squares — the Conway "
+                               "life-cell layer (terrain, not actors)."),
+        ((139, 69, 19), "cell", "Brown squares — continents: walls no one "
+                                "crosses."),
+        ((200, 200, 0), "ring", "Yellow outlines — solids; colored circles "
+                                "— the five elements; odd marks — esoteric "
+                                "symbols."),
+        ((255, 215, 0), "dot", "Gold shimmer across the grid — a "
+                               "prime-numbered generation keeping its "
+                               "rhythm."),
+        ((208, 198, 235), "text", "HUD strip: gen = tick · consciousness = "
+                                  "collective signal / ascension threshold "
+                                  "(bar shows progress) · brain = "
+                                  "trainings · dots = your attention "
+                                  "charges."),
+        ((208, 198, 235), "text", "Bottom bar: % of the way to this "
+                                  "turning's ascension. At 100% a walker "
+                                  "crosses into Spaceland."),
+    ]
+    line_h = 34
+    height = 92 + len(rows) * line_h
+    panel = pygame.Surface((width, height), pygame.SRCALPHA)
+    panel.fill((16, 8, 38, 240))
+    pygame.draw.rect(panel, (109, 40, 217), panel.get_rect(), 2)
+    panel.blit(f_small.render(
+        "READING THE SCREEN — L or ESC closes (the world waits)",
+        True, (176, 148, 255)), (pad, 10))
+    panel.blit(f_head.render("Legend of the Lattice", True, (255, 255, 255)),
+               (pad, 26))
+    y = 60
+    for color, glyph, text in rows:
+        cx, cy = pad + 12, y + 10
+        if glyph == "poly":
+            pts = [(cx + 10 * math.cos(a), cy + 10 * math.sin(a))
+                   for a in (0.5, 2.6, 4.7)]
+            pygame.draw.polygon(panel, color, pts)
+        elif glyph == "dot":
+            pygame.draw.circle(panel, color, (cx, cy), 8)
+        elif glyph == "cell":
+            pygame.draw.rect(panel, color, (cx - 9, cy - 9, 18, 18))
+        elif glyph == "ring":
+            pygame.draw.circle(panel, color, (cx, cy), 9, 2)
+        wrapped = ParableOverlay._wrap(text, f_body, width - pad * 2 - 40)
+        for i, ln in enumerate(wrapped[:2]):
+            panel.blit(f_body.render(ln, True, (226, 220, 245)),
+                       (pad + 34, y + i * 15))
+        y += line_h
+    surface.blit(panel, (60, (w - height) // 2))
+
+
 def draw_help(surface, window_size, font, paused, speed, muted):
     state = f"{'PAUSED' if paused else f'{speed}x'}   {'MUTED' if muted else 'AUDIO'}"
-    text = "SPACE pause  +/- speed  P parables  I details  M mute  V view  CLICK warm/inspect  SHIFT+CLICK chill  H help  ESC quit"
+    text = "SPACE pause  +/- speed  L legend  P parables  J chronicle  I details  M mute  CLICK warm/inspect  SHIFT+CLICK chill  H help  ESC quit"
     bar = pygame.Surface((window_size, 22), pygame.SRCALPHA)
     bar.fill((10, 5, 25, 200))
     bar.blit(font.render(text, True, (200, 190, 230)), (8, 5))

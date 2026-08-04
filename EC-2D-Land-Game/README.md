@@ -76,6 +76,20 @@ dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a g
   tones; all audio fails silent on machines with no output device. Headphones
   recommended — binaural beats only exist between two ears.
 
+## Reading the screen
+
+Press **`L`** any time for the in-game legend. In short: the **rotating polygons** are
+the agents (sides grow with consciousness — triangle toward circle; glow is energy);
+the **pulsing green-gold circle** is food (the goal); **gold-tinted cells** are blooms
+you warmed, **blue-tinted** ones you chilled; the dim square layer is Conway life-cell
+terrain; **brown** is wall. The HUD strip labels every number (`gen`, `agents`,
+`consciousness X of Y to ascend` with a small progress bar, `brain` trainings, your
+attention dots), and **hovering the mouse names whatever is under it** — agents by
+their Chronicle names. First-time events explain themselves once per run with a small
+toast at the bottom (disable with `EC_NO_HINTS=1`).
+
+![Legend overlay](screenshots/legend.png)
+
 ## Controls
 
 | Key | Action |
@@ -84,6 +98,8 @@ dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a g
 | `+` / `-` | simulation speed 1x / 2x / 4x |
 | `P` | parable journal (cycle unlocked parables) |
 | `J` | the Chronicle (the game's auto-written history; pauses the sim; `J`/`ESC` closes) |
+| `L` | legend — decodes every Flatland visual (pauses the sim; `L`/`ESC` closes) |
+| hover | mouse over anything to identify it (agents by name, blooms, walls…) |
 | `I` | verbose info panels (default: compact HUD strip) |
 | `M` | mute |
 | `H` | toggle help bar |
