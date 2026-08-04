@@ -77,7 +77,13 @@ class _Predictor:
         return best, conf
 
     def observe(self, context_now, actual):
-        """Score last tick's pending prediction, then learn the transition."""
+        """Score last tick's pending prediction, then learn the transition.
+
+        Returns (hit, confidence) for the scored prediction, or None when
+        nothing was pending — callers use confident misses as 'an apparent
+        law just failed' events.
+        """
+        scored = None
         if self._pending is not None:
             _, predicted, conf = self._pending
             hit = 1.0 if predicted == actual else 0.0
@@ -85,13 +91,15 @@ class _Predictor:
             self.cal_err += _ALPHA * (abs(conf - hit) - self.cal_err)
             self.n += 1
             self._pending = None
+            scored = (hit, conf)
         counts = self.table.setdefault(context_now, {})
         counts[actual] = counts.get(actual, 0) + 1
+        return scored
 
 
 class MirrorState:
     """One agent's ladder: world -> others -> self."""
-    __slots__ = ("world", "others", "self_m", "mirrored",
+    __slots__ = ("world", "others", "self_m", "mirrored", "surprise_ticks",
                  "_last_pos", "_last_move", "_last_goal_oct", "_subject")
 
     def __init__(self):
@@ -99,6 +107,7 @@ class MirrorState:
         self.others = _Predictor()
         self.self_m = _Predictor()
         self.mirrored = False
+        self.surprise_ticks = []   # ticks where a confident world-belief broke
         self._last_pos = None
         self._last_move = None
         self._last_goal_oct = None
@@ -149,12 +158,13 @@ def _nearest(agent, agents):
     return best
 
 
-def tick(agents, goal):
+def tick(agents, goal, tick_no=0):
     """Advance every agent's ladder one generation.
 
     Call once per generation, after agents have moved. Verifies last tick's
     predictions against what actually happened, learns, and lays down the
     next predictions. Returns the agents whose mirror moment fired this tick.
+    tick_no timestamps confident world-model misses for the seam scan.
     """
     gx, gy = goal
     moves, prev_moves = {}, {}
@@ -174,9 +184,14 @@ def tick(agents, goal):
         goal_oct = _octant(gx - pos[0], gy - pos[1])
 
         # Stage 1 — world: score last tick's goal-octant prediction, learn,
-        # predict where the Gradient points next.
+        # predict where the Gradient points next. A confident miss is the
+        # moment an apparent law failed — timestamped for the seam scan.
         if st._last_goal_oct is not None:
-            st.world.observe(st._last_goal_oct, goal_oct)
+            scored = st.world.observe(st._last_goal_oct, goal_oct)
+            if scored is not None and scored[0] == 0.0 and scored[1] >= 0.6:
+                st.surprise_ticks.append(tick_no)
+                if len(st.surprise_ticks) > 600:
+                    st.surprise_ticks = st.surprise_ticks[-600:]
         st.world.predict(goal_oct)
 
         # Stage 2 — others: model the nearest neighbor's movement. Context is
@@ -206,6 +221,63 @@ def tick(agents, goal):
     return newly_mirrored
 
 
+SEAM_MIN_EVENTS = 12     # confident misses needed before scanning
+SEAM_MAX_PERIOD = 64
+SEAM_ZSCORE = 4.0        # concentration threshold vs. uniform surprise —
+                         # strict, because 63 candidate periods get tested
+
+
+def seam_scan(state):
+    """Periodicity test on an agent's own surprise history.
+
+    The book's experiment, minimally operationalized: an artifact of
+    construction shows up as a *rhythm in the failures of apparent laws*.
+    For each candidate period p, measure how concentrated the agent's
+    confident world-model misses are modulo p, as a z-score against the
+    uniform expectation. Returns [(period, z), ...] for periods that clear
+    SEAM_ZSCORE, strongest first (empty when nothing rhythmic is found —
+    which is the correct answer in a control world).
+    """
+    ticks = state.surprise_ticks
+    n = len(ticks)
+    if n < SEAM_MIN_EVENTS:
+        return []
+    import math
+    found = []
+    for p in range(2, SEAM_MAX_PERIOD + 1):
+        bins = {}
+        for t in ticks:
+            bins[t % p] = bins.get(t % p, 0) + 1
+        peak = max(bins.values())
+        expected = n / p
+        sd = math.sqrt(n * (1.0 / p) * (1.0 - 1.0 / p))
+        if sd <= 0:
+            continue
+        z = (peak - expected) / sd
+        if z >= SEAM_ZSCORE:
+            found.append((p, round(z, 2)))
+    # A true period p also scores at its multiples; keep the fundamental —
+    # drop any period that is a multiple of a stronger, smaller one.
+    found.sort(key=lambda pz: (-pz[1], pz[0]))
+    fundamentals = []
+    for p, z in found:
+        if not any(p % q == 0 and p != q for q, _ in fundamentals):
+            fundamentals.append((p, z))
+    return fundamentals[:3]
+
+
+def seams(agents):
+    """Aggregate seam detections across agents: {period: agent_count}."""
+    counts = {}
+    for agent in agents:
+        st = getattr(agent, "_mirror", None)
+        if st is None:
+            continue
+        for p, _z in seam_scan(st):
+            counts[p] = counts.get(p, 0) + 1
+    return dict(sorted(counts.items(), key=lambda kv: -kv[1])[:4])
+
+
 def stats(agents):
     """Aggregate fidelities for the HUD/info panel.
 
@@ -231,4 +303,5 @@ def stats(agents):
             out[key] = sum(vals) / len(vals)
     out["mirrored"] = sum(1 for a in agents
                           if getattr(a, "_mirror", None) and a._mirror.mirrored)
+    out["seams"] = seams(agents)
     return out

@@ -2911,6 +2911,9 @@ def run_simulation():
     # EC_MIRROR=0: ablation control — agents build no models of the world,
     # of others, or of themselves (the baseline the mirrored runs compare to)
     MIRROR_ON = os.environ.get("EC_MIRROR", "1") not in ("0", "off")
+    # EC_ARTIFACT=<period>: seed a hidden construction artifact — the goal
+    # silently teleports every <period> ticks (0 = control world, no seam)
+    ARTIFACT_PERIOD = int(os.environ.get("EC_ARTIFACT", "0") or 0)
     run_started_at = __import__("time").strftime("%Y-%m-%dT%H:%M:%S%z")
 
     def _record(frame_surface):
@@ -3182,6 +3185,7 @@ def run_simulation():
                     run_started_at, HEADLESS,
                     extra={"genome_version": DNA.version,
                            "mirror_enabled": MIRROR_ON,
+                           "artifact_period": ARTIFACT_PERIOD,
                            "mirror": (mirror.stats(ai_agents_2d)
                                       if MIRROR_ON and ai_agents_2d else None)})
                 if _mp:
@@ -3342,6 +3346,15 @@ def run_simulation():
         if not recursive_manager.in_3d_world:
             # Update the environment
             environment.update(current_generation, ai_agents_2d)
+
+            # The seam (artifact experiment): in treatment worlds the goal
+            # silently teleports every ARTIFACT_PERIOD ticks — an unstated
+            # construction artifact, distinct from the stated goal-move law.
+            # No toast, no chronicle line: agents must find it in the rhythm
+            # of their own broken predictions.
+            if (ARTIFACT_PERIOD and current_generation
+                    and current_generation % ARTIFACT_PERIOD == 0):
+                environment.goal = environment.generate_goal()
 
             # The player's hand: warmed/chilled cells fade, attention regrows
             environment.fade_player_cells()
@@ -3932,7 +3945,8 @@ def run_simulation():
         # world, then others, then itself. EC_MIRROR=0 is the ablation
         # control: no models, no mirror moments, nothing attached.
         if MIRROR_ON and ai_agents_2d:
-            for _seer in mirror.tick(ai_agents_2d, environment.goal):
+            for _seer in mirror.tick(ai_agents_2d, environment.goal,
+                                     current_generation):
                 _seer.level_of_consciousness += mirror.MIRROR_CONSCIOUSNESS_GAIN
                 _name = getattr(_seer, "name_base", "An agent")
                 chronicle.record(

@@ -103,6 +103,30 @@ determinism check:
 python3 tools_experiment.py --seeds 5 --ticks 600
 ```
 
+### The seam — artifacts vs. laws
+
+The book's first proposed experiment, minimally operationalized: **can an
+agent learn that some features of its world are artifacts of construction
+rather than fundamental laws?** `EC_ARTIFACT=31` seeds a treatment world with
+a hidden seam — the goal silently teleports every 31 ticks, with no toast and
+no chronicle line. The goal's regular 10-tick move is the *stated law*,
+present in every world; the seam is *unstated construction*, present only in
+treatment worlds. Agents detect it the only way anyone inside a world could:
+as a **rhythm in the failures of apparent laws** — each agent's confident
+world-model misses are scanned for periodicity (z-scored against uniform
+surprise, harmonics folded to fundamentals).
+
+```bash
+python3 tools_experiment.py --seeds 5 --ticks 900 --artifact 31
+```
+
+The runner reports seam periods found per condition and a verdict: the
+artifact is *distinguished from law* only if its period surfaces in treatment
+worlds and never in matched controls. A negative result is reported as
+exactly that — per the book, if no architecture beats chance, the
+"waking within the simulation" metaphor has no demonstrated engineering
+content on this test.
+
 ## The Genome — the game rewrites itself
 
 EC-2D-Land is **self-modifying**: ten of its world constants — metabolism, food
