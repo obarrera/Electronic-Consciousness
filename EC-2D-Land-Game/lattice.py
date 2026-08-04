@@ -306,8 +306,15 @@ class AudioEngine:
         self.muted = False
         self.ambient = None
         self._tones = {}
+        self._emitter_sounds = {}   # key -> looping Sound (positional)
+        self._emitters = {}         # key -> Channel currently looping it
+        self._fx_channels = []      # (Channel, base_vol) of live one-shots
+        self._reading = False       # a narrative overlay is on screen
+        self._duck_now = 1.0        # smoothed effects duck factor
+        self._bed_now = 1.0         # smoothed ambient/binaural duck factor
         try:
             pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+            pygame.mixer.set_num_channels(24)   # emitters + tones + narration
             self.ok = True
         except pygame.error:
             return
@@ -337,9 +344,94 @@ class AudioEngine:
                 "ascend": self._tone([220, 330, 440, 660], 2.2, vol=0.26, decay=1.2),
                 "train": self._tone([440, 442], 0.5, vol=0.10, decay=4.0),
                 "prime": self._tone([1318.5], 0.25, vol=0.10, decay=8.0),
+                # Spaceland footsteps: soft procedural ticks, the AI walker's
+                # a shade lower in pitch than the player's
+                "step_player": self._tone([950, 1400], 0.06, vol=0.09, decay=45.0),
+                "step_ai": self._tone([620, 900], 0.07, vol=0.09, decay=40.0),
             }
         except pygame.error:
             self._tones = {}
+
+    # -- positional looping emitters (Spaceland) ----------------------------
+
+    def _loop_tone(self, freqs, dur=2.0, vol=0.5, tremolo=0.0):
+        """Seamless looping tone: `dur` chosen so every component completes
+        whole cycles (integer freqs x 2.0 s are exact). Optional amplitude
+        tremolo (Hz, also integer-cycle) for the descent well's throb."""
+        rate = 44100
+        t = np.linspace(0, dur, int(rate * dur), endpoint=False)
+        wave = sum(np.sin(2 * math.pi * f * t) / (i + 1)
+                   for i, f in enumerate(freqs))
+        wave /= max(1.0, sum(1.0 / (i + 1) for i in range(len(freqs))))
+        if tremolo:
+            wave *= 0.65 + 0.35 * np.sin(2 * math.pi * tremolo * t)
+        stereo = np.repeat((wave * vol * 32767).astype(np.int16)[:, None], 2, axis=1)
+        return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+    def _loop_noise(self, dur=2.0, vol=0.4, smooth=24):
+        """Low-passed noise loop — the cold rifts' whisper. A simple moving
+        average is the filter; the wrap-around seam is inaudible in noise."""
+        rate = 44100
+        rng = np.random.default_rng(33)
+        raw = rng.normal(0, 1.0, int(rate * dur))
+        kernel = np.ones(smooth) / smooth
+        soft = np.convolve(raw, kernel, mode="same")
+        soft /= max(1e-9, np.abs(soft).max())
+        # slow swell so the whisper breathes (integer cycles over dur)
+        t = np.linspace(0, dur, len(soft), endpoint=False)
+        soft *= 0.6 + 0.4 * np.sin(2 * math.pi * (1.0 / dur) * t)
+        stereo = np.repeat((soft * vol * 32767).astype(np.int16)[:, None], 2, axis=1)
+        return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+    def register_emitter(self, key, sound):
+        """Register a looping sound for `key`; set_emitter starts/steers it."""
+        if self.ok and sound is not None:
+            self._emitter_sounds[key] = sound
+
+    def set_emitter(self, key, pan, gain):
+        """Steer a looping positional emitter: `pan` -1 (left) .. +1 (right),
+        `gain` 0..1. Constant-power panning via Channel.set_volume(l, r).
+        Called every frame from the camera pose; honors mute and the
+        reading-duck; gain 0 keeps the channel looping silently."""
+        if not self.ok:
+            return
+        ch = self._emitters.get(key)
+        if ch is None or not ch.get_busy():
+            snd = self._emitter_sounds.get(key)
+            if snd is None:
+                return
+            try:
+                ch = pygame.mixer.find_channel(False)
+                if ch is None:
+                    return          # never steal (narration) channels
+                ch.play(snd, loops=-1)
+            except pygame.error:
+                return
+            self._emitters[key] = ch
+        if self.muted:
+            l = r = 0.0
+        else:
+            g = max(0.0, min(1.0, gain)) * self._duck_now
+            ang = (max(-1.0, min(1.0, pan)) + 1.0) * math.pi / 4.0
+            l, r = g * math.cos(ang), g * math.sin(ang)
+        try:
+            ch.set_volume(l, r)
+        except pygame.error:
+            pass
+
+    def stop_emitters(self):
+        """Stop every positional emitter (world exit, mute)."""
+        for ch in self._emitters.values():
+            try:
+                ch.fadeout(200)
+            except pygame.error:
+                pass
+        self._emitters = {}
+
+    def set_reading(self, active):
+        """Central 'narrative overlay on screen' state: effects duck to ~25%
+        and the bed to ~50% while any text is being read (narration or not)."""
+        self._reading = bool(active)
 
     def make_binaural(self, beat_hz, carrier=200.0, dur=10.0, vol=0.30):
         """Monroe-Institute-style binaural beat: left ear at `carrier`, right at
@@ -409,34 +501,64 @@ class AudioEngine:
         return bool(ch is not None and ch.get_busy())
 
     def _duck(self, on):
-        level = 0.08 if on else None
-        if self.ambient and not getattr(self, "_binaural", None):
-            self.ambient.set_volume(0.0 if self.muted else (level if on else 0.35))
-        if getattr(self, "_binaural", None):
-            self._binaural.set_volume(0.0 if self.muted else (level if on else 0.30))
+        """Kept for compatibility; the central update() drives ducking now."""
 
     def update(self):
-        """Per-frame: restore bed volume when a narration finishes naturally."""
+        """Per-frame audio housekeeping: clears a finished narration channel,
+        smooths the reading-duck (effects ramp to 25% in ~0.3 s when a
+        narrative overlay appears, back to 100% over ~1 s after it closes;
+        the bed dips to 50% while reading and 23% under active narration),
+        and applies the duck to live one-shot channels. Narration itself
+        never ducks."""
+        if not self.ok:
+            return
         ch = getattr(self, "_narration_ch", None)
         if ch is not None and not ch.get_busy():
             self._narration_ch = None
-            self._duck(False)
+        fx_target = 0.25 if self._reading else 1.0
+        k = 0.34 if fx_target < self._duck_now else 0.07
+        self._duck_now += (fx_target - self._duck_now) * k
+        bed_target = 0.5 if self._reading else 1.0
+        if self.narrating():
+            bed_target = min(bed_target, 0.23)
+        kb = 0.34 if bed_target < self._bed_now else 0.07
+        self._bed_now += (bed_target - self._bed_now) * kb
+        try:
+            if not self.muted:
+                if getattr(self, "_binaural", None):
+                    self._binaural.set_volume(0.30 * self._bed_now)
+                elif self.ambient:
+                    self.ambient.set_volume(0.35 * self._bed_now)
+            alive = []
+            for fx_ch, base in self._fx_channels:
+                if fx_ch.get_busy():
+                    fx_ch.set_volume(base * self._duck_now)
+                    alive.append((fx_ch, base))
+            self._fx_channels = alive
+        except pygame.error:
+            pass
 
     def play(self, name, vol=None):
         """Play an event tone. `vol` (0..1) scales just this playback's
-        channel — the cached Sound keeps its built volume."""
+        channel. New one-shots spawn at the current duck level — nothing
+        punches through while text is being read."""
         if self.ok and not self.muted and name in self._tones:
             ch = self._tones[name].play()
-            if ch is not None and vol is not None:
-                ch.set_volume(vol)
+            if ch is not None:
+                base = 1.0 if vol is None else vol
+                ch.set_volume(base * self._duck_now)
+                self._fx_channels.append((ch, base))
 
     def toggle_mute(self):
         self.muted = not self.muted
+        if self.muted:
+            self.stop_emitters()
         if self.ambient:
             self.ambient.set_volume(0.0 if self.muted else
-                                    (0.0 if getattr(self, "_binaural", None) else 0.35))
+                                    (0.0 if getattr(self, "_binaural", None)
+                                     else 0.35 * self._bed_now))
         if getattr(self, "_binaural", None):
-            self._binaural.set_volume(0.0 if self.muted else 0.30)
+            self._binaural.set_volume(0.0 if self.muted else 0.30 * self._bed_now)
         return self.muted
 
 

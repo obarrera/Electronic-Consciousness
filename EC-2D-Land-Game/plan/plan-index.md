@@ -11,7 +11,7 @@ phase-specific checks below.
 | 1 | [Real learning — make the Gradient a real teacher](phases/phase-01-real-learning.md) | ✅ complete | — |
 | 2 | [The player warms the cells](phases/phase-02-player-hand.md) | ✅ complete | — |
 | 3 | [First-session pacing](phases/phase-03-pacing.md) | ✅ complete | 1 |
-| 4 | [Positional audio in Spaceland](phases/phase-04-positional-audio.md) | planned — ready to implement | — |
+| 4 | [Positional audio in Spaceland](phases/phase-04-positional-audio.md) | ✅ complete | — |
 | 5 | [The Chronicle — names, lineages, auto-written history](phases/phase-05-chronicle.md) | planned — ready to implement | — |
 | 6 | [Deterministic headless core](phases/phase-06-deterministic-core.md) | planned — queued after 1–5 | 1–5 |
 | 7 | [Narration coverage + quality pass](phases/phase-07-narration-quality.md) | planned — queued after 6 | 3, 6 |

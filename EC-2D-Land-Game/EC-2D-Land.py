@@ -2683,8 +2683,29 @@ def run_simulation():
         if audio.ok:
             audio._tones["cold"] = audio._tone([82, 87, 123], 0.9,
                                                vol=0.22, decay=2.5)
+            # Spaceland's positional emitters: the shrine's warm hum, the
+            # descent well's low throb, the cold rifts' filtered whisper
+            # (three channels shared by the nearest rifts). All are steered
+            # per frame from the camera pose via Channel.set_volume(l, r).
+            audio.register_emitter("shrine",
+                                   audio._loop_tone([196.0, 294.0], 2.0, vol=0.5))
+            audio.register_emitter("well",
+                                   audio._loop_tone([55.0, 110.0], 2.0,
+                                                    vol=0.6, tremolo=1.5))
+            _rift_whisper = audio._loop_noise(2.0, vol=0.4)
+            for _rk in ("rift0", "rift1", "rift2"):
+                audio.register_emitter(_rk, _rift_whisper)
     except pygame.error:
         pass
+
+    AUDIO_DEBUG = bool(os.environ.get("EC_AUDIO_DEBUG"))
+
+    def _busy_channels():
+        try:
+            return sum(1 for i in range(pygame.mixer.get_num_channels())
+                       if pygame.mixer.Channel(i).get_busy())
+        except pygame.error:
+            return -1
     particles = ParticleSystem()
     parables = ParableOverlay(WINDOW_SIZE, audio=audio)
     journey = HeroJourney(WINDOW_SIZE, audio=audio)
@@ -2912,6 +2933,13 @@ def run_simulation():
                     player_touch(cell, "chill")
 
         frame_count += 1
+        # Reading-duck: while ANY narrative text is on screen (parable
+        # overlay, cutscene, hero-stage caption, endgame arc) the effect
+        # sounds duck to ~25% and the bed steps down — narration stays full
+        audio.set_reading(parables.active is not None or cutscene.active
+                          or (journey.caption is not None
+                              and journey.caption_frames > 0)
+                          or bool(endgame["stage"]))
         audio.update()
         if frame_count == 1:
             journey.advance("ordinary")
@@ -3381,6 +3409,9 @@ def run_simulation():
                 spaceland.init_gl(WINDOW_SIZE)
                 spaceland.enter([row[:] for row in environment.grid],
                                 environment.goal, 1)
+                if AUDIO_DEBUG:
+                    print(f"AUDIO_DEBUG: entered Spaceland — busy channels "
+                          f"{_busy_channels()} (frame {frame_count})")
             else:
                 if DEBUG:
                     print(f"Current average consciousness: {average_consciousness}")
@@ -3404,15 +3435,27 @@ def run_simulation():
                 # Handle exiting 3D world based on certain conditions
                 if agent_3d.energy <= 0:
                     spaceland.leave()
+                    audio.stop_emitters()
                     audio.set_binaural(None)
                     stats["returns"] = stats.get("returns", 0) + 1
                     recursive_manager.exit_3d_world(ai_agents_2d)
                     recursive_manager.log_event("AI Agent has exited 3D Spaceland due to energy depletion.")
+                    if AUDIO_DEBUG:
+                        print(f"AUDIO_DEBUG: exit (energy) — busy channels "
+                              f"{_busy_channels()} (frame {frame_count})")
 
                 if recursive_manager.in_3d_world:
                     keys = pygame.key.get_pressed()
                     ev = spaceland.update_and_render(
                         pygame.time.get_ticks() / 1000.0, keys)
+                    # Positional audio: steer the looping emitters from the
+                    # camera pose every frame; footsteps ride the head-bob
+                    for _ek, _pan, _gain in spaceland.emitters():
+                        audio.set_emitter(_ek, _pan, _gain)
+                    _step = spaceland.consume_step()
+                    if _step:
+                        audio.play("step_player" if _step == "player"
+                                   else "step_ai")
                     if ev == "goal":
                         if (agent_3d.layer >= OURO.layers_to_complete()
                                 and endgame["stage"] is None):
@@ -3428,6 +3471,7 @@ def run_simulation():
                                   f"(frame {_rec_n[0]}).")
                             recursive_manager.log_event(
                                 f"THE COMPLETION — {agent_3d.layer} layers, one cube.")
+                            audio.stop_emitters()
                             endgame.update(stage="cube",
                                            t0=pygame.time.get_ticks() / 1000.0)
                         else:
@@ -3459,6 +3503,7 @@ def run_simulation():
                     elif ev == "fell":
                         print("Consciousness depleted — fallen back to Flatland.")
                         journey.advance("abyss")
+                        audio.stop_emitters()
                         audio.set_binaural(None)
                         audio.play("cold")
                         stats["returns"] = stats.get("returns", 0) + 1
@@ -3466,6 +3511,9 @@ def run_simulation():
                             "Consciousness depleted — fallen back to Flatland.")
                         spaceland.leave()
                         recursive_manager.exit_3d_world(ai_agents_2d)
+                        if AUDIO_DEBUG:
+                            print(f"AUDIO_DEBUG: exit (fell) — busy channels "
+                                  f"{_busy_channels()} (frame {frame_count})")
 
                     # Record 3D Spaceland frames straight from the framebuffer
                     if RECORD_DIR:
