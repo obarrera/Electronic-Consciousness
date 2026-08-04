@@ -17,6 +17,10 @@ env/
 # EC-2D-Land ouroboros seed (per-machine save state)
 .ouroboros.json
 
+# EC-2D-Land genome — dna.py is written by the game itself (see genome.py);
+# every machine's world diverges, so it is never committed
+EC-2D-Land-Game/dna.py
+
 # EC-2D-Land per-machine runtime artifacts
 EC-2D-Land-Game/.venv312/
 EC-2D-Land-Game/out_learning.csv

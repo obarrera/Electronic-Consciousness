@@ -26,6 +26,8 @@ from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      ToastSystem, draw_legend)
 import ouroboros
 import simcore
+import json
+import mirror
 import spaceland
 from simcore import WORLD as R_WORLD, AGENTS as R_AGENTS, FX as R_FX, \
     NP_WORLD, NP_AGENTS
@@ -87,6 +89,23 @@ OURO = ouroboros.Ouroboros(os.path.dirname(os.path.abspath(__file__)))
 set_oracle(OURO.embellish)
 print(f"Ouroboros: TURNING {OURO.iteration} — "
       f"{OURO.layers_to_complete()} layers to completion (seed {OURO.seed}).")
+
+# The Genome: the game's mutable constitution (dna.py, written by the game
+# itself — see genome.py). Frozen in headless runs so the phase-6
+# determinism tests compare like with like.
+import genome as genome_mod
+DNA = genome_mod.install(genome_mod.Genome(
+    os.path.dirname(os.path.abspath(__file__)), frozen=HEADLESS))
+print(f"Genome: v{DNA.version}"
+      + (f" — last mutation: {DNA.ledger[-1][2]} {DNA.ledger[-1][3]} → "
+         f"{DNA.ledger[-1][4]} ({DNA.ledger[-1][1]})" if DNA.ledger else
+         " — pristine (no dna.py yet; the game will write one)"))
+
+
+def genome_lifespan(rng):
+    """Cell lifespan (was a flat 50–100) scaled by the lifespan_scale gene."""
+    ls = DNA.g["lifespan_scale"]
+    return rng.randint(max(10, int(round(50 * ls))), max(20, int(round(100 * ls))))
 
 # Deterministic core: one root seed (EC_SEED overrides the ouroboros seed)
 # fans out into named streams — world / agents / brain / fx / spaceland.
@@ -1055,7 +1074,7 @@ class AI_Agent:
         self.check_goal(ai_agents_2d)
         self.interact_with_environment()
         self.age += 1  # Increase age
-        self.energy -= 0.25 # Reduced energy consumption
+        self.energy -= DNA.g["metabolism"]  # genome: energy burned per step
         self.apply_hermetic_principle()
 
          # Optional: Rest to regain energy if low
@@ -1064,7 +1083,7 @@ class AI_Agent:
 
     def rest(self):
         """Allow the agent to rest and restore energy."""
-        self.energy = min(100, self.energy + 5)  # Recover 5 energy points while resting
+        self.energy = min(100, self.energy + DNA.g["rest_recovery"])  # genome
         self.update_thoughts("Resting to regain energy.")
         print(f"Agent at {self.position} is resting. Energy: {self.energy}")
 
@@ -1181,7 +1200,7 @@ class AI_Agent:
             # every rebirth path — main loop, move(), tarot Death — keeps the
             # grid and the agent list consistent
             self.environment.grid[self.position] = 1 if self.gender == 'Male' else 2
-            self.environment.lifespans[self.position] = R_AGENTS.randint(50, 100)
+            self.environment.lifespans[self.position] = genome_lifespan(R_AGENTS)
             self.environment.birth_generations[self.position] = self.environment.current_generation
             self.generation += 1  # Increment generation number
             if self not in ai_agents_2d:
@@ -1214,15 +1233,15 @@ class AI_Agent:
             self.reproduction_cooldown = 10  # Set cooldown
             partner.reproduction_cooldown = 10  # Set cooldown
                 
-            # Transfer a portion of energy to the child
-            energy_transfer = 20
+            # Transfer a portion of energy to the child (genome-governed)
+            energy_transfer = int(DNA.g["reproduction_cost"])
             self.energy -= energy_transfer // 2
             partner.energy -= energy_transfer // 2
             child_agent.energy = energy_transfer
             # Place the child on the grid
             if self.environment.grid[self.position] == 0:
                 self.environment.grid[self.position] = 1 if child_gender == 'Male' else 2
-                self.environment.lifespans[self.position] = R_AGENTS.randint(50, 100)
+                self.environment.lifespans[self.position] = genome_lifespan(R_AGENTS)
                 self.environment.birth_generations[self.position] = self.environment.current_generation
             return child_agent
         return None
@@ -1501,6 +1520,23 @@ def display_detailed_ai_info(screen, ai_agent, recursive_manager):
         f"  - Consciousness Level: {ai_agent.level_of_consciousness}",
         f"  - Thoughts: {', '.join(ai_agent.get_thoughts())}"
     ]
+    # The Mirror: what this agent's models believe vs. what is true — the
+    # world itself and an agent's representation of it are not the same thing.
+    _mir = getattr(ai_agent, "_mirror", None)
+    if _mir is not None:
+        _stage = ("world", "world+others", "world+others+SELF")[_mir.stage() - 1]
+        ai_info_lines.append(f"  - Models: {_stage}"
+                             + ("  ·  MIRRORED" if _mir.mirrored else ""))
+        ai_info_lines.append(
+            f"  - Fidelity: world {_mir.world.acc:.2f} (n={_mir.world.n}) · "
+            f"others {_mir.others.acc:.2f} (n={_mir.others.n}) · "
+            f"self {_mir.self_m.acc:.2f} (n={_mir.self_m.n}, "
+            f"cal err {_mir.self_m.cal_err:.2f})")
+        if _mir.world._pending is not None:
+            _ctx, _pred, _conf = _mir.world._pending
+            ai_info_lines.append(
+                f"  - Believes: Gradient will lie {_pred} of it "
+                f"(confidence {_conf:.0%}) — the engine knows the truth")
 
     for i, line in enumerate(ai_info_lines):
         text_surface = FONT.render(line, True, BLACK)
@@ -1752,7 +1788,7 @@ class RecursiveEnvironment3DManager:
                 )
                 ai_agents_2d.append(new_agent)
                 self.two_d_environment.grid[new_x][new_y] = 1 if new_agent.gender == 'Male' else 2
-                self.two_d_environment.lifespans[new_x][new_y] = R_AGENTS.randint(50, 100)
+                self.two_d_environment.lifespans[new_x][new_y] = genome_lifespan(R_AGENTS)
                 self.two_d_environment.birth_generations[new_x][new_y] = self.two_d_environment.current_generation
                 print("AI agent has returned from 3D world to 2D.")
 
@@ -1862,7 +1898,7 @@ class AIAgent3D:
         self.position[1] += dy
         self.position[2] += dz
         self.time_in_spaceland += 1
-        self.energy -= 0.25  # Decrease energy
+        self.energy -= DNA.g["metabolism"]  # genome: energy burned per step
 
         # Randomly generate thoughts as time progresses
         if self.time_in_spaceland % 60 == 0:  # Every 60 frames, add a thought
@@ -1951,7 +1987,7 @@ class GameOfLifeEnvironment:
         for i in range(size):
             for j in range(size):
                 if board[i][j] == 1 or board[i][j] == 2:
-                    lifespans[i][j] = R_WORLD.randint(50, 100)  # Lifespan for agents
+                    lifespans[i][j] = genome_lifespan(R_WORLD)  # Lifespan for agents
         return board, lifespans, fight_counters
 
     def move_goal(self):
@@ -2006,7 +2042,8 @@ class GameOfLifeEnvironment:
             'Nonagon', 'Decagon', 'Hendecagon', 'Dodecagon'
         ]
         # Food-bloom proportion varies subtly per ouroboros turning
-        num_solids = max(6, int(round(R_WORLD.randint(20, 30) * OURO.food_factor())))
+        num_solids = max(6, int(round(R_WORLD.randint(20, 30) * OURO.food_factor()
+                                      * DNA.g["food_bloom"])))
         for _ in range(num_solids):
             attempts = 0
             while attempts < 100:  # Prevent infinite loop
@@ -2111,8 +2148,8 @@ class GameOfLifeEnvironment:
         new_lifespans = self.lifespans.copy()
         new_fight_counters = self.fight_counters.copy()
         new_birth_generations = self.birth_generations.copy()
-        # Move the goal every 10 generations
-        if current_generation % 10 == 0:
+        # Move the goal every goal_period generations (genome-governed)
+        if current_generation % max(1, int(DNA.g["goal_period"])) == 0:
             self.move_goal()
 
         for i in range(self.size):
@@ -2152,7 +2189,7 @@ class GameOfLifeEnvironment:
                     # Reproduction rule
                     if male_neighbors > 0 and female_neighbors > 0:
                         new_grid[i][j] = R_WORLD.choice([1, 2])  # New cell is male or female
-                        new_lifespans[i][j] = R_WORLD.randint(50, 100)  # Assign longer lifespan
+                        new_lifespans[i][j] = genome_lifespan(R_WORLD)  # Assign longer lifespan
                         new_birth_generations[i][j] = current_generation
 
         self.grid = new_grid
@@ -2181,7 +2218,7 @@ class GameOfLifeEnvironment:
                     self.grid[x][y] = 1 if gender == 'Male' else 2
                     # Initialize lifespan
                     if gender == 'Male' or gender == 'Female':
-                        self.lifespans[x][y] = R_WORLD.randint(50, 100)
+                        self.lifespans[x][y] = genome_lifespan(R_WORLD)
                         self.birth_generations[x][y] = self.current_generation
                     break
                 attempts += 1
@@ -2710,7 +2747,7 @@ def seed_initial_agents(environment, ai_agents_2d, count=3):
                                  gender=gender, color=color)
                 ai_agents_2d.append(agent)
                 environment.grid[x][y] = 1 if gender == 'Male' else 2
-                environment.lifespans[x][y] = R_AGENTS.randint(50, 100)
+                environment.lifespans[x][y] = genome_lifespan(R_AGENTS)
                 break
 
 
@@ -2871,6 +2908,12 @@ def run_simulation():
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "run")
         if HEADLESS else None)
     UNCAPPED = bool(int(os.environ.get("EC_UNCAPPED", "0") or 0))
+    # EC_MIRROR=0: ablation control — agents build no models of the world,
+    # of others, or of themselves (the baseline the mirrored runs compare to)
+    MIRROR_ON = os.environ.get("EC_MIRROR", "1") not in ("0", "off")
+    # EC_ARTIFACT=<period>: seed a hidden construction artifact — the goal
+    # silently teleports every <period> ticks (0 = control world, no seam)
+    ARTIFACT_PERIOD = int(os.environ.get("EC_ARTIFACT", "0") or 0)
     run_started_at = __import__("time").strftime("%Y-%m-%dT%H:%M:%S%z")
 
     def _record(frame_surface):
@@ -3137,9 +3180,14 @@ def run_simulation():
             print(f"Ticks: clean exit at tick {current_generation} "
                   f"(frame {frame_count}) — final_state_hash {final_hash}")
             if RUN_DIR:
-                _mp = simcore.write_manifest(RUN_DIR, ROOT_SEED,
-                                             current_generation, final_hash,
-                                             run_started_at, HEADLESS)
+                _mp = simcore.write_manifest(
+                    RUN_DIR, ROOT_SEED, current_generation, final_hash,
+                    run_started_at, HEADLESS,
+                    extra={"genome_version": DNA.version,
+                           "mirror_enabled": MIRROR_ON,
+                           "artifact_period": ARTIFACT_PERIOD,
+                           "mirror": (mirror.stats(ai_agents_2d)
+                                      if MIRROR_ON and ai_agents_2d else None)})
                 if _mp:
                     print(f"Manifest: {_mp}")
             chronicle.flush(force=True)
@@ -3242,6 +3290,13 @@ def run_simulation():
                     print(f"OUROBOROS: TURNING {turning} — the lattice begins "
                           f"again; {OURO.layers_to_complete()} layers to the "
                           f"next completion (frame {_rec_n[0]}).")
+                    # The genome mutates with the turning: the game rewrites
+                    # its own dna.py before the next world begins.
+                    if DNA.turning(turning, OURO.seed):
+                        chronicle.record(
+                            current_generation,
+                            f"And the law itself was rewritten: "
+                            f"{DNA.last_change}. (genome v{DNA.version})")
                     _ouroboros_reset()
                     endgame.update(stage=None, band=-1)
                     CLOCK.tick(FPS)
@@ -3291,6 +3346,15 @@ def run_simulation():
         if not recursive_manager.in_3d_world:
             # Update the environment
             environment.update(current_generation, ai_agents_2d)
+
+            # The seam (artifact experiment): in treatment worlds the goal
+            # silently teleports every ARTIFACT_PERIOD ticks — an unstated
+            # construction artifact, distinct from the stated goal-move law.
+            # No toast, no chronicle line: agents must find it in the rhythm
+            # of their own broken predictions.
+            if (ARTIFACT_PERIOD and current_generation
+                    and current_generation % ARTIFACT_PERIOD == 0):
+                environment.goal = environment.generate_goal()
 
             # The player's hand: warmed/chilled cells fade, attention regrows
             environment.fade_player_cells()
@@ -3387,7 +3451,7 @@ def run_simulation():
                     agent.die_and_rebirth(ai_agents_2d)
                     # Update the grid
                     environment.grid[agent.position] = 1 if agent.gender == 'Male' else 2
-                    environment.lifespans[agent.position] = R_AGENTS.randint(50, 100)
+                    environment.lifespans[agent.position] = genome_lifespan(R_AGENTS)
                     environment.birth_generations[agent.position] = current_generation
                 elif agent.energy <= 0:
                     agent.update_thoughts("I have depleted my energy. Time for rebirth.")
@@ -3400,12 +3464,12 @@ def run_simulation():
                     agent.die_and_rebirth(ai_agents_2d)
                     # Update the grid
                     environment.grid[agent.position] = 1 if agent.gender == 'Male' else 2
-                    environment.lifespans[agent.position] = R_AGENTS.randint(50, 100)
+                    environment.lifespans[agent.position] = genome_lifespan(R_AGENTS)
                     environment.birth_generations[agent.position] = current_generation
     
             # Check for reproduction among AI agents
             new_agents = []
-            MAX_REPRODUCTIONS_PER_GEN = 2  # Set as needed
+            MAX_REPRODUCTIONS_PER_GEN = int(DNA.g["max_reproductions"])  # genome
             reproduction_count = 0
     
             if len(ai_agents_2d) < MAX_AGENTS:
@@ -3464,7 +3528,7 @@ def run_simulation():
                             agent = AI_Agent(position=(x, y), environment=environment, gender=gender, color=color)
                             ai_agents_2d.append(agent)
                             environment.grid[x][y] = 1 if gender == 'Male' else 2
-                            environment.lifespans[x][y] = R_AGENTS.randint(50, 100)
+                            environment.lifespans[x][y] = genome_lifespan(R_AGENTS)
                             environment.birth_generations[x][y] = current_generation
                             break
     
@@ -3580,7 +3644,12 @@ def run_simulation():
                              f"consciousness {collective_signal:.0f} of "
                              f"{EVOLUTION_THRESHOLD:.0f} to ascend · "
                              f"brain {stats['training_rounds']} trainings{eff_s} · "
-                             f"parables {len(parables.unlocked)}/18")
+                             f"parables {len(parables.unlocked)}/18 · "
+                             f"{DNA.hud_tag()}")
+                    _nmir = (mirror.stats(ai_agents_2d)["mirrored"]
+                             if MIRROR_ON and ai_agents_2d else 0)
+                    if _nmir:
+                        strip += f" · mirrored {_nmir}"
                     bar = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
                     bar.fill((10, 5, 25, 190))
                     bar.blit(STRIP_FONT.render(strip, True, (208, 198, 235)), (8, 3))
@@ -3872,7 +3941,56 @@ def run_simulation():
             print(f"Number of AI agents: {len(ai_agents_2d)}")
 
         # Update generation count
+        # The Mirror: every agent's modeling ladder advances one rung —
+        # world, then others, then itself. EC_MIRROR=0 is the ablation
+        # control: no models, no mirror moments, nothing attached.
+        if MIRROR_ON and ai_agents_2d:
+            for _seer in mirror.tick(ai_agents_2d, environment.goal,
+                                     current_generation):
+                _seer.level_of_consciousness += mirror.MIRROR_CONSCIOUSNESS_GAIN
+                _name = getattr(_seer, "name_base", "An agent")
+                chronicle.record(
+                    current_generation,
+                    f"{_name} drew a map of the town, and found in it a "
+                    f"small figure, drawing a map. The Mirror held.")
+                print(f"MIRROR: {_name} predicted itself — accuracy "
+                      f"{_seer._mirror.self_m.acc:.2f}, calibration error "
+                      f"{_seer._mirror.self_m.cal_err:.2f} "
+                      f"(gen {current_generation})")
+                toasts.hint("mirror",
+                            "An agent has begun to predict itself — "
+                            "accurately, and knowing how accurate it is. "
+                            "Click it: a thin ring marks the mirrored.")
+
+        # Structured event log (reproducibility core): when EC_RUN_DIR is
+        # set, append measurable state every 25 generations — the run is a
+        # dataset, not an anecdote.
+        if RUN_DIR and current_generation % 25 == 0 and ai_agents_2d:
+            try:
+                os.makedirs(RUN_DIR, exist_ok=True)
+                _avg_c = (sum(a.level_of_consciousness for a in ai_agents_2d)
+                          / len(ai_agents_2d))
+                with open(os.path.join(RUN_DIR, "events.jsonl"), "a",
+                          encoding="utf-8") as _fh:
+                    _fh.write(json.dumps({
+                        "tick": current_generation,
+                        "agents": len(ai_agents_2d),
+                        "avg_consciousness": round(_avg_c, 3),
+                        "mirror": mirror.stats(ai_agents_2d) if MIRROR_ON else None,
+                        "genome_version": DNA.version,
+                    }) + "\n")
+            except OSError:
+                pass
+
         current_generation += 1
+
+        # Mid-run genome milestone: every 500th generation the game proposes
+        # a smaller mutation to itself and rewrites dna.py if adopted.
+        if DNA.milestone(current_generation, OURO.seed):
+            chronicle.record(
+                current_generation,
+                f"The town woke to a quiet change in the law: "
+                f"{DNA.last_change}. (genome v{DNA.version})")
 
         # Update the display and control frame rate (single flip per frame).
         # Speed control multiplies the simulation tick rate (1x/2x/4x).

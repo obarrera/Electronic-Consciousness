@@ -67,6 +67,85 @@ eating it — the player literally teaches), `SHIFT`+click to **chill** one (a c
 that drains energy until it thaws). A small regenerating **attention meter** (three
 dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a god-mode.
 
+## The Mirror — agents that model the world, each other, and themselves
+
+What happens when an emergent pattern inside such a world begins constructing
+a model of the world, of other agents, and eventually of itself? The Mirror
+answers with a discipline: **a model is a predictor, and a predictor has a
+score.** Each agent carries three tiny transition predictors, and the ladder
+unlocks by accuracy, never by script:
+
+1. **World** — predict where the Gradient will point next tick. Fidelity dips
+   whenever the goal jumps (which the genome's `goal_period` gene governs).
+2. **Others** — unlocked by world-model fidelity: predict the nearest
+   neighbor's next move (functional theory of mind, built from the same
+   machinery the agent points at rocks).
+3. **Self** — unlocked by other-model fidelity: predict its *own* next move,
+   and track **calibration** — whether its confidence matches how right it is.
+
+When self-prediction is accurate, calibrated, and sustained, the agent has its
+**mirror moment**: a bounded consciousness gain, a Chronicle line (*"…found in
+it a small figure, drawing a map"*), and a thin white ring worn ever after.
+Click any agent to see what its models believe beside what the engine knows —
+the world itself and an agent's representation of it are not the same thing.
+
+**Epistemic status, per Section 1.4 of the book:** this is *functional*
+self-modeling — measurable, ablatable, falsifiable. It establishes nothing
+about subjective experience, and neither the code nor this README claims
+otherwise.
+
+**Measure it, don't anecdote it.** `EC_MIRROR=0` is the ablation control;
+`EC_RUN_DIR` writes structured event logs (`events.jsonl`) and a run manifest;
+and the multi-seed runner compares conditions over many seeds with a
+determinism check:
+
+```bash
+python3 tools_experiment.py --seeds 5 --ticks 600
+```
+
+### The seam — artifacts vs. laws
+
+The book's first proposed experiment, minimally operationalized: **can an
+agent learn that some features of its world are artifacts of construction
+rather than fundamental laws?** `EC_ARTIFACT=31` seeds a treatment world with
+a hidden seam — the goal silently teleports every 31 ticks, with no toast and
+no chronicle line. The goal's regular 10-tick move is the *stated law*,
+present in every world; the seam is *unstated construction*, present only in
+treatment worlds. Agents detect it the only way anyone inside a world could:
+as a **rhythm in the failures of apparent laws** — each agent's confident
+world-model misses are scanned for periodicity (z-scored against uniform
+surprise, harmonics folded to fundamentals).
+
+```bash
+python3 tools_experiment.py --seeds 5 --ticks 900 --artifact 31
+```
+
+The runner reports seam periods found per condition and a verdict: the
+artifact is *distinguished from law* only if its period surfaces in treatment
+worlds and never in matched controls. A negative result is reported as
+exactly that — per the book, if no architecture beats chance, the
+"waking within the simulation" metaphor has no demonstrated engineering
+content on this test.
+
+## The Genome — the game rewrites itself
+
+EC-2D-Land is **self-modifying**: ten of its world constants — metabolism, food
+blooms, lifespans, reproduction cost, the Spaceland drains, even how bold its own
+mutations may be — live in `dna.py`, *a Python module the game itself writes*. At
+every ouroboros turning the game proposes one mutation; every 500th generation, a
+smaller one. Each adopted change bumps the genome version (watch the HUD strip),
+appends to the ledger inside `dna.py`, and atomically rewrites the file — so your
+copy of the world drifts, run over run, away from everyone else's. The Chronicle
+records each rewriting: *"And the law itself was rewritten."*
+
+The safeguards are the point (see the book, Chapter 10): every gene is clamped to
+stated bounds, a rewritten `dna.py` must compile before it is adopted, a corrupt or
+hand-mangled file falls back to pristine defaults, and mutations are derived
+deterministically from the ouroboros seed — they never consume the simulation's
+RNG streams, and headless runs (`EC_HEADLESS=1`) freeze the genome entirely so
+determinism tests compare like with like. Delete `dna.py` to return to the
+pristine world; set `EC_GENOME=0` to disable the system.
+
 ## Sound
 
 - The bundled **6.1 Hz binaural bed** hums under Flatland; each Spaceland layer shifts a
@@ -135,6 +214,7 @@ No TensorFlow, no GPU, no accounts. `PyOpenGL-accelerate` is optional.
 | `EC_SPACELAND_DRAIN=<n>` | ambient mind-drain per frame in Spaceland |
 | `EC_SPACELAND_OVERVIEW=1` | start Spaceland in overview camera |
 | `EC_FULL_FLASH=1` | enable full flashing effects (reduced by default) |
+| `EC_GENOME=0` | disable the self-modifying genome (pristine constants, no `dna.py` reads/writes) |
 
 ### Regenerating the narration
 
