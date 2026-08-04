@@ -106,7 +106,8 @@ No TensorFlow, no GPU, no accounts. `PyOpenGL-accelerate` is optional.
 |---|---|
 | `EC_AUTOPILOT=<frames>` | skip intro, run unattended, exit cleanly (smoke tests / recording) |
 | `EC_RECORD_DIR=<dir>` | dump every frame as PNG (gameplay videos) |
-| `EC_EVOLUTION_THRESHOLD=<n>` | consciousness needed to ascend (default 100) |
+| `EC_EVOLUTION_THRESHOLD=<n>` | collective-consciousness signal needed to ascend (default 750 on the first turning, +15 per turning; tuned so the first ascension lands ~8–12 min into a fresh run) |
+| `EC_VERIFY_NARRATION=1` | keep narration on during autopilot and log the parable presentation timeline |
 | `EC_SPACELAND_DRAIN=<n>` | ambient mind-drain per frame in Spaceland |
 | `EC_SPACELAND_OVERVIEW=1` | start Spaceland in overview camera |
 | `EC_FULL_FLASH=1` | enable full flashing effects (reduced by default) |

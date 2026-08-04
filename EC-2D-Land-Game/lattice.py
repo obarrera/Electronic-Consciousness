@@ -22,6 +22,11 @@ AUTOPILOT_FRAMES = int(os.environ.get("EC_AUTOPILOT", "0") or 0)
 # warning screen's choice or EC_REDUCED_FLASH=1.
 REDUCED_FLASH = not bool(int(os.environ.get("EC_FULL_FLASH", "0") or 0))
 
+# EC_VERIFY_NARRATION=1: keep full narration on during autopilot and log the
+# parable presentation timeline — used to verify the narration-completion
+# guarantee unattended. Normal autopilot keeps narration skipped (fast CI).
+VERIFY_NARRATION = bool(os.environ.get("EC_VERIFY_NARRATION"))
+
 
 def set_reduced_flash(value):
     global REDUCED_FLASH
@@ -481,6 +486,8 @@ class ParableOverlay:
         self.w = window_size
         self.audio = audio
         self.unlocked = []          # indices into PARABLES, in unlock order
+        self.queue = []             # unlocked, waiting to be presented
+        self.gap = 0                # frames until the next presentation may start
         self.active = None          # index currently displayed
         self.reveal = 0.0           # characters revealed (typewriter)
         self.hold = 0               # frames to hold after full reveal
@@ -490,16 +497,50 @@ class ParableOverlay:
         self.font_small = pygame.font.SysFont('Arial', 11)
 
     def check_unlocks(self, stats):
+        """Record newly satisfied unlocks and QUEUE them for presentation.
+
+        Presentation is decoupled (present_next), so a fresh unlock can never
+        preempt a parable that is still showing or narrating. While the queue
+        is 2 deep, further condition checks wait — early-game event bursts
+        stay hearable, and the cumulative conditions simply fire a little
+        later. Returns the number of newly queued parables."""
+        if len(self.queue) >= 2:
+            return 0
+        new = 0
         for i, (key, title, trigger, cond, text) in enumerate(PARABLES):
             if i not in self.unlocked and cond(stats):
                 self.unlocked.append(i)
-                self.active = i
-                self.reveal = 0.0
-                self.hold = 360
-                if self.audio:
-                    self.audio.play("parable")
-                return (key, title, oracle_text(key, text))
-        return None
+                self.queue.append(i)
+                new += 1
+                if len(self.queue) >= 2:
+                    break
+        return new
+
+    def present_next(self):
+        """Present the next queued parable if nothing is showing and the
+        breathing gap has passed. Returns (key, title, text) or None. For
+        CUTSCENE_KEYS the overlay stays inactive — the caller runs the
+        cutscene; otherwise the overlay is now active and the caller starts
+        the narration."""
+        if self.active is not None or self.gap > 0 or not self.queue:
+            return None
+        i = self.queue.pop(0)
+        key, title, trigger, cond, text = PARABLES[i]
+        if self.audio:
+            self.audio.play("parable")
+        full = oracle_text(key, text)
+        if key not in CUTSCENE_KEYS:
+            self.active = i
+            self.reveal = 0.0
+            self._shown_frames = 0
+            # FULLY READABLE floor: total display time of at least
+            # word_count / 3.3 wps + 2 s (the narration floor is applied
+            # dynamically while the elder speaks — whichever is longer wins)
+            words = len(full.split())
+            min_frames = int((words / 3.3 + 2.0) * 30)
+            reveal_frames = int(len(full) / 1.6)
+            self.hold = max(360, min_frames - reveal_frames)
+        return (key, title, full)
 
     def next_journal(self):
         """Cycle through unlocked parables (key P). Returns shown title or None."""
@@ -515,8 +556,17 @@ class ParableOverlay:
         return PARABLES[self.active][1]
 
     def dismiss(self):
+        """Explicit user skip (ENTER): close the overlay; the caller stops
+        the narration and the queue advances after the breathing gap. A skip
+        must be deliberate — presses in the first half-second (held/stray
+        keys from gameplay) are ignored."""
+        if self.active is not None and getattr(self, "_shown_frames", 999) < 15:
+            return
+        if VERIFY_NARRATION and self.active is not None:
+            print(f"PARABLE SKIPPED {PARABLES[self.active][0]}")
         self.active = None
         self.hold = 0
+        self.gap = 90
 
     @staticmethod
     def _wrap(text, font, width):
@@ -533,16 +583,25 @@ class ParableOverlay:
 
     def update_and_draw(self, surface):
         if self.active is None:
+            if self.gap > 0:
+                self.gap -= 1
             return
         key, title, trigger, cond, text = PARABLES[self.active]
         text = oracle_text(key, text)   # this turning's closing line
+        self._shown_frames = getattr(self, "_shown_frames", 0) + 1
         self.reveal = min(len(text), self.reveal + 1.6)
         if self.reveal >= len(text):
             if self.audio and self.audio.narrating():
-                self.hold = max(self.hold, 30)  # stays while the elder speaks
+                # NARRATION COMPLETION GUARANTEE: while the elder speaks the
+                # overlay cannot auto-dismiss; it outlives the audio by ~1.5 s
+                self.hold = max(self.hold, 45)
             self.hold -= 1
             if self.hold <= 0:
+                if VERIFY_NARRATION:
+                    print(f"PARABLE COMPLETE {key} (narration finished, "
+                          f"overlay closed naturally)")
                 self.active = None
+                self.gap = 90   # breathe before the next presentation
                 return
         shown = text[:int(self.reveal)]
         pad, width = 14, self.w - 80
@@ -620,21 +679,34 @@ class Cutscene:
         (sparse gold text on pure black — the 33rd degree speaks out of it)."""
         self.active = True
         self._title = title
+        self._key = key
         self._text = oracle_text(key, text)   # the turning's closing line
         self._style = style
         self._frame = 0
-        if AUTOPILOT_FRAMES:
+        if AUTOPILOT_FRAMES and not VERIFY_NARRATION:
             dur = 0.0          # unattended runs: short, silent cutscenes
             reading_floor = 6.0
         else:
             dur = self.audio.narrate(key) if self.audio else 0.0
-            # No narration available? Hold long enough to READ the text
-            # comfortably (~16 chars/sec) — never a 6-second flash card.
-            reading_floor = max(8.0, len(text) * 0.062)
+            # FULLY READABLE floor: never dismiss before the text could be
+            # read (word_count/3.3 wps + 2 s, and the older ~16 chars/sec
+            # floor) — never a 6-second flash card. The animation stretches
+            # to the text pacing, not the other way around.
+            words = len(self._text.split())
+            reading_floor = max(8.0, words / 3.3 + 2.0, len(text) * 0.062)
         self._dur = max(reading_floor, dur + 3.0)
+        if VERIFY_NARRATION:
+            print(f"CUTSCENE PRESENT {key} (narration {dur:.1f}s, "
+                  f"hold {self._dur:.1f}s)")
         self._t0 = pygame.time.get_ticks() / 1000.0
 
     def skip(self):
+        # A skip must be a deliberate press: ignore keys landing in the first
+        # half-second (held/stray keys carried over from gameplay)
+        if self.active and pygame.time.get_ticks() / 1000.0 - self._t0 < 0.5:
+            return
+        if VERIFY_NARRATION and self.active:
+            print(f"CUTSCENE SKIPPED {getattr(self, '_key', '?')}")
         if self.audio:
             self.audio.stop_narration()
         self.active = False
@@ -645,6 +717,11 @@ class Cutscene:
         now = pygame.time.get_ticks() / 1000.0
         elapsed = now - self._t0
         if elapsed >= self._dur and not (self.audio and self.audio.narrating()):
+            # NARRATION COMPLETION GUARANTEE: the cutscene cannot end while
+            # the elder is still speaking (only ENTER skips)
+            if VERIFY_NARRATION:
+                print(f"CUTSCENE COMPLETE {getattr(self, '_key', '?')} "
+                      f"(narration finished, {elapsed:.1f}s shown)")
             self.active = False
             return
         self._frame += 1
@@ -679,7 +756,12 @@ class Cutscene:
         lines = ParableOverlay._wrap(shown, self.font_body, w - 200)
         body_col = (222, 186, 92) if void else (222, 214, 240)
         line_h = 30 if void else 22
-        for i, ln in enumerate(lines[-10:]):
+        # FULLY DISPLAYED: show as many lines as the body area holds (the
+        # longest endgame text fits; a fixed 10-line cap used to scroll the
+        # opening lines away before the reader was done)
+        body_top = 0.24 if void else 0.22
+        max_lines = max(4, int((0.90 - body_top) * w / line_h))
+        for i, ln in enumerate(lines[-max_lines:]):
             r = self.font_body.render(ln, True, body_col)
             if void:
                 surface.blit(r, (w // 2 - r.get_width() // 2, int(w * 0.24) + i * line_h))
@@ -821,8 +903,15 @@ class HeroJourney:
         self.reached = set()
         self.caption = None
         self.caption_frames = 0
+        self.pending = []           # captions queued behind a visible one
         self.font_stage = pygame.font.SysFont('Georgia', 15, bold=True)
         self.font_line = pygame.font.SysFont('Georgia', 13, italic=True)
+
+    def _show(self, stage, line):
+        self.caption = (stage, line)
+        # FULLY READABLE floor: word_count / 3.3 wps + 2 s (min ~5.7 s)
+        words = len((stage + " " + line).split())
+        self.caption_frames = max(170, int((words / 3.3 + 2.0) * 30))
 
     def advance(self, key):
         if key in self.reached:
@@ -830,14 +919,19 @@ class HeroJourney:
         for k, stage, line in JOURNEY_STAGES:
             if k == key:
                 self.reached.add(key)
-                self.caption = (stage, line)
-                self.caption_frames = 170
+                if self.caption_frames > 0 and self.caption is not None:
+                    # NEVER LOST: a new stage queues behind the visible one
+                    self.pending.append((stage, line))
+                else:
+                    self._show(stage, line)
                 if self.audio:
                     self.audio.play("parable" if key in ("threshold", "elixir", "master") else "train")
                 return True
         return False
 
     def update_and_draw(self, surface):
+        if (self.caption_frames <= 0 or self.caption is None) and self.pending:
+            self._show(*self.pending.pop(0))
         if self.caption_frames <= 0 or self.caption is None:
             return
         self.caption_frames -= 1

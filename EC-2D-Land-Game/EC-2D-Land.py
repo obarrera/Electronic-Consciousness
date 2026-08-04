@@ -2643,9 +2643,32 @@ def run_simulation():
     seed_initial_agents(environment, ai_agents_2d, count=3)
 
 
-    # Define evolution threshold (EC_EVOLUTION_THRESHOLD overrides — used to
-    # reach 3D Spaceland quickly in recordings and tests)
-    EVOLUTION_THRESHOLD = float(os.environ.get("EC_EVOLUTION_THRESHOLD", "100"))
+    # First-session pacing: the default threshold is tuned from measured
+    # default-run ascension times so the first "Transitioning to 3D world!"
+    # lands ~8-12 minutes into a fresh run (frames ~14000-22000 at 30 fps).
+    # Each completed turning raises it by 15 — the ouroboros makes the climb
+    # longer each time around. EC_EVOLUTION_THRESHOLD overrides exactly as
+    # before (tests/recordings).
+    # Measured on turning 1 (2026-08-03, phase 3): with threshold 100 the
+    # first ascension landed at frames 3350/2765/2651 (~1.6 min) — far too
+    # early — while the population average then SATURATES at a churn
+    # equilibrium (~230-270 for 12k+ generations; Fool resets and rebirth
+    # losses balance the gains) with ±80 cross-run spread, so no fixed
+    # average-only threshold can hit an 8-12 minute window reliably. The
+    # ascension therefore listens to a COLLECTIVE signal: the smoothed
+    # average consciousness plus the world's own quadratic ripening (the
+    # lattice matures with the turning). The ripening bounds the crossing
+    # (~gen 16-18k against threshold 750) while the agents' consciousness
+    # still moves it by ±2000 frames.
+    BASE_EVOLUTION_THRESHOLD = 750.0
+    _env_thr = os.environ.get("EC_EVOLUTION_THRESHOLD")
+    if _env_thr:
+        EVOLUTION_THRESHOLD = float(_env_thr)
+    else:
+        EVOLUTION_THRESHOLD = (BASE_EVOLUTION_THRESHOLD +
+                               15.0 * (OURO.iteration - 1))
+    print(f"Evolution threshold: {EVOLUTION_THRESHOLD:.0f} "
+          f"(turning {OURO.iteration}{', env override' if _env_thr else ''}).")
 
     # Offscreen surface for all 2D drawing and its progress bar, allocated once
     surface = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
@@ -2678,7 +2701,9 @@ def run_simulation():
     # warming/chilling so it stays a nudge, not god-mode (3 charges, +1/100 ticks)
     ATTENTION_MAX = 3.0
     attention = ATTENTION_MAX
+    smoothed_consciousness = 0.0   # EMA the ascension threshold listens to
     paused = False
+    cutscene_was_active = False    # for the post-cutscene presentation gap
     speed = 1                      # 1x / 2x / 4x via +/-
     show_help = True
     show_info = False              # I: verbose legacy info panels (off = compact strip)
@@ -2764,7 +2789,8 @@ def run_simulation():
     # SPECTRUM fade -> O! at the 33rd degree -> ouroboros reset. In autopilot
     # the whole arc compresses to ~13 s and narration is skipped.
     from lattice import AUTOPILOT_FRAMES as _AUTO
-    if _AUTO:
+    from lattice import VERIFY_NARRATION as _VERIFY
+    if _AUTO and not _VERIFY:
         EG_CUBE, EG_TESSERACT, EG_SPECTRUM_STEP, EG_CUT_DUR = 2.5, 3.0, 0.35, 2.0
     else:
         EG_CUBE, EG_TESSERACT, EG_SPECTRUM_STEP, EG_CUT_DUR = 8.0, 12.0, 1.5, None
@@ -2787,7 +2813,8 @@ def run_simulation():
         """The serpent's mouth meets its tail: a fresh Flatland, new turning."""
         nonlocal environment, ai_agents_2d, recursive_manager, stats, parables, \
             journey, current_generation, selected_agent, prime_flash, \
-            last_prime_gen, egg_frames, learning, attention
+            last_prime_gen, egg_frames, learning, attention, \
+            EVOLUTION_THRESHOLD, smoothed_consciousness
         apply_turning_palette()
         environment = GameOfLifeEnvironment(GRID_SIZE)
         ai_agents_2d = []
@@ -2811,6 +2838,12 @@ def run_simulation():
         last_prime_gen = -1
         egg_frames = 0
         attention = ATTENTION_MAX
+        smoothed_consciousness = 0.0
+        if not os.environ.get("EC_EVOLUTION_THRESHOLD"):
+            EVOLUTION_THRESHOLD = (BASE_EVOLUTION_THRESHOLD +
+                                   15.0 * (OURO.iteration - 1))
+            print(f"Evolution threshold: {EVOLUTION_THRESHOLD:.0f} "
+                  f"(turning {OURO.iteration}).")
         surface.fill(BLACK)
         audio.set_binaural(None)   # the 6.1 Hz theta bed returns with the world
 
@@ -2912,7 +2945,7 @@ def run_simulation():
                     print(f"COMPLETION: THE PILGRIM'S PARABLE — \"{p_title}\" "
                           f"(frame {_rec_n[0]}).")
                     cutscene.start(p_key, p_title, p_text)
-                    if _AUTO:
+                    if _AUTO and not _VERIFY:
                         cutscene._dur = EG_CUT_DUR
                     endgame.update(stage="parable", t0=now)
                 CLOCK.tick(FPS)
@@ -2959,7 +2992,7 @@ def run_simulation():
                     print(f"COMPLETION: O! AT THE 33RD DEGREE — \"{o_title}\" "
                           f"(frame {_rec_n[0]}).")
                     cutscene.start(o_key, o_title, o_text, style="void")
-                    if _AUTO:
+                    if _AUTO and not _VERIFY:
                         cutscene._dur = EG_CUT_DUR
                     endgame.update(stage="o33", t0=now)
                 CLOCK.tick(FPS)
@@ -2980,6 +3013,7 @@ def run_simulation():
 
         # Cutscene: the world holds its breath while the elder speaks
         if cutscene.active:
+            cutscene_was_active = True
             scene_frame = surface.copy()
             cutscene.update_and_draw(scene_frame)
             _present(scene_frame)
@@ -3173,9 +3207,25 @@ def run_simulation():
             else:
                 average_consciousness = 0
 
+            # The collective signal the ascension listens to: an exponential
+            # moving average (~15 s window) of the population's consciousness
+            # (the instantaneous average swings ±60 with churn — one Fool
+            # reset moves it ~30 — so raw crossings would fire on spikes)
+            # PLUS the world's own ripening, which grows quadratically with
+            # the turning's age and bounds when the first ascension can come.
+            smoothed_consciousness += (average_consciousness -
+                                       smoothed_consciousness) / 450.0
+            collective_signal = (smoothed_consciousness +
+                                 1000.0 * (current_generation / 24000.0) ** 2)
+
             # Learning metrics window (prints + CSV every 100 generations)
             learning.tick_window(current_generation, average_consciousness,
                                  stats["training_rounds"], len(learning_buffer))
+            if current_generation % 1000 == 0 and current_generation:
+                print(f"Consciousness: avg {average_consciousness:.1f} "
+                      f"(signal {collective_signal:.1f}) / "
+                      f"{EVOLUTION_THRESHOLD:.0f} at gen {current_generation} "
+                      f"(frame {frame_count})")
 
             # Update and render the 2D environment (surface allocated once,
             # outside the loop)
@@ -3223,8 +3273,9 @@ def run_simulation():
                 draw_easter_egg(surface, WINDOW_SIZE, egg_frames)
                 egg_frames -= 1
 
-            # Render the progress bar
-            progress_bar.update(average_consciousness)
+            # Render the progress bar: % of the way to this turning's ascension
+            progress_bar.update(collective_signal /
+                                max(1.0, EVOLUTION_THRESHOLD) * 100.0)
             progress_bar.render()
 
             # HUD: compact strip by default; I toggles the verbose legacy panels
@@ -3243,7 +3294,7 @@ def run_simulation():
                 eff = learning.food_eff_pct(now_gen=current_generation)
                 eff_s = f" · food-eff {eff:+.0f}%" if eff is not None else ""
                 strip = (f"Gen {current_generation}{prime_tag} · {len(ai_agents_2d)} agents · "
-                         f"consciousness {average_consciousness:.1f}/{EVOLUTION_THRESHOLD:.0f} · "
+                         f"consciousness {collective_signal:.1f}/{EVOLUTION_THRESHOLD:.0f} · "
                          f"parables {len(parables.unlocked)}/18 · "
                          f"brain: {stats['training_rounds']} trainings{eff_s} · I details")
                 bar = pygame.Surface((WINDOW_SIZE, 20), pygame.SRCALPHA)
@@ -3273,17 +3324,30 @@ def run_simulation():
             if ai_agents_2d:
                 stats["max_consciousness"] = max(stats["max_consciousness"],
                                                  max(a.level_of_consciousness for a in ai_agents_2d))
-            unlocked = parables.check_unlocks(stats)
-            if unlocked:
-                u_key, u_title, u_text = unlocked
-                if u_key in CUTSCENE_KEYS:
-                    parables.dismiss()
-                    cutscene.start(u_key, u_title, u_text)
-                else:
-                    audio.narrate(u_key)
+            parables.check_unlocks(stats)   # unlocks recorded and queued
+            # Present queued parables ONE at a time: a new unlock never
+            # preempts a showing overlay, a running cutscene, or a narration
+            # still being spoken (the completion guarantee); ENTER remains
+            # the only skip. Normal autopilot skips overlay narration so
+            # smoke tests stay fast; EC_VERIFY_NARRATION=1 keeps it on.
+            from lattice import VERIFY_NARRATION
+            if not cutscene.active and not audio.narrating():
+                presented = parables.present_next()
+                if presented:
+                    u_key, u_title, u_text = presented
+                    if u_key in CUTSCENE_KEYS:
+                        cutscene.start(u_key, u_title, u_text)
+                    elif not AUTOPILOT_FRAMES or VERIFY_NARRATION:
+                        dur = audio.narrate(u_key)
+                        if VERIFY_NARRATION:
+                            print(f"PARABLE PRESENT {u_key} (frame "
+                                  f"{frame_count}, gen {current_generation}, "
+                                  f"narration {dur:.1f}s)")
             # Hero's journey: the call, the return, the elixir
-            if average_consciousness >= EVOLUTION_THRESHOLD * 0.5:
-                journey.advance("call")
+            if collective_signal >= EVOLUTION_THRESHOLD * 0.5:
+                if journey.advance("call"):
+                    print(f"THE CALL — half the threshold (frame "
+                          f"{frame_count}, gen {current_generation}).")
             if stats.get("returns", 0) >= 1 and journey.caption_frames <= 0:
                 if journey.advance("return"):
                     for _ag in ai_agents_2d:
@@ -3303,8 +3367,9 @@ def run_simulation():
             glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, texture_data)
 
             # Transition to 3D recursive environment if average consciousness exceeds threshold
-            if average_consciousness >= EVOLUTION_THRESHOLD and not recursive_manager.in_3d_world:
-                print("Transitioning to 3D world!")
+            if collective_signal >= EVOLUTION_THRESHOLD and not recursive_manager.in_3d_world:
+                print(f"Transitioning to 3D world! (frame {frame_count}, "
+                      f"gen {current_generation})")
                 stats["ascended"] += 1
                 journey.advance("threshold" if stats["ascended"] == 1 else "master")
                 audio.play("ascend")
