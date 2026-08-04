@@ -14,6 +14,8 @@
 
 **🎬 Theory video:** [The theory in four minutes](media/electronic-consciousness-theory.mp4) — Plato's cave, Flatland, the Conway-descended EC-2D-Land grid, BC vs EC, recursive simulation, and the dimensional-perception thesis, narrated.
 
+**📱 Vertical short:** [The theory in 100 seconds, phone-sized](media/electronic-consciousness-promo-vertical.mp4) — a 9:16 (1080×1920) cut of the theory video for Instagram Reels, TikTok, and Shorts: the cave, Flatland, the playable grid, the ascent, and the thesis, set in the book's engraved plates.
+
 ## Abstract
 
 This work is a **speculative manifesto on minds and the realities they inhabit** — a
