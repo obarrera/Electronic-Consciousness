@@ -1,0 +1,16 @@
+# NOTE: move this file to .github/workflows/language-check.yml to enable CI.
+# (It is parked here because pushing workflow files requires a PAT with the
+# 'workflow' scope; the check itself runs anytime via tools/check_language.py.)
+name: language-check
+on:
+  push:
+    paths: ["README.md", "EC-2D-Land-Game/README.md", "tools/check_language.py"]
+  pull_request:
+    paths: ["README.md", "EC-2D-Land-Game/README.md", "tools/check_language.py"]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for retired first-edition formulations
+        run: python3 tools/check_language.py

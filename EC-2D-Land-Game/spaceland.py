@@ -29,6 +29,13 @@ import random
 import numpy as np
 import pygame
 
+import simcore
+
+
+def _layer_rng(layer, salt=""):
+    """Deterministic per-layer RNG derived from the root seed (phase 6)."""
+    return random.Random(simcore.seed_for(f"spaceland:{salt}:{layer}"))
+
 try:
     from OpenGL.GL import *
     from OpenGL.GLU import *
@@ -201,6 +208,58 @@ def current_layer():
 
 
 # --------------------------------------------------------------------------
+# Positional audio: pans/gains for the caller's AudioEngine emitters
+# --------------------------------------------------------------------------
+def pan_gain(pos, yaw, target_cell, max_radius=8.0):
+    """Stereo pan (-1 left .. +1 right) and distance gain (1/(1+d), fading
+    to 0 at `max_radius` cells) for an emitter at grid cell `target_cell`,
+    heard from world position `pos` facing `yaw`. Pure function — unit
+    testable without GL."""
+    dx = (target_cell[1] + 0.5) - pos[0]
+    dz = (target_cell[0] + 0.5) - pos[1]
+    dist = math.hypot(dx, dz)
+    if dist >= max_radius:
+        return 0.0, 0.0
+    if dist > 1e-6:
+        # camera right vector for gluLookAt(..., up=(0,1,0)) is (-sin, cos)
+        pan = (-math.sin(yaw) * dx + math.cos(yaw) * dz) / dist
+    else:
+        pan = 0.0
+    gain = (1.0 / (1.0 + dist)) * min(1.0, (max_radius - dist) / 2.0)
+    return max(-1.0, min(1.0, pan)), gain
+
+
+def emitters():
+    """This frame's positional emitters from the walker's pose: the shrine's
+    hum, the descent well's throb, and the three nearest cold rifts'
+    whispers. Empty when no world is active."""
+    if not (_GL_OK and _S.get("ready")):
+        return []
+    w = _S["walker"]
+    pos, yaw = w["pos"], w["yaw"]
+    out = []
+    pan, gain = pan_gain(pos, yaw, _S["goal"])
+    out.append(("shrine", pan, gain * 0.6))
+    if _S.get("well"):
+        pan, gain = pan_gain(pos, yaw, _S["well"])
+        out.append(("well", pan, gain * 0.5))
+    rifts = sorted(_S.get("rifts", ()),
+                   key=lambda c: ((c[1] + 0.5 - pos[0]) ** 2 +
+                                  (c[0] + 0.5 - pos[1]) ** 2))[:3]
+    for i, cell in enumerate(rifts):
+        pan, gain = pan_gain(pos, yaw, cell)
+        out.append((f"rift{i}", pan, gain * 0.35))
+    return out
+
+
+def consume_step():
+    """Pop this frame's footstep event: None, "player", or "ai"."""
+    ev = _S.get("step_event")
+    _S["step_event"] = None
+    return ev
+
+
+# --------------------------------------------------------------------------
 # World building
 # --------------------------------------------------------------------------
 def _bfs_field(start, walk, n):
@@ -368,16 +427,16 @@ def enter(grid, goal, layer=1):
                     seen |= comp
                     if len(comp) > len(best):
                         best = comp
-            goal = random.Random(layer).choice(sorted(best))
+            goal = _layer_rng(layer, 'goal').choice(sorted(best))
             field = _bfs_field(goal, walk, n)
 
         far = max(field.values())
-        spawn = random.Random(layer * 31).choice(
+        spawn = _layer_rng(layer, 'spawn').choice(
             [c for c, d in field.items() if d >= max(3, far - 2)] or [goal])
 
         # Hazards: cold rifts (+1 per layer) and one descent well, placed on
         # reachable open cells so they genuinely threaten the walk.
-        rng = random.Random(104729 * layer + 7)
+        rng = _layer_rng(layer, 'hazards')
         pool = [c for c in sorted(field) if g[c] == 0
                 and c not in (goal, spawn)]
         rng.shuffle(pool)
@@ -425,7 +484,7 @@ def enter(grid, goal, layer=1):
                         "yaw": 0.0, "path": _path_to_goal(spawn)}
         _S["solids"] = _place_solids(layer, rng)
         # Ghost footprint of the layer beneath (glows up through the floor)
-        brng = random.Random(104729 * (layer - 1) + 7)
+        brng = _layer_rng(layer - 1, 'hazards')
         opens = sorted(walk)
         _S["below_cells"] = [opens[brng.randrange(len(opens))]
                              for _ in range(min(40, len(opens)))]
@@ -529,7 +588,14 @@ def _advance(t, dt, keys):
             if dist < 0.10:
                 w["path"].pop(0)
 
+    # Footsteps ride the head-bob: one tick per half bob cycle while moving
+    prev_step = _S.get("bob_phase", 0)
     _S["bob"] += moved * 7.0
+    cur_step = int(_S["bob"] / math.pi)
+    if moved > 0 and cur_step != prev_step:
+        _S["step_event"] = ("player" if t - _S["last_input"] < PLAYER_TIMEOUT
+                            else "ai")
+    _S["bob_phase"] = cur_step
     _S["chill"] = max(0.0, _S["chill"] - dt)
 
     # --- Consciousness: cold rifts + ambient drain, staged descents -------

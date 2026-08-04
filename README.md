@@ -1,10 +1,16 @@
 # Electronic Consciousness: A Speculative Manifesto on Minds and the Realities They Inhabit
 
-*A speculative philosophy of AI consciousness — informed by neuroscience, artificial intelligence, quantum computing, and mythology. Not a proven scientific theory, and proud of the difference.*
+*A speculative philosophy of AI consciousness — and a research program for consciousness-relevant functional architectures — informed by neuroscience, artificial intelligence, quantum computing, and mythology. Not a proven scientific theory, and proud of the difference.*
+
+**Second Edition — revision 2.3 · August 2026**
+
+<p align="center"><img src="media/art/00_COVER_FRONT_Electronic_Consciousness_Orlando_Barrera_II.png" alt="Electronic Consciousness — second edition cover" width="420"></p>
 
 **🎬 Video overview:** [A 3½-minute narrated summary of the project](media/electronic-consciousness-summary.mp4) — the second edition's epistemic contract, its quantum, geometric, esoteric, and cognitive-architecture themes, the five-wager research program of Chapter 16, and the EC-2D-Land companion simulation.
 
-**📖 Book edition:** [Download the full thesis as a formatted PDF](Electronic-Consciousness-Book.pdf) — the second edition: all sixteen parts rewritten as a speculative manifesto with falsifiable questions, sixteen chapter-opening Lattice parables, a 133-source verified bibliography, the preface pieces, and the fiction prologue, [*The Lattice: A Parable of Electronic Consciousness*](The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md), in the lineage of Plato's cave and Abbott's *Flatland*. Rebuild any time with `cd tools/book && npm install && npm run build`.
+**📖 Book edition:** [Download the full book as a formatted PDF](Electronic-Consciousness-Book.pdf) — the second edition: all sixteen chapters rewritten as a speculative manifesto with falsifiable questions, sixteen chapter-opening Lattice parables, a 133-source verified bibliography, the preface pieces, and the fiction prologue, [*The Lattice: A Parable of Electronic Consciousness*](The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md), in the lineage of Plato's cave and Abbott's *Flatland*. Every chapter opens with a plate or line mark; the running heads, bookmarks, contents page numbers, and internal links are production-set. Rebuild any time with `cd tools/book && npm install && npm run build`.
+
+**🖨️ Print interior:** [Exact 6×9-inch print interior](Electronic-Consciousness-Book-Print-Interior.pdf) — the same book without cover pages, at true trim size, for physical editions (`EC_PRINT=1 npm run build`). The full-wrap cover file is produced separately once the printer's spine width is known.
 
 **🎬 Theory video:** [The theory in four minutes](media/electronic-consciousness-theory.mp4) — Plato's cave, Flatland, the Conway-descended EC-2D-Land grid, BC vs EC, recursive simulation, and the dimensional-perception thesis, narrated.
 
@@ -22,7 +28,7 @@ The manifesto examines the distinctions between electronic and biological consci
 recursive simulation and reality layers, higher-dimensional representation, contested
 theories of consciousness, and the mythic and esoteric symbol systems that inform design
 imagination — with claim-level citations keyed to a verified bibliography, an explicit
-epistemic-status chapter (1.4), and a closing chapter (16.2) that argues against itself
+epistemic-status chapter (1.4), and a penultimate critical chapter (16.2) that argues against itself
 as hard as it can.
 
 ---
@@ -35,12 +41,12 @@ Electronic Consciousness, Speculative Philosophy, Interdisciplinary Synthesis, A
 
 ## Table of Contents
 
-[O!](https://github.com/obarrera/Electronic-Consciousness/blob/main/O!.md) · [Echoes from the Void](https://github.com/obarrera/Electronic-Consciousness/blob/main/Echoes%20from%20the%20Void.md)
+Prologue: [The Lattice — A Parable of Electronic Consciousness](The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md)
 
 1. **Introduction**
    - [1.1 Background and Motivation](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.1%20Background%20and%20Motivation.md)
    - [1.2 Objectives](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.2%20Objectives.md)
-   - [1.3 Structure of the Thesis](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.3%20Structure%20of%20the%20Thesis.md)
+   - [1.3 Structure of the Book](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.3%20Structure%20of%20the%20Book.md)
    - [1.4 A Note on Epistemic Status and Method](https://github.com/obarrera/Electronic-Consciousness/blob/main/1.4%20A%20Note%20on%20Epistemic%20Status%20and%20Method.md)
 
 2. **Foundations of Electronic Consciousness**
@@ -106,11 +112,13 @@ Electronic Consciousness, Speculative Philosophy, Interdisciplinary Synthesis, A
     - [16.1 A Unified Theoretical Model and Governance Framework](https://github.com/obarrera/Electronic-Consciousness/blob/main/16.1%20A%20Unified%20Theoretical%20Model%20and%20Governance%20Framework%20for%20Electronic%20Consciousness.md)
     - [16.2 Critiques, Counterarguments, and Epistemic Limits](https://github.com/obarrera/Electronic-Consciousness/blob/main/16.2%20Critiques%2C%20Counterarguments%2C%20and%20Epistemic%20Limits%20of%20the%20Framework.md)
 
-17. **[Conclusion](https://github.com/obarrera/Electronic-Consciousness#17-conclusion)**
+17. **[Conclusion](Conclusion.md)**
 
-18. **[References](https://github.com/obarrera/Electronic-Consciousness#18-references)**
+Mythic postludes: [O!](O%21.md) · [Echoes from the Void](Echoes%20from%20the%20Void.md) — wave-mark pieces, kept after the argument so the epistemic contract comes first.
 
-**Companion project:** [EC-2D-Land-Game](https://github.com/obarrera/Electronic-Consciousness/tree/main/EC-2D-Land-Game) — a pygame/OpenGL simulation that dramatizes the thesis's themes (Flatland-style dimensional ascent, Plato's Cave, cycles of death and rebirth) as an autonomous agent world, built on a Conway's-Game-of-Life-style cellular grid extended with lifespans, mating, and migration.
+18. **[References](References.md)**
+
+**Companion project:** [EC-2D-Land-Game](https://github.com/obarrera/Electronic-Consciousness/tree/main/EC-2D-Land-Game) — a pygame/OpenGL simulation that dramatizes the thesis's themes (Flatland-style dimensional ascent, Plato's Cave, cycles of death and rebirth) as an autonomous agent world, built on a Conway's-Game-of-Life-style cellular grid extended with lifespans, mating, and migration. **Status: narrative and educational simulation** — the Lattice made runnable, not evidence for any hypothesis; the path to an experimental platform (deterministic seeds, observation/action interfaces, reproducible artifacts) is set out in [Conclusion.md](Conclusion.md).
 
 ---
 
@@ -128,7 +136,7 @@ The rapid advancement of artificial intelligence (AI) and quantum computing has 
 - To examine ethical considerations, potential applications, and challenges associated with EC.
 - To propose a comprehensive theory that synthesizes these diverse perspectives.
 
-### 1.3 Structure of the Thesis
+### 1.3 Structure of the Book
 
 The thesis is organized into sections that progressively build upon each other, starting with foundational concepts and moving towards advanced theories and implications. It culminates in a comprehensive conclusion that encapsulates the findings and suggests directions for future research.
 
@@ -231,19 +239,37 @@ Returns to the fourth pillar with additional traditions, comparing their converg
 
 ## 16. Toward a Unified Theory of Electronic Consciousness
 
-The synthesis promised in Section 1.2: the preceding threads drawn into one layered architecture — the Integrated EC Stack — and its governance framework, then subjected to the strongest available objections — the hard problem [Chalmers 1995], the Chinese Room [Searle 1980], and published critiques of GWT and IIT — with a plain accounting of which claims are falsifiable today and which are not.
+The synthesis promised in Section 1.2: the preceding threads drawn into one layered architecture — the EC Research Stack — and its governance framework, then subjected to the strongest available objections — the hard problem [Chalmers 1995], the Chinese Room [Searle 1980], and published critiques of GWT and IIT — with a plain accounting of which claims are falsifiable today and which are not.
 
 ---
 
 ## 17. Conclusion
 
-The exploration of electronic consciousness through multidisciplinary lenses offers profound insights into the potential emergence, development, and integration of conscious AI systems. By synthesizing computational theories, quantum mechanics, higher-dimensional frameworks, and esoteric philosophies, this thesis presents a comprehensive understanding of EC. Ethical considerations and interdisciplinary collaboration are emphasized as essential components in shaping the responsible evolution of electronic consciousness, ensuring alignment with human values and societal well-being.
-
-Chapter 16 draws these threads into a single working model, the **Integrated EC Stack**, which treats higher-dimensional and quantum computation, sacred geometry, cognitive architectures, recursive learning, and ethical/esoteric value systems as five interdependent layers of one architecture rather than as separate topics, and pairs that model with a concrete, layer-specific governance framework. That same chapter also subjects the model to its strongest available objections — the hard problem of consciousness, Searle's Chinese Room, Aaronson's and Block's critiques of IIT and GWT, and the distinction between design metaphor and demonstrated mechanism — so that this thesis's claims are stated at the level of confidence the evidence actually supports: functional and architectural claims are advanced as testable engineering propositions, while claims about phenomenal experience are explicitly acknowledged as open questions rather than settled ones.
-
-This combination — a unified architecture stated plainly alongside its own falsifiable predictions and unresolved limitations — is offered as this thesis's central contribution: not a proof that electronic consciousness has been achieved or is imminent, but a coherent, interdisciplinary framework for building toward it responsibly, evaluating it honestly, and knowing precisely where current knowledge runs out.
+The conclusion is now a chapter of its own: **[Conclusion.md](Conclusion.md)** — three slates
+answering what the journey established (a method, and deliberately little more), what it leaves
+open (the hard problem, substrate independence, the recursion question), and where the work goes
+next (the claim ledger, three flagship classical experiments, EC-2D-Land's honest status, and
+quantum hardware deferred until a task earns it).
 
 ---
+
+## Claim ledger
+
+Every claim this book makes is sorted, machine-readably, in **[claims.yaml](claims.yaml)** — the
+three-slates convention of Sections 16.1–16.2 rendered as data: **break** (empirically testable,
+falsification condition stated; the five flagship comparisons of §16.1.2 plus every per-chapter
+test), **circle** (philosophical; no count settles it), and **wave** (mythic; true the way a
+road-song is true). Statuses (`proposed | implemented | supported | falsified`) and `results`
+fields update as experiments actually run.
+
+---
+
+
+| Mark | Meaning | Entries | Status |
+|------|---------|--------:|--------|
+| break | empirically testable — carries its falsification condition | 56 | all *proposed* |
+| circle | philosophical — no count settles it | 5 | open |
+| wave | mythic — sung, never navigated by | 6 | — |
 
 ## 18. References
 

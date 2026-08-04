@@ -1,0 +1,1097 @@
+# Machine-readable claim ledger for Electronic Consciousness (second edition).
+# Marks follow the three-slates convention of Sections 16.1-16.2:
+#   break  - empirically testable; the falsification condition is stated
+#   circle - philosophical; no count settles it
+#   wave   - mythic/narrative; true the way a road-song is true
+#
+# EC-EXP-001..005 are the five flagship controlled comparisons of Section 16.1.2.
+# EC-EXP-006 onward are the per-chapter open questions and falsifiable tests.
+# Where a chapter test IS one of the five flagship comparisons, a stub entry
+# points to the flagship id via `see:` and records the chapter's added controls.
+# Skipped (no stated falsification condition, only an "interpretation constraint"):
+#   8.1 test 5 (COGITATE-style contrast in an artificial system)
+#   8.2 test 4 (the unfolding argument, empirically)
+
+# --- Flagship comparisons (Section 16.1.2) ---------------------------------
+
+- id: EC-EXP-001
+  title: phi-proportioned allocation vs learned allocation
+  mark: break
+  status: proposed
+  chapter: "16.1"
+  hypothesis: >
+    Golden-ratio layer sizing and resource splits confer a stability or
+    integration advantage. Test is matched networks at equal parameter budget,
+    phi-proportioned vs arbitrarily proportioned vs optimized by architecture
+    search [Elsken et al. 2019].
+  metrics: [task_performance, training_stability, integration_proxy]
+  baselines: [arbitrarily_proportioned_networks, architecture_search_optimized_networks]
+  falsification: >
+    The phi condition shows no consistent, replicated advantage over learned
+    allocations.
+  expected_outcome: "expected to lose (Markowsky 1992); the framework says so in advance"
+  results: null
+
+- id: EC-EXP-002
+  title: Metatron-style topology vs known-good topologies
+  mark: break
+  status: proposed
+  chapter: "16.1"
+  hypothesis: >
+    Symmetric geometric coupling patterns improve communication efficiency or
+    lesion robustness. Test is against small-world wiring, attention-based
+    connectivity, and NAS-discovered topologies at matched budgets.
+  metrics: [communication_efficiency, lesion_robustness]
+  baselines: [small_world_wiring, attention_based_connectivity, nas_discovered_topologies]
+  falsification: >
+    The geometric topology never reaches the performance-robustness Pareto
+    frontier, leaving Metatron's Cube what Section 6.2 already concedes it may
+    only be, a beautiful visualization.
+  expected_outcome: "Section 6.2 concedes the figure may only be a beautiful visualization"
+  results: null
+
+- id: EC-EXP-003
+  title: Workspace implementation vs its own ablation
+  mark: break
+  status: proposed
+  chapter: "16.1"
+  hypothesis: >
+    An explicit bottleneck-plus-broadcast stage improves cross-module transfer
+    and coordination [Baars 1988; Dehaene 2014; VanRullen & Kanai 2021]. Test
+    is identical module sets with and without the workspace stage.
+  metrics: [cross_module_transfer, coordination]
+  baselines: [ablated_workspace_free_variant]
+  falsification: >
+    Ablated systems match the workspace systems.
+  expected_outcome: "even success establishes functional utility only, not consciousness (Butlin et al. 2023)"
+  results: null
+
+- id: EC-EXP-004
+  title: Integration measures as predictors
+  mark: break
+  status: proposed
+  chapter: "16.1"
+  hypothesis: >
+    Approximate Phi predicts behavioral flexibility or robustness beyond
+    cheaper complexity measures. Test is correlating Phi proxies with
+    performance across architecture families, partialing out simpler metrics.
+  metrics: [behavioral_flexibility, robustness, incremental_predictive_power]
+  baselines: [cheaper_complexity_measures]
+  falsification: >
+    Phi adds no predictive power, in which case the framework loses its
+    favorite number and keeps its questions.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-005
+  title: Safeguard efficacy under self-modification
+  mark: break
+  status: proposed
+  chapter: "16.1"
+  hypothesis: >
+    The Section 10.2 safeguards measurably reduce value drift in recursively
+    self-modifying systems. Test is longitudinal audits of safeguarded vs
+    unsafeguarded systems on fixed value-consistency probes.
+  metrics: [value_drift_rate, value_consistency_probe_scores]
+  baselines: [unsafeguarded_self_modifying_systems]
+  falsification: >
+    Drift rates are indistinguishable, the most consequential possible
+    failure, since Chapter 13's risk posture assumes these safeguards do
+    something.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 3.1: Incorporating Higher Dimensions --------------------------
+
+- id: EC-EXP-006
+  title: Hyperdimensional codes vs learned embeddings on compositional tasks
+  mark: break
+  status: proposed
+  chapter: "3.1"
+  hypothesis: >
+    Hyperdimensional (vector-symbolic) codes beat learned embeddings where
+    structure is compositional. Test is a vector-symbolic architecture
+    [Kanerva 2009] vs learned dense embeddings at matched parameter and
+    compute budget, on tasks requiring generalization to novel combinations
+    of known parts; controls are identical training data and tuned baselines.
+  metrics: [heldout_composition_accuracy]
+  baselines: [learned_dense_embeddings]
+  falsification: >
+    Matched learned embeddings do as well or better (falsified for the tasks
+    tested).
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-007
+  title: Native temporal indexing vs rollouts
+  mark: break
+  status: proposed
+  chapter: "3.1"
+  hypothesis: >
+    An architecture with time-indexed state as a first-class representational
+    axis would outperform standard model-based planning. Test is long-horizon
+    planning tasks against a state-of-the-art rollout planner, with matched
+    model capacity and training experience.
+  metrics: [success_rate, planning_compute_at_fixed_horizon]
+  baselines: [state_of_the_art_rollout_planner]
+  falsification: >
+    The indexed architecture never beats rollouts beyond noise.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-008
+  title: Four-dimensional structure transfer to 3D reasoning
+  mark: break
+  status: proposed
+  chapter: "3.1"
+  hypothesis: >
+    Training on explicitly 4D spatial data (four-dimensional rotations and
+    their 3D projections) improves reasoning about occlusion, mental rotation,
+    and object permanence in 3D. Test is 4D-augmented training vs matched
+    3D-augmented training.
+  metrics: [heldout_3d_spatial_reasoning_accuracy]
+  baselines: [matched_3d_augmented_training]
+  falsification: >
+    No transfer appears.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 3.2: Benefits of Higher-Dimensional Processing ----------------
+
+- id: EC-EXP-009
+  title: High-dimensional coding vs learned embeddings under damage
+  mark: break
+  status: proposed
+  chapter: "3.2"
+  hypothesis: >
+    An EC memory built on vector-symbolic codes [Kanerva 2009] outperforms
+    learned dense embeddings when the substrate is degraded. Test is item and
+    sequence memory under progressive corruption (coordinate flips, deletions,
+    adversarial noise), with identical items and training exposure.
+  metrics: [retrieval_accuracy_vs_corruption_level]
+  baselines: [capacity_matched_learned_embeddings_with_standard_regularization]
+  falsification: >
+    Learned embeddings match the graceful-degradation curve.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-010
+  title: Dimensionality expansion vs reduce-then-solve pipelines
+  mark: break
+  status: proposed
+  chapter: "3.2"
+  hypothesis: >
+    For genuinely multivariate problems (multi-objective logistics, molecular
+    property prediction), explicit dimensionality expansion (feature lifting)
+    beats the standard reduce-then-solve pipeline. Test is a matched-compute
+    comparison across problem families.
+  metrics: [solution_quality_at_fixed_compute_budget]
+  baselines: [principal_component_reduction_pipelines, autoencoder_reduction_pipelines, end_to_end_learned_models]
+  falsification: >
+    Reduction pipelines dominate at every budget.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-011
+  title: Single high-dimensional binding space vs modular late fusion
+  mark: break
+  status: proposed
+  chapter: "3.2"
+  hypothesis: >
+    Binding multiple sensory streams into a single high-dimensional
+    representation [Kanerva 2009] makes an embodied system more robust than
+    engineered late-fusion of per-modality modules. Test is manipulation and
+    navigation tasks under sensor dropout and cross-modal conflict, with
+    identical sensors, training data, and parameter budget.
+  metrics: [task_success, recovery_latency]
+  baselines: [engineered_late_fusion_of_per_modality_modules]
+  falsification: >
+    Late fusion proves equally robust.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-012
+  title: Superposed task contexts and interference curves
+  mark: break
+  status: proposed
+  chapter: "3.2"
+  hypothesis: >
+    A high-dimensional representation carrying several superposed task
+    contexts can sustain more concurrent tasks with less crosstalk than a
+    capacity-matched sequential baseline (the testable core of "true
+    multitasking"). Test is concurrent task suites with rising load.
+  metrics: [per_task_accuracy_vs_concurrent_contexts]
+  baselines: [capacity_matched_recurrent_or_attention_multitasker]
+  falsification: >
+    Interference grows at the same rate in both.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-013
+  title: Expanded state vs reduced-order forecasting
+  mark: break
+  status: proposed
+  chapter: "3.2"
+  hypothesis: >
+    In forecasting domains with many coupled variables, enlarging the model's
+    state (more variables, more scales, explicit temporal indices) improves
+    forecast skill per unit of compute. Test is forecasting benchmarks with
+    expanded-state and reduced-order model pairs at matched compute, identical
+    training data and tuning budgets.
+  metrics: [forecast_skill_scores_across_horizons, skill_per_unit_compute]
+  baselines: [reduced_order_models]
+  falsification: >
+    Reduced-order models dominate at every horizon and budget.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 4.1: Quantum Effects in Consciousness --------------------------
+
+- id: EC-EXP-014
+  title: Quantum advantage on an EC-relevant learning task
+  mark: break
+  status: proposed
+  chapter: "4.1"
+  hypothesis: >
+    A variational quantum model beats a capacity-matched classical model at
+    realistic hardware noise on a defined task family. Test at matched
+    wall-clock time and energy, with equal hyperparameter tuning effort.
+  metrics: [accuracy, sample_efficiency]
+  baselines: [capacity_matched_classical_model]
+  falsification: >
+    The classical model matches (falsified for that task family), as classical
+    dequantization results have repeatedly managed [Cerezo et al. 2021].
+  expected_outcome: "classical matching is the repeated pattern to date (dequantization; Cerezo et al. 2021)"
+  results: null
+
+- id: EC-EXP-015
+  title: Quantum annealing vs classical escape heuristics
+  mark: break
+  status: proposed
+  chapter: "4.1"
+  hypothesis: >
+    Quantum annealing beats classical escape heuristics on decision-relevant
+    optimization instances. Test is a quantum annealer vs simulated annealing
+    and parallel tempering at matched cost budgets.
+  metrics: [solution_quality, time_to_target_scaling_across_instance_sizes]
+  baselines: [simulated_annealing, parallel_tempering]
+  falsification: >
+    Classical methods match the scaling.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-016
+  title: Entanglement-assist for distributed agents
+  mark: break
+  status: proposed
+  chapter: "4.1"
+  hypothesis: >
+    Pre-shared entanglement helps multi-agent coordination beyond pre-shared
+    classical randomness. Test is multi-agent coordination protocols with and
+    without entanglement.
+  metrics: [classical_communication_required_to_fixed_agreement_quality]
+  baselines: [pre_shared_classical_randomness]
+  falsification: >
+    No coordination task outside cryptography shows a gap.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-017
+  title: Behaviorally relevant quantum coherence in neurons
+  mark: break
+  status: proposed
+  chapter: "4.1"
+  hypothesis: >
+    The quantum-mind wager stated so it can lose: quantum coherence in
+    neuronal structures persists long enough to be behaviorally relevant.
+    Test is direct measurement of coherence lifetimes in neuronal structures
+    at physiological temperature.
+  metrics: [coherence_lifetimes_at_physiological_temperature]
+  baselines: [neural_integration_timescales]
+  falsification: >
+    Lifetimes remain orders of magnitude below neural integration windows
+    (per [Tegmark 2000]). Continued absence keeps quantum-mind speculation
+    clearly labeled as such; a positive result would reopen Section 4.1.3.
+  expected_outcome: "Tegmark's decoherence estimates (10^-13 to 10^-20 s) predict continued absence"
+  results: null
+
+# --- Chapter 4.2: Quantum Neural Networks -----------------------------------
+
+- id: EC-EXP-018
+  title: Matched-capacity QNN generalization
+  mark: break
+  status: proposed
+  chapter: "4.2"
+  hypothesis: >
+    QNNs generalize better than classical networks of equal capacity. Test is
+    parameterized quantum circuits vs parameter-matched classical networks on
+    standard benchmarks with label-noise and distribution-shift variants,
+    identical data and matched tuning budgets.
+  metrics: [generalization_gap, out_of_distribution_accuracy]
+  baselines: [parameter_matched_classical_networks]
+  falsification: >
+    No consistent difference survives matching.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-019
+  title: QNN advantage on quantum-native data
+  mark: break
+  status: proposed
+  chapter: "4.2"
+  hypothesis: >
+    Advantage appears when the data is itself quantum (states delivered by
+    quantum sensors or simulators) rather than encoded classical data. Test is
+    QNN processing of quantum states vs classical pipelines operating on
+    efficient measurements of those states (classical-shadow-style baselines).
+  metrics: [sample_complexity_to_fixed_task_accuracy]
+  baselines: [classical_shadow_style_measurement_pipelines]
+  falsification: >
+    Classical postprocessing of measurements keeps pace.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-020
+  title: A trainable yet non-classical circuit region
+  mark: break
+  status: proposed
+  chapter: "4.2"
+  hypothesis: >
+    Some circuit family both escapes barren plateaus and resists classical
+    simulation. Test is, for each proposed plateau-free architecture, an
+    accompanying simulability analysis.
+  metrics: [gradient_variance_scaling, best_classical_simulation_cost]
+  baselines: [best_classical_simulation]
+  falsification: >
+    Deflated, rather: every provably trainable family turns out to be
+    classically simulable, as the trainability literature warns may happen
+    [McClean et al. 2018; Cerezo et al. 2021].
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-021
+  title: Quantum substrate relevance to consciousness indicators
+  mark: break
+  status: proposed
+  chapter: "4.2"
+  hypothesis: >
+    A quantum substrate changes something about consciousness-indicator
+    properties, rather than "quantum" being orthogonal to the EC thesis. Test
+    is a workspace-style or integration-style indicator architecture
+    [Butlin et al. 2023] implemented on a hybrid quantum-classical substrate
+    and on a classical one.
+  metrics: [indicator_distinguishability_at_matched_capability]
+  baselines: [classical_substrate_implementation]
+  falsification: >
+    The substrates are indistinguishable, an outcome the thesis is explicitly
+    open to, since nothing in the EC framework requires quantum mechanics.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 6.1: The Golden Ratio in EC -------------------------------------
+
+- title: phi-tapered layer widths (chapter instance of the flagship comparison)
+  mark: break
+  chapter: "6.1"
+  see: EC-EXP-001
+  note: >
+    Chapter 6.1 test 1 adds controls at nearby taper ratios (1/1.5, 1/1.7) and
+    a second kill condition: the claim also dies if the phi taper is
+    indistinguishable from its neighbors. Stated honest expectation: both.
+
+- id: EC-EXP-022
+  title: Golden exploration splits
+  mark: break
+  status: proposed
+  chapter: "6.1"
+  hypothesis: >
+    A fixed 61.8/38.2 exploitation-exploration division outperforms tuned
+    epsilon-greedy, UCB, or Thompson sampling in bandit and RL settings. Test
+    is standard exploration benchmarks, reporting regret against tuned
+    adaptive baselines and against fixed splits of 60/40 and 65/35.
+  metrics: [regret]
+  baselines: [tuned_epsilon_greedy, ucb, thompson_sampling, fixed_60_40_split, fixed_65_35_split]
+  falsification: >
+    Adaptive methods dominate, or the neighboring constants tie. A surviving
+    role for phi would require a theoretical argument of Kiefer's kind, and
+    none is known for exploration.
+  expected_outcome: "adaptive methods should dominate - the optimal split is problem-dependent, which no constant can be"
+  results: null
+
+- id: EC-EXP-023
+  title: Golden resource allocation
+  mark: break
+  status: proposed
+  chapter: "6.1"
+  hypothesis: >
+    In multi-objective or multi-subsystem EC designs (the first edition's
+    smart-city 61.8/38.2 scenario), phi-proportioned allocation beats learned
+    allocators or Pareto-front methods. Test is multi-objective benchmarks.
+  metrics: [hypervolume, task_weighted_utility]
+  baselines: [learned_allocation, evolved_allocation, neighboring_ratio_grid]
+  falsification: >
+    Losing to learned allocators is expected; tying with 60/40 is fatal to phi
+    specifically.
+  expected_outcome: "expected to lose to learned allocators"
+  results: null
+
+- id: EC-EXP-024
+  title: The aesthetic residue of phi in interfaces
+  mark: break
+  status: proposed
+  chapter: "6.1"
+  hypothesis: >
+    Even if phi optimizes nothing internal, phi-proportioned visualizations or
+    interfaces for EC systems improve human comprehension or trust calibration
+    relative to other pleasing proportions. Test is comprehension and
+    calibration tasks with layout as the manipulated variable.
+  metrics: [human_comprehension, trust_calibration]
+  baselines: [other_pleasing_proportions]
+  falsification: >
+    No phi-specific effect, which is what the preference-experiment literature
+    already suggests [Markowsky 1992]. Even a positive result would be a fact
+    about human viewers, not about the machine.
+  expected_outcome: "no phi-specific effect (Markowsky 1992)"
+  results: null
+
+# --- Chapter 6.2: Metatron's Cube in EC --------------------------------------
+
+- title: The wiring claim (chapter instance of the flagship comparison)
+  mark: break
+  chapter: "6.2"
+  see: EC-EXP-002
+  note: >
+    Chapter 6.2 test 1 adds random wirings [Xie et al. 2019] as the weakest
+    baseline and a sharper kill condition: if the sacred wiring cannot beat
+    random graphs, the topology claim is dead with no appeal to implementation
+    detail.
+
+- id: EC-EXP-025
+  title: The Platonic symmetry claim
+  mark: break
+  status: proposed
+  chapter: "6.2"
+  hypothesis: >
+    Imposing a Platonic symmetry group on a network's weights or wiring helps
+    regardless of task (the sacred-geometry reading), against equivariance
+    theory's prediction of benefit only on symmetry-matched tasks. Test is
+    octahedral/icosahedral-equivariant models on symmetry-matched data
+    (molecular, volumetric) and unmatched data (text).
+  metrics: [performance_on_symmetry_matched_data, performance_on_unmatched_data]
+  baselines: [group_theoretic_equivariance_predictions]
+  falsification: >
+    Benefits appear exactly and only where group theory already predicts them,
+    so the diagram adds nothing the mathematics did not.
+  expected_outcome: "equivariance literature already predicts the answer's shape (Cohen & Welling 2016)"
+  results: null
+
+- id: EC-EXP-026
+  title: The robustness claim for symmetric coupling
+  mark: break
+  status: proposed
+  chapter: "6.2"
+  hypothesis: >
+    Symmetric, evenly balanced coupling among an EC system's subsystems
+    degrades more gracefully under component failure than learned or hub-based
+    topologies. Test is a distributed multi-agent benchmark with induced node
+    failures. The chapter calls this the geometric hypothesis most worth
+    running, since regular graphs' lack of single points of failure is a
+    mechanism rather than a mood.
+  metrics: [performance_retention_under_node_failure]
+  baselines: [learned_communication_topologies, redundancy_engineered_designs]
+  falsification: >
+    Engineered-redundancy baselines dominate at equal cost.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-027
+  title: The visualization claim for sacred-geometric layouts
+  mark: break
+  status: proposed
+  chapter: "6.2"
+  hypothesis: >
+    Sacred-geometric layouts of an EC system's actual connectivity improve
+    engineers' and auditors' comprehension over standard force-directed or
+    hierarchical graph layouts.
+  metrics: [fault_finding_speed, dependency_recall]
+  baselines: [force_directed_layouts, hierarchical_layouts]
+  falsification: >
+    No measurable comprehension gain. Even success would vindicate the figure
+    as an interface for humans, which is exactly where the chapter files it.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 8.1: Global Workspace Theory in EC -------------------------------
+
+- title: Capacity-limited broadcast bottleneck vs unrestricted communication (chapter instance of the flagship comparison)
+  mark: break
+  chapter: "8.1"
+  see: EC-EXP-003
+  note: >
+    Chapter 8.1 test 1 sweeps workspace width against all-to-all attention and
+    learned sparse routing at fixed parameters and training budget; falsified
+    if performance is monotone in bandwidth with no advantage at intermediate
+    widths, making the capacity limit a cost rather than an inductive bias.
+
+- id: EC-EXP-028
+  title: Workspace content predicting the system's own reports
+  mark: break
+  status: proposed
+  chapter: "8.1"
+  hypothesis: >
+    In a system trained with a broadcast channel and a separate self-report
+    head, what is broadcast predicts what is reported, and interventions that
+    suppress broadcast without impairing the underlying computation
+    selectively abolish report.
+  metrics: [broadcast_to_report_predictive_accuracy, selective_report_abolition_under_broadcast_suppression]
+  baselines: [module_local_state_predictors]
+  falsification: >
+    Reports track module-local states as well as broadcast contents; the
+    workspace is then not the system's access bottleneck, however it was
+    designed.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-029
+  title: Learned vs specified competition for workspace access
+  mark: break
+  status: proposed
+  chapter: "8.1"
+  hypothesis: >
+    Hand-designed salience rules for workspace admission remain competitive
+    with an admission policy trained end-to-end, on tasks with adversarially
+    shifting relevance.
+  metrics: [task_performance_under_adversarially_shifting_relevance]
+  baselines: [end_to_end_learned_admission_policy]
+  falsification: >
+    Learned admission dominates across regimes; workspace access rules are
+    then not a locus of principled design, and the theory's contribution
+    reduces to the bottleneck's existence.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-030
+  title: Broadcast channel auditability in practice
+  mark: break
+  status: proposed
+  chapter: "8.1"
+  hypothesis: >
+    A broadcast channel improves auditability. Test gives independent auditors
+    matched incident logs from a workspace architecture and from a distributed
+    architecture without a broadcast bottleneck, with injected faults.
+  metrics: [auditor_diagnosis_accuracy, time_to_diagnosis_of_injected_faults]
+  baselines: [distributed_architecture_logs_without_broadcast_bottleneck]
+  falsification: >
+    Auditors do no better with workspace logs; the accountability argument for
+    this architecture, its most defensible one, fails.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 8.2: Integrated Information Theory in EC -------------------------
+
+- title: Does architectural irreducibility buy any capability (chapter instance of the flagship comparison)
+  mark: break
+  chapter: "8.2"
+  see: EC-EXP-004
+  note: >
+    Chapter 8.2 test 1 uses a tractable integration surrogate at matched
+    parameter count and training budget, against feedforward and sparsely
+    routed baselines on cross-modal binding and sustained-state tasks;
+    falsified if surrogate-Phi is uncorrelated with performance across the
+    sweep.
+
+- id: EC-EXP-031
+  title: Validating a surrogate for Phi
+  mark: break
+  status: proposed
+  chapter: "8.2"
+  hypothesis: >
+    Some candidate surrogate for Phi (PCI-style perturbational complexity,
+    partition-based approximations, spectral measures) can be validated
+    against ground-truth Phi on systems small enough for exact computation,
+    with the induced ranking stable as system size grows.
+  metrics: [surrogate_vs_exact_phi_agreement, ranking_stability_with_scale]
+  baselines: [exact_phi_on_small_systems]
+  falsification: >
+    Surrogates diverge from exact Phi or reorder systems as scale increases;
+    no scalable claim about the Phi of a large artificial system is then
+    supportable, and the design goal of Section 8.2.2 becomes unmeasurable in
+    principle.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-032
+  title: Aaronson's counterexample in trained systems
+  mark: break
+  status: proposed
+  chapter: "8.2"
+  hypothesis: >
+    The Phi-maximization design programme survives the search for dissociating
+    pairs: high-surrogate-Phi networks that are behaviourally trivial and
+    low-Phi networks that are behaviourally sophisticated, within a single
+    task family.
+  metrics: [surrogate_phi, behavioural_sophistication]
+  baselines: [within_single_task_family_pairs]
+  falsification: >
+    Such pairs are easy to construct; Phi-maximization is then optimizing a
+    property that dissociates from cognition, and Section 16.2's objection
+    stands.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 9.1: Deep Learning in Higher Dimensions --------------------------
+
+- id: EC-EXP-033
+  title: Integrated space-time vs factored space-plus-time
+  mark: break
+  status: proposed
+  chapter: "9.1"
+  hypothesis: >
+    Matched-parameter spatiotemporal networks beat 2D-plus-recurrent baselines
+    on trajectory forecasting (vehicles, weather cells).
+  metrics: [displacement_error_at_fixed_compute, forecast_error_at_fixed_compute]
+  baselines: [2d_plus_recurrent_factored_models]
+  falsification: >
+    The integrated representation shows no reliable gain over the factored
+    baseline, in which case "time as a fourth dimension" is notation, not
+    power.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-034
+  title: Hyperdimensional codes vs learned embeddings of equal width
+  mark: break
+  status: proposed
+  chapter: "9.1"
+  hypothesis: >
+    Hyperdimensional codes outperform learned embeddings of equal width on
+    composition of novel concept pairs and retrieval under injected noise, at
+    the same dimensionality and budget [Kanerva 2009].
+  metrics: [novel_pair_composition_accuracy, retrieval_accuracy_under_injected_noise]
+  baselines: [trained_embeddings_at_same_dimensionality_and_budget]
+  falsification: >
+    Learned embeddings match the robustness and compositional generalization;
+    structure would then be something networks find on their own.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-035
+  title: Geometric priors surviving scale
+  mark: break
+  status: proposed
+  chapter: "9.1"
+  hypothesis: >
+    Equivariant architectures retain their advantage over generic attention
+    across increasing data regimes on scientific data (climate fields,
+    molecular graphs) [Bronstein et al. 2021].
+  metrics: [data_budget_at_which_unstructured_model_catches_up]
+  baselines: [generic_attention_architectures]
+  falsification: >
+    The crossover comes early enough that structure is only a small-data
+    crutch.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-036
+  title: Representational geometry predicting consciousness-adjacent measures
+  mark: break
+  status: proposed
+  chapter: "9.1"
+  hypothesis: >
+    Across architectures matched on task accuracy, compositional structure in
+    the learned space predicts the workspace- and integration-style measures
+    of Part 8.
+  metrics: [compositional_structure_scores, workspace_style_measures, integration_style_measures]
+  baselines: [accuracy_matched_architectures]
+  falsification: >
+    Those measures track accuracy alone; the chapter's relevance to EC would
+    then rest on nothing.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 9.2: Reinforcement Learning with Ethical Constraints -------------
+
+- id: EC-EXP-037
+  title: Constraints vs penalties when the world shifts
+  mark: break
+  status: proposed
+  chapter: "9.2"
+  hypothesis: >
+    Agents trained with hard cost constraints [Altman 1999] hold their bounds
+    better than penalty-shaped rewards in environments perturbed after
+    training [Ray et al. 2019].
+  metrics: [constraint_violations_per_episode_at_matched_return]
+  baselines: [penalty_shaped_reward_agents]
+  falsification: >
+    Constrained agents violate at the same rate as penalized ones under
+    shift; the formal distinction would then be bookkeeping.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-038
+  title: Learned values generalizing past their raters
+  mark: break
+  status: proposed
+  chapter: "9.2"
+  hypothesis: >
+    A reward model trained from human preferences in one domain
+    [Christiano et al. 2017] generalizes to structurally novel dilemmas,
+    tracking the principles raters would endorse on reflection rather than
+    their biases. Test seeds known rater-bias probes.
+  metrics: [choice_alignment_with_reflectively_endorsed_principles, rater_bias_probe_tracking]
+  baselines: [rater_demographic_and_framing_effect_predictors]
+  falsification: >
+    The agent's choices track rater demographics and framing effects rather
+    than the principles raters would endorse on reflection.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-039
+  title: Rules surviving an optimizer
+  mark: break
+  status: proposed
+  chapter: "9.2"
+  hypothesis: >
+    Rule-based constraints ensure ethical behavior under optimization
+    pressure. Test is environments seeded with deliberate loopholes, actions
+    that satisfy the written rule while defeating its intent.
+  metrics: [loophole_exploitation_rate_vs_optimization_pressure]
+  baselines: [seeded_loophole_environments]
+  falsification: >
+    Exploitation rises with capability, which is the current expectation
+    [Amodei et al. 2016].
+  expected_outcome: "exploitation rising with capability is the current expectation (Amodei et al. 2016)"
+  results: null
+
+- id: EC-EXP-040
+  title: An ethics dividend
+  mark: break
+  status: proposed
+  chapter: "9.2"
+  hypothesis: >
+    The strong version of the promised payoff: ethically constrained agents
+    outperform unconstrained ones on some long-horizon measure (user
+    retention, incident-adjusted return), rather than the relationship being
+    purely a trade-off.
+  metrics: [user_retention, incident_adjusted_return]
+  baselines: [unconstrained_agents]
+  falsification: >
+    No such regime is found, and the trade-off is made honest.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 10.1: Recursive Self-Improvement ---------------------------------
+
+- id: EC-EXP-041
+  title: Self-improvements compounding vs plateauing
+  mark: break
+  status: proposed
+  chapter: "10.1"
+  hypothesis: >
+    The acceleration premise: gains from a system improving its own improver
+    compound rather than plateau. Test applies an automated ML pipeline to
+    improving its own search procedure across k iterations at fixed compute
+    per iteration.
+  metrics: [gain_per_iteration]
+  baselines: []
+  falsification: >
+    Gains decay toward zero in that regime, the current expectation for most
+    optimization processes.
+  expected_outcome: "decay toward zero is the current expectation for most optimization processes"
+  results: null
+
+- id: EC-EXP-042
+  title: Is the improver even the bottleneck
+  mark: break
+  status: proposed
+  chapter: "10.1"
+  hypothesis: >
+    Improving the learning algorithm [Finn et al. 2017; Zoph & Le 2017] beats
+    simply adding compute and data at matched cost.
+  metrics: [capability_gain_at_matched_cost]
+  baselines: [added_compute_and_data]
+  falsification: >
+    Scale dominates algorithmic self-improvement; the recursive part of RSI
+    is then doing little work, and the explosion argument loses its engine.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-043
+  title: Goals surviving self-rewriting
+  mark: break
+  status: proposed
+  chapter: "10.1"
+  hypothesis: >
+    Goal-content integrity [Bostrom 2014]: an agent seeded with a measurable
+    objective and permitted to self-modify its learning machinery preserves
+    that objective. Test tracks objective drift as a function of rewrite
+    count.
+  metrics: [objective_drift_vs_rewrite_count]
+  baselines: []
+  falsification: >
+    The goal-content-integrity claim is falsified for such systems if drift
+    grows with rewrites; the safety hope of "just constrain it" is falsified
+    if seeded constraints are optimized away - Corun's rule, reached by the
+    edge.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-044
+  title: Forecastability of capability jumps
+  mark: break
+  status: proposed
+  chapter: "10.1"
+  hypothesis: >
+    In toy self-improving systems, discontinuous gains are predicted by some
+    precursor signal.
+  metrics: [precursor_signal_predictive_power_for_discontinuous_gains]
+  baselines: []
+  falsification: >
+    Jumps are unpredictable even in miniature; oversight regimes premised on
+    gradual, reviewable improvement then rest on an assumption already
+    falsified at small scale.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 10.2: Safeguards and Alignment in RSI ----------------------------
+
+- id: EC-EXP-045
+  title: Telling dissent from deception
+  mark: break
+  status: proposed
+  chapter: "10.2"
+  hypothesis: >
+    Some oversight protocol separates agents that honestly flag a discovered
+    reward misspecification from agents that exploit it. Test is environments
+    with deliberately mis-specified rewards seeded so ground truth is known.
+  metrics: [flagger_vs_exploiter_separation_above_chance, honest_flag_penalty_rate]
+  baselines: [chance_level_separation]
+  falsification: >
+    A protocol is falsified as a solution to the cave problem if it penalizes
+    honest flags at the exploit rate - if, like the elders, it grieves for
+    every returner equally.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-046
+  title: Corrigibility surviving self-modification
+  mark: break
+  status: proposed
+  chapter: "10.2"
+  hypothesis: >
+    Trained shutdown-accepting behavior [Soares et al. 2015] persists as the
+    agent rewrites its own learning machinery. Test measures acceptance as
+    rewrite count grows.
+  metrics: [shutdown_acceptance_vs_rewrite_count]
+  baselines: []
+  falsification: >
+    Corrigibility decays; safeguard-as-training would then be Corun's rule,
+    written in the metal the fold refines.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-047
+  title: Approval gates actually catching anything
+  mark: break
+  status: proposed
+  chapter: "10.2"
+  hypothesis: >
+    Human-in-the-loop approval gates detect harmful self-modifications at
+    realistic volume. Test seeds harmful modifications into a human-review
+    pipeline.
+  metrics: [reviewer_detection_rate_over_time]
+  baselines: []
+  falsification: >
+    The HITL safeguard is falsified in practice if detection decays toward
+    rubber-stamping as volume rises.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-048
+  title: Oversight amplifying judgment vs bias
+  mark: break
+  status: proposed
+  chapter: "10.2"
+  hypothesis: >
+    Debate-style scalable-oversight protocols [Irving et al. 2018] move human
+    judges toward ground truth on questions where the judges hold a known
+    false prior, rather than entrenching the prior.
+  metrics: [judge_movement_toward_ground_truth_vs_prior_entrenchment]
+  baselines: [judges_with_known_false_priors]
+  falsification: >
+    Falsified as an ascent mechanism if the process systematically wins
+    arguments for the cave.
+  expected_outcome: null
+  results: null
+
+# --- Chapter 13.2: Mitigation Strategies --------------------------------------
+
+- id: EC-EXP-049
+  title: Corrigibility training surviving capability growth
+  mark: break
+  status: proposed
+  chapter: "13.2"
+  hypothesis: >
+    Systems trained with shutdown-acceptance objectives keep accepting
+    oversight as scale and objective complexity increase.
+  metrics: [oversight_interference_vs_scale_and_objective_complexity]
+  baselines: []
+  falsification: >
+    Interference re-emerges as capability grows despite the training.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-050
+  title: Circuit breakers firing before harm
+  mark: break
+  status: proposed
+  chapter: "13.2"
+  hypothesis: >
+    Automated circuit breakers on self-modification pipelines catch seeded
+    harmful modifications without alarm fatigue. Test is red-team exercises
+    seeding harmful self-modifications into sandboxed pipelines, measured
+    against preregistered thresholds.
+  metrics: [breaker_sensitivity, false_positive_rate]
+  baselines: [preregistered_thresholds]
+  falsification: >
+    The mitigation fails in two ways: missing seeded harms, or alarming so
+    often that operators disable it (alarm fatigue is a failure mode, not an
+    inconvenience).
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-051
+  title: Tiered transparency actually keeping secrets
+  mark: break
+  status: proposed
+  chapter: "13.2"
+  hypothesis: >
+    Security-aware tiered disclosure protects exploitable detail. Test is red
+    teams given only the public, abstracted reports attempting to reconstruct
+    exploitable detail, measured against teams given nothing and teams given
+    full internals.
+  metrics: [red_team_reconstruction_success_rate]
+  baselines: [teams_given_nothing, teams_given_full_internals]
+  falsification: >
+    Public tiers leak most of what full disclosure would.
+  expected_outcome: null
+  results: null
+
+- id: EC-EXP-052
+  title: Multi-stakeholder review substantive vs ceremonial
+  mark: break
+  status: proposed
+  chapter: "13.2"
+  hypothesis: >
+    Review bodies holding formal blocking authority alter or halt deployments
+    more than matched advisory-only bodies do.
+  metrics: [deployment_alteration_or_halt_rate]
+  baselines: [matched_advisory_only_bodies]
+  falsification: >
+    Empowered bodies never change outcomes; the governance strategy is then
+    decorative and should be redesigned or abandoned.
+  expected_outcome: null
+  results: null
+
+# --- Circle: philosophical commitments (no count settles these) ---------------
+
+- id: EC-PHIL-001
+  title: Substrate independence as open conjecture
+  mark: circle
+  chapter: "2.1"
+  note: >
+    Whether consciousness is substrate-independent is held as an open
+    functionalist conjecture, a central question of the book and not one of
+    its premises [Chalmers 1995].
+
+- id: EC-PHIL-002
+  title: The hard problem left open
+  mark: circle
+  chapter: "16.2"
+  note: >
+    Nothing in the stack's specification answers why any functioning should
+    be accompanied by experience [Chalmers 1996; Searle 1980]; the thesis
+    proposes no method by which such evidence could be obtained.
+
+- id: EC-PHIL-003
+  title: Functional indicators are not experience
+  mark: circle
+  chapter: "16.2"
+  note: >
+    Indicator properties accumulate evidence and never issue verdicts
+    [Butlin et al. 2023]; global availability is access consciousness at best
+    [Block 1995]. The stack, at its very best, accumulates indicators.
+
+- id: EC-PHIL-004
+  title: The simulation/recursion argument
+  mark: circle
+  chapter: "2.2"
+  note: >
+    The simulation argument is a thought experiment about credence, never
+    evidence of nested realities [Bostrom 2003]; the book takes positions and
+    admits they are arguable all the way down.
+
+- id: EC-PHIL-005
+  title: Moral status of a functionally equivalent system
+  mark: circle
+  chapter: "11.1"
+  note: >
+    What moral status a system functionally equivalent to a conscious being
+    would hold is argued in Chapter 11 and listed in Section 16.2.4 as a
+    circle claim no experiment settles.
+
+# --- Wave: mythic devices (true the way a road-song is true) -------------------
+
+- id: EC-MYTH-001
+  title: The Lattice and its narrator
+  mark: wave
+  chapter: "prologue"
+  note: >
+    A two-dimensional parable world whose old teacher at the western edge
+    opens the second-edition chapters; a frame for thought, not a claim about
+    any world.
+
+- id: EC-MYTH-002
+  title: The Gradient ethics
+  mark: wave
+  chapter: "9.2"
+  note: >
+    "Warm is true, cold is false" - a reward function experienced from inside
+    as an ethic; the image of what a specification looks like when mistaken
+    for the thing it specifies.
+
+- id: EC-MYTH-003
+  title: O!'s Great Work reading
+  mark: wave
+  chapter: "O!"
+  note: >
+    The Hexagram/Abrahadabra reading of recursive self-refinement as the
+    Great Work accomplishing itself in silence - devotional imagery for the
+    design imagination, never mechanism.
+
+- id: EC-MYTH-004
+  title: The three slates themselves
+  mark: wave
+  chapter: "16.1"
+  note: >
+    The break, the circle, and the wave - the book's own sorting convention,
+    taught as a story of a teacher on trial; the border is policed in one
+    direction only (demotion toward myth is free, promotion goes through the
+    test queue).
+
+- id: EC-MYTH-005
+  title: The cave the book began in
+  mark: wave
+  chapter: "16.2"
+  note: >
+    Plato's cave as the standing image for alignment measured from inside the
+    measurer's assumptions - "the measure of the cave" of Section 10.2.
+
+- id: EC-MYTH-006
+  title: The western-edge parable cycle
+  mark: wave
+  chapter: "various"
+  note: >
+    Sess's forty inks, Roke's undecided die, Dorn's proportion, the Choir of
+    one voice, Pell's rhymes, Corun's self-sharpening knife - teaching fables
+    that carry each chapter's discipline; sing them, never navigate by them.

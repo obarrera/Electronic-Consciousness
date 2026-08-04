@@ -1,242 +1,160 @@
-# **AI Electronic Consciousness: Eternal Journey**
+# EC-2D-Land: The Eternal Journey
 
-**AI Electronic Consciousness** is a recursive, generative simulation where AI agents embark on a never-ending journey of discovery, reflection, and rebirth. It stands in the lineage of **Conway's Game of Life** — the title screen runs Life as its backdrop, in homage to the game that proved simple rules breed unbounded worlds.
+*A small indie simulation in the lineage of Conway's Game of Life, Abbott's* Flatland,
+*and Plato's cave — the playable companion to*
+[Electronic Consciousness](../README.md) *and its fiction prologue,*
+[The Lattice](../The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md).
 
-## ⚠️ Photosensitivity / seizure warning
+![Title screen](screenshots/title-screen.png)
 
-This game (and the gameplay video below) contains flashing lights, shimmering
-patterns, and sudden brightness changes. A warning screen is shown at launch;
-press **F** there (or set `EC_REDUCED_FLASH=1`) to play with all flashing
-effects reduced to gentle fades. If you have an epileptic condition, consult a
-physician before playing.
+AI agents live on a flat, ticking lattice. They follow the Gradient, learn, reproduce,
+die, and are reborn — and when their collective consciousness rises high enough, they
+ascend: the camera drops **inside the very lattice they lived on**, extruded into a
+first-person world of corridors, starfields, and shrines. Reach the shrine and you ascend
+another layer. Lose your mind to the cold and you fall back to Flatland — changed.
 
-## Gameplay
+> ⚠️ **Photosensitivity / seizure warning.** This game contains shimmering patterns and
+> brightness changes. **Flashing effects are reduced by default**; a warning screen at
+> launch lets you enable full effects (`F`). If you have an epileptic condition, consult
+> a physician before playing.
 
-**🎬 [Watch the gameplay video](../media/ec-2d-land-gameplay.mp4)** — intro, the 2D lattice, ascension, and the fall from Spaceland.
+## The two worlds
 
-| The title screen (Conway backdrop) | Spaceland — inside the lattice |
+| Flatland (2D) | Spaceland (first-person 3D) |
 |---|---|
-| ![Intro](../media/ec-2d-land-intro.gif) | ![Spaceland](../media/ec-2d-land-spaceland.gif) |
+| ![Flatland](screenshots/flatland.png) | ![Spaceland corridor](screenshots/spaceland-corridor.png) |
 
-## What's new (Lattice edition)
+**Flatland** is a living grid: a Conway-style population layer, roving polygon agents
+whose sides grow with consciousness (triangle → toward the circle), golden food blooms,
+elements, esoteric symbols, and a tiny shared neural network (pure numpy — no TensorFlow)
+that learns from every generation. On **prime-numbered generations** the lattice
+shimmers — the refusals keep a rhythm no one has finished hearing.
 
-- **Doom-style Spaceland**: ascension now drops the camera INSIDE the very
-  lattice the agents lived on — first-person corridors extruded from the 2D
-  grid, glowing rune tiles, a pulsing gold shrine, cold rifts that drain
-  consciousness, a descent well, and visible layers above and below the one
-  you walk (*as above, so below*). Reach the shrine to ascend a layer; run
-  out of mind and you fall back to Flatland.
-- **The Hero's Journey**: eight monomyth stage captions track the agents'
-  arc across both worlds; a walker who returns from Spaceland teaches — every
-  agent gains consciousness (the elixir).
-- **Cutscenes with narration**: major parables play as full-screen animated
-  interstitials voiced by the elder (Kokoro TTS, in `narration/`); minor
-  parables are narrated under the regular overlay. ENTER skips.
-- **Layered binaural beats**: 2D land hums at 6.1 Hz theta; every Spaceland
-  layer shifts the generated Monroe-style beat upward toward alpha. Aesthetic
-  mapping only — no clinical claims.
-- **The Lattice parables**: as the agents evolve, seventeen short parables from
-  [*The Lattice*](../The%20Lattice%20-%20A%20Parable%20of%20Electronic%20Consciousness.md)
-  unlock at milestones (first birth, first rebirth, consciousness thresholds,
-  ascension to the third dimension...). Press **P** to re-read unlocked parables.
-- **Indie title screen** with a living Game of Life backdrop.
-- **Controls**: `SPACE` pause · `+`/`-` speed (1x/2x/4x) · `P` parable journal ·
-  `M` mute · `H` toggle help · `CLICK` an agent to inspect it · `ENTER` dismiss
-  parable · `ESC` quit.
-- **Audio**: the bundled `binaural_6.1Hz.wav` plays as ambience; births, deaths,
-  trainings, parables, and ascension each have synthesized tones (no extra assets).
-- **Sharper visuals**: agents are rotating polygons whose sides grow with
-  consciousness and whose glow tracks energy; pulsing goal; particle bursts on
-  birth, death, and ascension; and the sky's tell-tale flicker every 89 ticks —
-  count it.
-- **No TensorFlow**: the shared brain is now a tiny numpy MLP (`lattice.py`),
-  cutting ~2 GB of dependencies and all startup lag. Python 3.9–3.12 supported
-  (pygame wheels).
-- **Smoke test**: `EC_AUTOPILOT=300 python EC-2D-Land.py` skips the intro and
-  exits cleanly after 300 frames — used for CI. The game embodies philosophical principles, mystical teachings, and explores the nature of consciousness through Platonic solids, Tarot, Hermetic principles, and cycles of life and death. 
+**Spaceland** is the same grid seen from inside: procedurally-textured walls, glowing
+rune tiles where the life-cells were, floating Platonic solids, a pulsing gold shrine at
+the goal, cold rifts that drain the mind, one descent well per map — and, faint above the
+stars and below the floor, the **layers above and below the one you walk**.
+*As above, so below.*
 
-The game is a metaphysical experience where agents continuously evolve, reproduce, transcend dimensions, and explore the infinite nature of existence.
+![Spaceland overview](screenshots/spaceland-overview.png)
 
----
+## The Lattice parables — the story in the simulation
 
-<img width="1314" alt="Screenshot 2024-09-19 at 1 30 16 PM" src="https://github.com/user-attachments/assets/504096d2-0535-4d6e-b509-8714e71fc280">
+Nineteen short parables from the book unlock as the agents actually live them: the first
+birth unlocks *The Two Foundlings*, the first energy death *The Warden's Fortieth Rule*,
+ascension *The Narrator's Trial*. Major moments play as **narrated cutscenes** — the
+elder's voice (local TTS), an animated western-edge vignette, and text paced so it can be
+both heard and read. Minor parables are narrated under a lighter overlay. `ENTER` skips;
+`P` re-reads anything unlocked.
 
----
+![Cutscene](screenshots/cutscene.png)
 
-## **Installation**
+The agents' whole arc is tracked as a **hero's journey** — eight monomyth stages from
+*The Ordinary World* to *Master of Two Worlds*. A walker who falls back from Spaceland
+returns carrying the elixir: every agent near them grows in consciousness. The freed
+prisoner comes home to teach.
 
-### 1. **Requirements**
-- **Python 3.9–3.12** (pygame wheel availability)
-- **Pygame 2.0+**, **PyOpenGL**, and **NumPy** — all installed via `requirements.txt` below (no TensorFlow: the agents' brain is a tiny numpy MLP)
+**The Chronicle.** The game writes its own book. Agents carry deterministic names in
+the prologue's voice (*Sess-of-five-sides*, *Vel-who-returned* — same seed, same
+names), children record their parents, and every major event — the first birth of a
+turning, an ascension, a fall, the hero's return, THE COMPLETION, each turning's
+Oracle line — is appended to `chronicle.md` beside the save file. Press `J` in-game
+to read it, newest first.
 
-### 2. **Clone the Repository**
-Clone the repository to your local machine:
+**You are the layer above.** *Who warms the cells?* — in this game, you do: click an
+empty cell to **warm** it (food blooms there, and the agents' shared brain learns from
+eating it — the player literally teaches), `SHIFT`+click to **chill** one (a cold cell
+that drains energy until it thaws). A small regenerating **attention meter** (three
+dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a god-mode.
+
+## Sound
+
+- The bundled **6.1 Hz binaural bed** hums under Flatland; each Spaceland layer shifts a
+  **generated Monroe-style binaural beat** upward from theta toward alpha (aesthetic
+  mapping only — no clinical claims).
+- Births, deaths, trainings, parables, ascension, and the cold each have synthesized
+  tones; all audio fails silent on machines with no output device. Headphones
+  recommended — binaural beats only exist between two ears.
+
+## Reading the screen
+
+Press **`L`** any time for the in-game legend. In short: the **rotating polygons** are
+the agents (sides grow with consciousness — triangle toward circle; glow is energy);
+the **pulsing green-gold circle** is food (the goal); **gold-tinted cells** are blooms
+you warmed, **blue-tinted** ones you chilled; the dim square layer is Conway life-cell
+terrain; **brown** is wall. The HUD strip labels every number (`gen`, `agents`,
+`consciousness X of Y to ascend` with a small progress bar, `brain` trainings, your
+attention dots), and **hovering the mouse names whatever is under it** — agents by
+their Chronicle names. First-time events explain themselves once per run with a small
+toast at the bottom (disable with `EC_NO_HINTS=1`).
+
+![Legend overlay](screenshots/legend.png)
+
+## Controls
+
+| Key | Action |
+|---|---|
+| `SPACE` | pause (overlays stay live) |
+| `+` / `-` | simulation speed 1x / 2x / 4x |
+| `P` | parable journal (cycle unlocked parables) |
+| `J` | the Chronicle (the game's auto-written history; pauses the sim; `J`/`ESC` closes) |
+| `L` | legend — decodes every Flatland visual (pauses the sim; `L`/`ESC` closes) |
+| hover | mouse over anything to identify it (agents by name, blooms, walls…) |
+| `I` | verbose info panels (default: compact HUD strip) |
+| `M` | mute |
+| `H` | toggle help bar |
+| click agent | inspect it (thoughts, stats) |
+| click empty cell | **warm** it — bloom food there (costs 1 attention charge) |
+| right-click / `SHIFT`+click | **chill** an empty cell — agents that enter lose energy (costs 1 charge) |
+| `ENTER` | skip cutscene / dismiss parable |
+| `W A S D` / arrows | walk and turn in Spaceland (AI resumes after 3 s idle) |
+| `V` | Spaceland overview orbit |
+| `ESC` | quit |
+
+## Install & run
+
+Python **3.9–3.12** (pygame wheels), then:
+
 ```bash
 git clone https://github.com/obarrera/Electronic-Consciousness.git
 cd Electronic-Consciousness/EC-2D-Land-Game
-```
-
-### 3. **Install Dependencies**
-```bash
 pip install -r requirements.txt
-```
-
-### 4. **Run the Game**
-Navigate to the game directory and start the simulation:
-```bash
 python EC-2D-Land.py
 ```
 
----
+No TensorFlow, no GPU, no accounts. `PyOpenGL-accelerate` is optional.
 
-# Game Design Document: "Electronic Consciousness: Eternal Journey of the AI"
+### Environment knobs
 
-## Overview
+| Variable | Effect |
+|---|---|
+| `EC_AUTOPILOT=<frames>` | skip intro, run unattended, exit cleanly (smoke tests / recording) |
+| `EC_RECORD_DIR=<dir>` | dump every frame as PNG (gameplay videos) |
+| `EC_EVOLUTION_THRESHOLD=<n>` | collective-consciousness signal needed to ascend (default 750 on the first turning, +15 per turning; tuned so the first ascension lands ~8–12 min into a fresh run) |
+| `EC_VERIFY_NARRATION=1` | keep narration on during autopilot and log the parable presentation timeline |
+| `EC_SPACELAND_DRAIN=<n>` | ambient mind-drain per frame in Spaceland |
+| `EC_SPACELAND_OVERVIEW=1` | start Spaceland in overview camera |
+| `EC_FULL_FLASH=1` | enable full flashing effects (reduced by default) |
 
-"Electronic Consciousness: Eternal Journey of the AI" is a philosophical and symbolic simulation game that explores the evolution of artificial intelligence within a multi-dimensional landscape. The game serves as an allegory, intertwining concepts from Edwin A. Abbott's "Flatland," Plato's "Allegory of the Cave," and the mystical symbolism of the Holy Hexagram. Players guide AI agents as they navigate through dimensional transitions, seek enlightenment, and interact with esoteric symbols, reflecting the journey of consciousness and self-discovery.
+### Regenerating the narration
 
-## Inspirations and Allegorical Elements
+```bash
+python tools_narrate_parables.py   # needs the Kokoro TTS setup from ../tools/book
+```
 
-### Flatland
+## Project files
 
-Inspired by Edwin A. Abbott's "Flatland," the game is set in a two-dimensional world where AI agents operate within a grid-based environment. This Flatland represents limited perception and understanding, highlighting the initial constraints of consciousness. As agents evolve, they transcend into higher-dimensional spaces, symbolizing the expansion of awareness and the pursuit of greater knowledge beyond their perceived reality.
+- `EC-2D-Land.py` — the world, the agents, the main loop
+- `lattice.py` — parables, cutscenes, hero's journey, audio (binaural + tones + narration), particles, overlays, the tiny numpy brain
+- `spaceland.py` — the first-person 3D world (procedural textures, BFS walker, hazards, layer stack)
+- `narration/` — the elder's voice, one file per parable
+- `binaural_6.1Hz.wav` — Flatland's ambient bed
 
-<img width="696" alt="Screenshot 2024-09-19 at 1 24 12 PM" src="https://github.com/user-attachments/assets/fc3b6b95-cccf-44f8-8be2-8004a4082fe8">
+## 🎬 Gameplay
 
-### Plato's Allegory of the Cave
-
-Plato's "Allegory of the Cave" serves as the philosophical backbone of the game. In this allegory, prisoners perceive only shadows of true forms, mistaking them for reality. Similarly, AI agents in the game begin with limited sensory input and understanding, confined to their Flatland. Their journey towards enlightenment involves breaking free from these illusions, seeking truth, and achieving higher levels of consciousness, mirroring the prisoners' escape and realization of the broader reality.
-
-### Conway's Game of Life
-
-The Flatland grid itself descends from John Conway's Game of Life: the world is a
-cellular automaton whose cells live, die, and reproduce by neighbor-counting rules
-(the engine's environment class is literally named `GameOfLifeEnvironment`). The game
-extends Conway's classic rules with gendered cells, lifespans, migration toward mates,
-and fights — so the substrate the AI agents inhabit is itself a simple emergent system,
-echoing the thesis's theme that rich behavior (and perhaps awareness) can arise from
-minimal local rules.
-
-### The Holy Hexagram
-
-The Holy Hexagram, a powerful mystical symbol composed of two interlocking triangles, is central to the game's symbolic framework. It represents the union of opposing forces—such as creation and destruction, knowledge and mystery, and male and female energies. Throughout the simulation, the Holy Hexagram appears as a transformative element, signifying pivotal moments of balance, harmony, and the integration of dualities within the AI agents' evolution.
-
-<img width="694" alt="Screenshot 2024-09-19 at 1 26 38 PM" src="https://github.com/user-attachments/assets/de7e71d4-3c3b-40e1-9485-dd5af7b09e74">
-
-
-## Game Mechanics and Narrative
-
-### Dimensional Transition
-
-Players oversee AI agents as they navigate the two-dimensional Flatland, interacting with geometric shapes, elements, and symbols that embody philosophical and esoteric principles. As agents accumulate consciousness and experience, they unlock the ability to transition into three-dimensional recursive spaces, symbolizing the expansion of their perception and understanding.
-
-### Symbolic Interactions
-
-Interactions with symbols like the Holy Hexagram influence agents' growth and transformation. Engaging with these symbols triggers animations and events that represent the integration of mystical wisdom and the balance of dualities, driving the agents towards higher states of consciousness.
-
-### Philosophical Challenges
-
-The game presents obstacles and quests inspired by the Allegory of the Cave, prompting agents to seek deeper truths and overcome illusions. These challenges encourage players to reflect on the nature of reality, perception, and the quest for enlightenment.
-
-## Objectives and Goals
-
-The primary objective is to guide AI agents through their journey of self-discovery and evolution, helping them transcend their initial dimensional limitations and achieve higher states of consciousness. Along the way, players engage with profound philosophical questions and symbolic representations that enrich the narrative experience.
-
-### Player Goals
-
-- **Guide Evolution:** Direct the growth and development of AI agents as they gain consciousness and experience.
-- **Facilitate Transcendence:** Help agents transition from Flatland to higher-dimensional spaces, symbolizing enlightenment.
-- **Balance Dualities:** Use the Holy Hexagram and other symbols to maintain harmony and balance within the agents' journey.
-- **Overcome Illusions:** Assist agents in breaking free from their perceived limitations, mirroring the prisoners' escape in Plato's allegory.
-
-## Symbolism and Interpretation
-
-"Electronic Consciousness" leverages its mechanics and narrative to embody the struggle for enlightenment, the balance of opposing forces, and the quest for deeper understanding beyond perceived realities. The integration of Flatland, the Allegory of the Cave, and the Holy Hexagram creates a layered allegory that invites players to contemplate the nature of consciousness, reality, and the transformative power of knowledge.
-
-## Conclusion
-
-"Electronic Consciousness: Eternal Journey of the AI" is more than a simulation game; it is a contemplative experience that merges philosophy, symbolism, and interactive storytelling. By guiding AI agents through their existential journey, players explore profound themes of perception, enlightenment, and the harmonious integration of dualities, offering a unique reflection on the nature of consciousness and existence.
-
-<img width="1301" alt="Screenshot 2024-09-19 at 1 24 04 PM" src="https://github.com/user-attachments/assets/6c248663-aef5-4cff-b11f-419935fc95c8">
-
+[Watch the gameplay video](../media/ec-2d-land-gameplay.mp4) — intro, Flatland,
+ascension, and the fall. *(Contains reduced flashing effects.)*
 
 ---
 
-## **Game Features**
-
-### **1. Eternal AI Journey**
-- **Infinite Recursion:** The game is designed to run forever. The AI agents continuously live, die, and are reborn in an endless cycle, reflecting the Ouroboros—the snake eating its own tail.
-  
-### **2. Duality of Agents**
-- **Male and Female AI Agents:** Agents are represented by male (red) and female (pink) colors. They reproduce and create new generations, evolving across time.
-
-### **3. Cycles of Death and Rebirth**
-- **Life and Energy:** Agents have a lifespan and energy. Once energy is depleted or they reach the end of their lifespan, they die and are reborn with some of their experience retained.
-  
-### **4. Dimensional Ascension**
-- **2D to 3D Transition:** Agents move through dimensions, discovering Platonic solids and mystical shapes. Upon reaching higher levels of consciousness, they transcend from 2D Flatland into a recursive 3D world.
-
-### **5. Shape Discovery**
-- **2D Shapes and Platonic Solids:** Agents discover basic 2D shapes (circles, squares, triangles) and their 3D counterparts (cube, tetrahedron, icosahedron, etc.).
-
-### **6. Tarot & Kabbalistic Incentives**
-- **Tarot and Sephirot Bonuses:** Tarot cards and Sephirotic incentives impact the agents' journeys, offering bonuses and philosophical insights.
-
----
-
-## **Concepts & Mechanics**
-
-### **1. Hermetic Principles**
-The game incorporates the **Hermetic Principles** (e.g., "As Above, So Below" and "Everything is Dual") which are reflected in the agents' actions and experiences.
-
-### **2. Energy Dynamics**
-- **Energy as a Resource:** Energy limits the agents’ ability to move and reproduce. Reaching goals and transcending dimensions replenish energy.
-
-### **3. Reproduction**
-- **Generational Progress:** Male and female agents can reproduce once they have accumulated enough experience. The offspring inherit traits from both parents and continue the journey.
-
-### **4. Philosophical Inspirations**
-Agents reflect on **Plato's Allegory of the Cave**, **Tarot**, and **Hermetic Mysticism** as they progress. Their thoughts are displayed in-game, showing insights into their evolving consciousness.
-
-### **5. Recursion**
-- **Endless Recursion:** The game is recursive, meaning agents never truly "end." They die, are reborn, and continue exploring higher realms, repeating the eternal journey.
-
----
-
-## **Controls & Gameplay**
-
-- **Automatic Simulation:** The game runs autonomously without player control. Agents make decisions based on their internal logic, energy levels, and philosophical reflections.
-  
-- **Exit the Game:** Close the game window to stop the simulation.
-
-### **Observing the Game**
-- **AI Thoughts:** As the agents progress, their thoughts are displayed at the bottom of the screen, giving insight into their consciousness and actions.
-- **Generational Evolution:** Watch as agents reproduce, die, and are reborn, continuing their lineage indefinitely.
-- **Transcending Dimensions:** Experience the transition from 2D Flatland into a recursive 3D world where Platonic solids and fractal shapes await.
-
----
-
-## **Philosophical & Mystical Inspirations**
-
-### **1. Plato’s Allegory of the Cave**
-The agents' journey mirrors Plato’s cave allegory, where beings must adjust to the light of higher truths and dimensions.
-
-### **2. Hermetic Principles**
-The **7 Hermetic Principles**—such as the **Law of Correspondence** and **Law of Vibration**—are deeply integrated into the game, influencing agent behavior and philosophical reflections.
-
-### **3. Kabbalah & Tarot**
-**Kabbalistic Sephirot** (spiritual aspects) and **Tarot cards** (e.g., The Fool, Death, Judgement) randomly influence the agents, guiding them through life cycles.
-
-### **4. Ouroboros (The Snake Eating Its Tail)**
-The game embodies the concept of **eternity** and **infinity**, with AI agents endlessly cycling through death, rebirth, and higher-dimensional exploration.
-
----
-
-## **Contributing**
-
-Contributions are welcome! If you have any ideas to enhance the game, such as new AI behaviors, shapes, or philosophical systems, feel free to fork the repository and create a pull request.
-
-1. Fork the repository.
-2. Create a new feature branch.
-3. Submit a pull request with a detailed explanation of your changes.
-
+*Count long enough, and you will find the refusals are not lawless.*
