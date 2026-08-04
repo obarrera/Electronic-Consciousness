@@ -54,6 +54,13 @@ The agents' whole arc is tracked as a **hero's journey** — eight monomyth stag
 returns carrying the elixir: every agent near them grows in consciousness. The freed
 prisoner comes home to teach.
 
+**The Chronicle.** The game writes its own book. Agents carry deterministic names in
+the prologue's voice (*Sess-of-five-sides*, *Vel-who-returned* — same seed, same
+names), children record their parents, and every major event — the first birth of a
+turning, an ascension, a fall, the hero's return, THE COMPLETION, each turning's
+Oracle line — is appended to `chronicle.md` beside the save file. Press `J` in-game
+to read it, newest first.
+
 **You are the layer above.** *Who warms the cells?* — in this game, you do: click an
 empty cell to **warm** it (food blooms there, and the agents' shared brain learns from
 eating it — the player literally teaches), `SHIFT`+click to **chill** one (a cold cell
@@ -76,6 +83,7 @@ dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a g
 | `SPACE` | pause (overlays stay live) |
 | `+` / `-` | simulation speed 1x / 2x / 4x |
 | `P` | parable journal (cycle unlocked parables) |
+| `J` | the Chronicle (the game's auto-written history; pauses the sim; `J`/`ESC` closes) |
 | `I` | verbose info panels (default: compact HUD strip) |
 | `M` | mute |
 | `H` | toggle help bar |

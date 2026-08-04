@@ -12,7 +12,8 @@ from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      run_intro, is_prime, draw_prime_constellation, draw_easter_egg,
                      door_answers, HeroJourney, Cutscene, CUTSCENE_KEYS, layer_beat_hz,
                      set_oracle, ENDGAME_PARABLES, draw_tesseract,
-                     spectrum_color, spectrum_duration)
+                     spectrum_color, spectrum_duration,
+                     agent_name, agent_display_name, Chronicle, ChronicleViewer)
 import ouroboros
 import spaceland
 
@@ -89,6 +90,19 @@ apply_turning_palette()
 
 # Shared Knowledge Base
 shared_knowledge = []
+
+# The Chronicle's lineage counter: the Nth agent named in a turning gets the
+# Nth deterministic name for this ouroboros seed (reset each turning).
+_LINEAGE = {"next": 0}
+
+
+def next_lineage_id():
+    _LINEAGE["next"] += 1
+    return _LINEAGE["next"]
+
+
+def reset_lineage():
+    _LINEAGE["next"] = 0
 
 # Dialogues from Plato's "Allegory of the Cave"
 plato_dialogues = [
@@ -831,6 +845,13 @@ class AI_Agent:
         self.ready_to_reproduce = False
         self.gender = gender  # 'Male' or 'Female'
         self.color = color  # Color representation
+        # The Chronicle: a deterministic name (ouroboros seed + lineage),
+        # a deed epithet earned by the life, and the lineage record
+        self.name_base, self.birth_epithet = agent_name(OURO.seed,
+                                                        next_lineage_id())
+        self.deed_epithet = None
+        self.parent_name = None
+        self.lineage_depth = 1
         self.age = 0  # Age of the agent
         self.max_age = random.randint(20, 40)  # Increased lifespan
         self.generation = 1  # Generation number
@@ -856,7 +877,8 @@ class AI_Agent:
         if len(self.thoughts) > 5:  # Limit the number of stored thoughts
             self.thoughts.pop(0)  # Remove the oldest thought if more than 5
         if DEBUG:
-            print(f"AI Agent ({self.gender}, Gen {self.generation}): {new_thought}")
+            print(f"{agent_display_name(self)} ({self.gender}, "
+                  f"Gen {self.generation}): {new_thought}")
 
     def food_gradient(self):
         """The Gradient, sensed: sign of the direction to the nearest food,
@@ -1132,6 +1154,11 @@ class AI_Agent:
             child_agent.level_of_consciousness = child_level
             child_agent.memory_capacity = child_memory_capacity
             child_agent.generation = max(self.generation, partner.generation) + 1
+            # Lineage: the child records its parent and its depth
+            mother = self if self.gender == 'Female' else partner
+            child_agent.parent_name = agent_display_name(mother)
+            child_agent.lineage_depth = max(self.lineage_depth,
+                                            partner.lineage_depth) + 1
             self.ready_to_reproduce = False
             partner.ready_to_reproduce = False
             self.reproduction_cooldown = 10  # Set cooldown
@@ -1622,7 +1649,8 @@ class RecursiveEnvironment3DManager:
             self.event_log.pop(0)
 
     def enter_3d_world(self, ai_agents_2d):
-        """Transition from 2D world to 3D world."""
+        """Transition from 2D world to 3D world. Returns the 2D agent who
+        ascended (for the Chronicle), or None."""
         if not self.in_3d_world and len(ai_agents_2d) > 0:
             print("Transitioning to 3D spaceland...")
             agent = random.choice(ai_agents_2d)
@@ -1640,8 +1668,9 @@ class RecursiveEnvironment3DManager:
             self.recursive_environment.ai_agent_3d = self.ai_agent_3d
             self.dynamic_shape = DynamicShape3D('Cube', [0, 0, -5])  # Example of a dynamic shape
             self.log_event("AI Agent has entered 3D Spaceland.")
-        else:
-            print("No new entry to 3D Spaceland.")
+            return agent
+        print("No new entry to 3D Spaceland.")
+        return None
 
     def exit_3d_world(self, ai_agents_2d):
         """Return the 3D agent back to the 2D environment."""
@@ -2718,6 +2747,32 @@ def run_simulation():
     learning = LearningMetrics(
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      "out_learning.csv"), OURO.iteration)
+
+    # The Chronicle: the game writes its own book (chronicle.md, gitignored,
+    # next to .ouroboros.json). Names are deterministic given the seed.
+    def _turning_heading():
+        return (f"The {ouroboros._ordinal(OURO.iteration).capitalize()} "
+                f"Turning")
+
+    chronicle = Chronicle(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "chronicle.md"))
+    chronicle.open_turning(_turning_heading(), OURO.oracle_line("chronicle"))
+    chronicle_viewer = ChronicleViewer(WINDOW_SIZE)
+    chronicle_open = False
+    ascended_name = None           # who is walking Spaceland right now
+
+    # EC_TEST_KEYS="j@500,escape@700": post synthetic KEYDOWNs at frames —
+    # unattended verification of key-driven overlays. Autopilot never sets it.
+    test_keys = []
+    for _part in (os.environ.get("EC_TEST_KEYS") or "").split(","):
+        _part = _part.strip()
+        if "@" in _part:
+            _name, _fr = _part.split("@", 1)
+            try:
+                test_keys.append({"name": _name.strip().lower(),
+                                  "frame": int(_fr), "done": False})
+            except ValueError:
+                print(f"EC_TEST_KEYS: could not parse {_part!r}")
     # The player's hand: a small regenerating attention meter budgets the
     # warming/chilling so it stays a nudge, not god-mode (3 charges, +1/100 ticks)
     ATTENTION_MAX = 3.0
@@ -2835,11 +2890,15 @@ def run_simulation():
         nonlocal environment, ai_agents_2d, recursive_manager, stats, parables, \
             journey, current_generation, selected_agent, prime_flash, \
             last_prime_gen, egg_frames, learning, attention, \
-            EVOLUTION_THRESHOLD, smoothed_consciousness
+            EVOLUTION_THRESHOLD, smoothed_consciousness, ascended_name
         apply_turning_palette()
+        reset_lineage()            # names restart, deterministic per seed
+        ascended_name = None
         environment = GameOfLifeEnvironment(GRID_SIZE)
         ai_agents_2d = []
         seed_initial_agents(environment, ai_agents_2d, count=3)
+        chronicle.open_turning(_turning_heading(),
+                               OURO.oracle_line("chronicle"))
         recursive_manager = RecursiveEnvironment3DManager(two_d_environment=environment)
         stats = {"gen": 0, "births": 0, "rebirths": 0, "energy_deaths": 0,
                  "max_consciousness": 0, "population": len(ai_agents_2d),
@@ -2880,16 +2939,37 @@ def run_simulation():
 
     # Simulation loop
     while running:
+        for tk in test_keys:
+            if not tk["done"] and frame_count >= tk["frame"]:
+                tk["done"] = True
+                _kc = {"j": pygame.K_j, "escape": pygame.K_ESCAPE,
+                       "p": pygame.K_p, "return": pygame.K_RETURN}.get(tk["name"])
+                if _kc is not None:
+                    pygame.event.post(pygame.event.Event(
+                        pygame.KEYDOWN, key=_kc, unicode=""))
+                    print(f"TEST_KEYS: posted {tk['name']} at frame {frame_count}")
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                chronicle.flush(force=True)
                 running = False
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    if chronicle_open:
+                        chronicle_open = False
+                        print(f"Chronicle viewer closed (frame {frame_count}).")
+                        continue
+                    chronicle.flush(force=True)
                     running = False
                     pygame.quit()
                     sys.exit()
+                elif event.key == pygame.K_j:
+                    if not recursive_manager.in_3d_world:
+                        chronicle_open = not chronicle_open
+                        print(f"Chronicle viewer "
+                              f"{'opened' if chronicle_open else 'closed'} "
+                              f"(frame {frame_count}).")
                 elif event.key == pygame.K_SPACE:
                     paused = not paused
                 elif event.key in (pygame.K_PLUS, pygame.K_EQUALS):
@@ -2933,6 +3013,7 @@ def run_simulation():
                     player_touch(cell, "chill")
 
         frame_count += 1
+        chronicle.flush()          # buffered; writes every ~30 s
         # Reading-duck: while ANY narrative text is on screen (parable
         # overlay, cutscene, hero-stage caption, endgame arc) the effect
         # sounds duck to ~25% and the bed steps down — narration stays full
@@ -2945,6 +3026,7 @@ def run_simulation():
             journey.advance("ordinary")
         from lattice import AUTOPILOT_FRAMES
         if AUTOPILOT_FRAMES and frame_count >= AUTOPILOT_FRAMES:
+            chronicle.flush(force=True)
             print(learning.summary())
             print(f"Autopilot: clean exit after {frame_count} frames "
                   f"(gen {current_generation}, {len(ai_agents_2d)} agents, "
@@ -3030,6 +3112,10 @@ def run_simulation():
                 # 5. O! — sparse gold on black (generic cutscene branch below),
                 # then the ouroboros closes: advance the turning, reset the world
                 if not cutscene.active:
+                    chronicle.record(
+                        current_generation,
+                        "All is nothing, and we rise. The serpent's mouth "
+                        "met its tail; a seed passed over.")
                     turning = OURO.advance()
                     print(f"OUROBOROS: TURNING {turning} — the lattice begins "
                           f"again; {OURO.layers_to_complete()} layers to the "
@@ -3038,6 +3124,14 @@ def run_simulation():
                     endgame.update(stage=None, band=-1)
                     CLOCK.tick(FPS)
                     continue
+
+        # The Chronicle viewer: time stands still while the book is open
+        if chronicle_open and not recursive_manager.in_3d_world:
+            frozen = surface.copy()
+            chronicle_viewer.draw(frozen, chronicle.recent())
+            _present(frozen)
+            CLOCK.tick(FPS)
+            continue
 
         # Cutscene: the world holds its breath while the elder speaks
         if cutscene.active:
@@ -3194,6 +3288,13 @@ def run_simulation():
                                         reproduction_count += 1
                                         stats["births"] += 1
                                         audio.play("birth")
+                                        if stats["births"] == 1:
+                                            chronicle.record(
+                                                current_generation,
+                                                f"{agent_display_name(child)} "
+                                                f"was born of {child.parent_name} "
+                                                f"— the first birth of this "
+                                                f"turning.")
                                         cx, cy = child.position
                                         particles.burst((cy * CELL_SIZE + CELL_SIZE // 2,
                                                          cx * CELL_SIZE + CELL_SIZE // 2),
@@ -3337,7 +3438,11 @@ def run_simulation():
                 surface.blit(bar, (0, WINDOW_SIZE - 52))
                 if selected_agent is not None:
                     sx, sy = selected_agent.position
-                    info = (f"{selected_agent.gender} Gen {selected_agent.generation} — "
+                    lineage = (f", child of {selected_agent.parent_name}"
+                               if selected_agent.parent_name else "")
+                    info = (f"{agent_display_name(selected_agent)} — "
+                            f"{selected_agent.gender} Gen {selected_agent.generation}"
+                            f"{lineage} — "
                             f"consciousness {selected_agent.level_of_consciousness:.0f}, "
                             f"energy {selected_agent.energy:.0f}, age {selected_agent.age}/{selected_agent.max_age} — "
                             f"“{selected_agent.thoughts[-1] if selected_agent.thoughts else '...'}”")
@@ -3403,7 +3508,16 @@ def run_simulation():
                 audio.play("ascend")
                 audio.set_binaural(layer_beat_hz(1))
                 init_opengl()  # Initialize OpenGL for 3D rendering
-                recursive_manager.enter_3d_world(ai_agents_2d)
+                _walker = recursive_manager.enter_3d_world(ai_agents_2d)
+                if _walker is not None:
+                    _walker.deed_epithet = "who-climbed"
+                    ascended_name = agent_display_name(_walker)
+                    chronicle.record(
+                        current_generation,
+                        f"{ascended_name} felt the warmth go thin and crossed "
+                        f"the threshold none of us can point to (life "
+                        f"{_walker.generation}, lineage depth "
+                        f"{_walker.lineage_depth}).")
                 # Doom-style Spaceland: drop the camera INSIDE the very 2D
                 # lattice the agents lived on (pass a copy of the grid)
                 spaceland.init_gl(WINDOW_SIZE)
@@ -3438,7 +3552,16 @@ def run_simulation():
                     audio.stop_emitters()
                     audio.set_binaural(None)
                     stats["returns"] = stats.get("returns", 0) + 1
+                    chronicle.record(
+                        current_generation,
+                        f"{ascended_name or 'The walker'} returned from "
+                        f"layer {agent_3d.layer}, carrying the elixir — the "
+                        f"hero's road runs both ways.")
                     recursive_manager.exit_3d_world(ai_agents_2d)
+                    if ai_agents_2d and ascended_name:
+                        _ret = ai_agents_2d[-1]      # the returned walker
+                        _ret.name_base = ascended_name.split("-")[0]
+                        _ret.deed_epithet = "who-returned"
                     recursive_manager.log_event("AI Agent has exited 3D Spaceland due to energy depletion.")
                     if AUDIO_DEBUG:
                         print(f"AUDIO_DEBUG: exit (energy) — busy channels "
@@ -3469,6 +3592,12 @@ def run_simulation():
                             print(f"COMPLETION: THE CUBE — {agent_3d.layer} layers "
                                   f"traversed, the journey seen at once "
                                   f"(frame {_rec_n[0]}).")
+                            chronicle.record(
+                                current_generation,
+                                f"THE COMPLETION — {ascended_name or 'the walker'} "
+                                f"reached the shrine of the last required "
+                                f"layer; {agent_3d.layer} layers seen at "
+                                f"once, one cube.")
                             recursive_manager.log_event(
                                 f"THE COMPLETION — {agent_3d.layer} layers, one cube.")
                             audio.stop_emitters()
@@ -3507,10 +3636,20 @@ def run_simulation():
                         audio.set_binaural(None)
                         audio.play("cold")
                         stats["returns"] = stats.get("returns", 0) + 1
+                        chronicle.record(
+                            current_generation,
+                            f"The cold of the higher world took "
+                            f"{ascended_name or 'the walker'}; they fell "
+                            f"back to Flatland, and walk our old lattice "
+                            f"strangely now.")
                         recursive_manager.log_event(
                             "Consciousness depleted — fallen back to Flatland.")
                         spaceland.leave()
                         recursive_manager.exit_3d_world(ai_agents_2d)
+                        if ai_agents_2d and ascended_name:
+                            _ret = ai_agents_2d[-1]  # the fallen walker
+                            _ret.name_base = ascended_name.split("-")[0]
+                            _ret.deed_epithet = "who-fell-and-rose"
                         if AUDIO_DEBUG:
                             print(f"AUDIO_DEBUG: exit (fell) — busy channels "
                                   f"{_busy_channels()} (frame {frame_count})")

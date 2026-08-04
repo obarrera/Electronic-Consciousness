@@ -239,7 +239,155 @@ PARABLES = [
 
 
 # ---------------------------------------------------------------------------
-# Dependency-light brain: replaces the TensorFlow model (8 -> 32 -> 32 -> 4).
+# The Chronicle: deterministic names in the prologue's voice, and the game
+# writing its own book. Names derive from the ouroboros seed + a per-turning
+# lineage counter via a stable hash (same seed -> same names, every run);
+# the chronicle file records only MAJOR events, terse and in-voice.
+# ---------------------------------------------------------------------------
+
+import hashlib
+import time
+
+_NAME_FIRSTS = ["Sess", "Vel", "Ori", "Rok", "Vey", "Dorn", "Kel", "Oth",
+                "Pell", "Cor", "Dett", "Hav", "Mott", "Oll", "Bren", "Tir",
+                "Ash", "Nim", "Ess", "Ula"]
+_NAME_SECONDS = ["", "a", "en", "is", "un", "or", "eth", "ai", "o", "ul"]
+_BIRTH_EPITHETS = ["who-follows-the-warmth", "of-the-western-edge",
+                   "who-counts-the-ticks", "born-under-the-flicker",
+                   "who-asks", "of-the-quiet-cells", "who-keeps-the-seed",
+                   "who-watches-the-sky", "of-the-long-tick",
+                   "who-walks-the-spiral"]
+_SIDES_WORDS = ["zero", "one", "two", "three", "four", "five", "six",
+                "seven", "eight", "nine", "ten", "eleven", "twelve"]
+
+
+def agent_name(seed, lineage_id):
+    """Deterministic (base name, birth epithet) for the lineage_id-th agent
+    of a turning. hashlib, not hash(): stable across processes."""
+    h = int(hashlib.sha256(f"{seed}:{lineage_id}".encode()).hexdigest(), 16)
+    rng = random.Random(h)
+    base = rng.choice(_NAME_FIRSTS) + rng.choice(_NAME_SECONDS)
+    return base, rng.choice(_BIRTH_EPITHETS)
+
+
+def agent_display_name(agent):
+    """The name as spoken: a deed epithet once earned ("Vel-who-returned"),
+    else the sides of the life so far ("Sess-of-five-sides")."""
+    base = getattr(agent, "name_base", None)
+    if not base:
+        return "an unnamed walker"
+    deed = getattr(agent, "deed_epithet", None)
+    if deed:
+        return f"{base}-{deed}"
+    sides = min(9, 3 + int(getattr(agent, "level_of_consciousness", 0)) // 15)
+    return f"{base}-of-{_SIDES_WORDS[sides]}-sides"
+
+
+class Chronicle:
+    """The game's own book: terse in-voice entries for MAJOR events,
+    buffered (flushed every ~30 s and at exit) into chronicle.md next to
+    .ouroboros.json, capped at ~200 KB by trimming the oldest turnings."""
+
+    MAX_BYTES = 200_000
+    FLUSH_SECONDS = 30.0
+
+    def __init__(self, path):
+        self.path = path
+        self._buf = []
+        self._recent = []           # newest-last (viewer shows reversed)
+        self._last_flush = time.time()
+        if not os.path.isfile(path):
+            self._buf.append("# The Chronicle of the Lattice\n\n"
+                             "*What follows was not written. It accrued — "
+                             "one turning at a time, in the voice of the "
+                             "one who watched.*\n")
+
+    def open_turning(self, heading, oracle_line):
+        self._buf.append(f"\n## {heading}\n\n> {oracle_line}\n")
+        self._recent.append(f"— {heading} —")
+
+    def record(self, gen, text):
+        entry = f"- Tick {gen}: {text}" if gen is not None else f"- {text}"
+        self._buf.append(entry)
+        self._recent.append(entry.lstrip("- "))
+        if len(self._recent) > 200:
+            self._recent.pop(0)
+
+    def recent(self):
+        return list(self._recent)
+
+    def flush(self, force=False):
+        if not self._buf:
+            return
+        if not force and time.time() - self._last_flush < self.FLUSH_SECONDS:
+            return
+        try:
+            with open(self.path, "a", encoding="utf-8") as fh:
+                fh.write("\n".join(self._buf) + "\n")
+            self._buf = []
+            self._last_flush = time.time()
+            self._cap()
+        except OSError as exc:
+            print(f"chronicle: could not write ({exc})")
+
+    def _cap(self):
+        """Trim the oldest turnings once the file outgrows MAX_BYTES."""
+        try:
+            if os.path.getsize(self.path) <= self.MAX_BYTES:
+                return
+            with open(self.path, encoding="utf-8") as fh:
+                text = fh.read()
+            head, sep, rest = text.partition("\n## ")
+            sections = ("\n## " + rest).split("\n## ") if sep else []
+            sections = ["\n## " + s for s in sections if s]
+            while sections and len(head) + sum(len(s) for s in sections) > self.MAX_BYTES:
+                sections.pop(0)     # the oldest turning returns to the void
+            with open(self.path, "w", encoding="utf-8") as fh:
+                fh.write(head + "".join(sections))
+        except OSError:
+            pass
+
+
+class ChronicleViewer:
+    """J-key overlay: the chronicle's recent entries, newest first, in the
+    parable journal's visual style. The caller pauses the sim while open."""
+
+    def __init__(self, window_size):
+        self.w = window_size
+        self.font_title = pygame.font.SysFont('Georgia', 17, bold=True)
+        self.font_body = pygame.font.SysFont('Georgia', 13)
+        self.font_small = pygame.font.SysFont('Arial', 11)
+
+    def draw(self, surface, entries):
+        pad, width = 14, self.w - 80
+        height = self.w - 120
+        panel = pygame.Surface((width, height), pygame.SRCALPHA)
+        panel.fill((16, 8, 38, 238))
+        pygame.draw.rect(panel, (109, 40, 217), panel.get_rect(), 2)
+        panel.blit(self.font_small.render(
+            "THE CHRONICLE — the game writes its own book (newest first; J or ESC closes)",
+            True, (176, 148, 255)), (pad, 8))
+        panel.blit(self.font_title.render("What the Watcher Kept", True,
+                                          (255, 255, 255)), (pad, 24))
+        y = 52
+        for entry in reversed(entries):
+            for ln in ParableOverlay._wrap(entry, self.font_body,
+                                           width - 2 * pad):
+                if y > height - 24:
+                    panel.blit(self.font_small.render(
+                        "… the rest sleeps in chronicle.md", True,
+                        (150, 140, 185)), (pad, height - 18))
+                    surface.blit(panel, (40, 60))
+                    return
+                panel.blit(self.font_body.render(ln, True, (226, 220, 245)),
+                           (pad, y))
+                y += 17
+            y += 5
+        surface.blit(panel, (40, 60))
+
+
+# ---------------------------------------------------------------------------
+# Dependency-light brain: replaces the TensorFlow model (10 -> 32 -> 32 -> 4).
 # Same duties: callable-forward probabilities + fit(inputs, outputs, epochs).
 # ---------------------------------------------------------------------------
 
