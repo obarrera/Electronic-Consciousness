@@ -54,6 +54,19 @@ The agents' whole arc is tracked as a **hero's journey** — eight monomyth stag
 returns carrying the elixir: every agent near them grows in consciousness. The freed
 prisoner comes home to teach.
 
+**The Chronicle.** The game writes its own book. Agents carry deterministic names in
+the prologue's voice (*Sess-of-five-sides*, *Vel-who-returned* — same seed, same
+names), children record their parents, and every major event — the first birth of a
+turning, an ascension, a fall, the hero's return, THE COMPLETION, each turning's
+Oracle line — is appended to `chronicle.md` beside the save file. Press `J` in-game
+to read it, newest first.
+
+**You are the layer above.** *Who warms the cells?* — in this game, you do: click an
+empty cell to **warm** it (food blooms there, and the agents' shared brain learns from
+eating it — the player literally teaches), `SHIFT`+click to **chill** one (a cold cell
+that drains energy until it thaws). A small regenerating **attention meter** (three
+dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a god-mode.
+
 ## Sound
 
 - The bundled **6.1 Hz binaural bed** hums under Flatland; each Spaceland layer shifts a
@@ -63,6 +76,20 @@ prisoner comes home to teach.
   tones; all audio fails silent on machines with no output device. Headphones
   recommended — binaural beats only exist between two ears.
 
+## Reading the screen
+
+Press **`L`** any time for the in-game legend. In short: the **rotating polygons** are
+the agents (sides grow with consciousness — triangle toward circle; glow is energy);
+the **pulsing green-gold circle** is food (the goal); **gold-tinted cells** are blooms
+you warmed, **blue-tinted** ones you chilled; the dim square layer is Conway life-cell
+terrain; **brown** is wall. The HUD strip labels every number (`gen`, `agents`,
+`consciousness X of Y to ascend` with a small progress bar, `brain` trainings, your
+attention dots), and **hovering the mouse names whatever is under it** — agents by
+their Chronicle names. First-time events explain themselves once per run with a small
+toast at the bottom (disable with `EC_NO_HINTS=1`).
+
+![Legend overlay](screenshots/legend.png)
+
 ## Controls
 
 | Key | Action |
@@ -70,10 +97,15 @@ prisoner comes home to teach.
 | `SPACE` | pause (overlays stay live) |
 | `+` / `-` | simulation speed 1x / 2x / 4x |
 | `P` | parable journal (cycle unlocked parables) |
+| `J` | the Chronicle (the game's auto-written history; pauses the sim; `J`/`ESC` closes) |
+| `L` | legend — decodes every Flatland visual (pauses the sim; `L`/`ESC` closes) |
+| hover | mouse over anything to identify it (agents by name, blooms, walls…) |
 | `I` | verbose info panels (default: compact HUD strip) |
 | `M` | mute |
 | `H` | toggle help bar |
-| click | inspect an agent (thoughts, stats) |
+| click agent | inspect it (thoughts, stats) |
+| click empty cell | **warm** it — bloom food there (costs 1 attention charge) |
+| right-click / `SHIFT`+click | **chill** an empty cell — agents that enter lose energy (costs 1 charge) |
 | `ENTER` | skip cutscene / dismiss parable |
 | `W A S D` / arrows | walk and turn in Spaceland (AI resumes after 3 s idle) |
 | `V` | Spaceland overview orbit |
@@ -98,7 +130,8 @@ No TensorFlow, no GPU, no accounts. `PyOpenGL-accelerate` is optional.
 |---|---|
 | `EC_AUTOPILOT=<frames>` | skip intro, run unattended, exit cleanly (smoke tests / recording) |
 | `EC_RECORD_DIR=<dir>` | dump every frame as PNG (gameplay videos) |
-| `EC_EVOLUTION_THRESHOLD=<n>` | consciousness needed to ascend (default 100) |
+| `EC_EVOLUTION_THRESHOLD=<n>` | collective-consciousness signal needed to ascend (default 750 on the first turning, +15 per turning; tuned so the first ascension lands ~8–12 min into a fresh run) |
+| `EC_VERIFY_NARRATION=1` | keep narration on during autopilot and log the parable presentation timeline |
 | `EC_SPACELAND_DRAIN=<n>` | ambient mind-drain per frame in Spaceland |
 | `EC_SPACELAND_OVERVIEW=1` | start Spaceland in overview camera |
 | `EC_FULL_FLASH=1` | enable full flashing effects (reduced by default) |

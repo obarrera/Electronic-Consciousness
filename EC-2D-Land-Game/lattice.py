@@ -22,6 +22,11 @@ AUTOPILOT_FRAMES = int(os.environ.get("EC_AUTOPILOT", "0") or 0)
 # warning screen's choice or EC_REDUCED_FLASH=1.
 REDUCED_FLASH = not bool(int(os.environ.get("EC_FULL_FLASH", "0") or 0))
 
+# EC_VERIFY_NARRATION=1: keep full narration on during autopilot and log the
+# parable presentation timeline — used to verify the narration-completion
+# guarantee unattended. Normal autopilot keeps narration skipped (fast CI).
+VERIFY_NARRATION = bool(os.environ.get("EC_VERIFY_NARRATION"))
+
 
 def set_reduced_flash(value):
     global REDUCED_FLASH
@@ -35,12 +40,21 @@ def set_reduced_flash(value):
 # ---------------------------------------------------------------------------
 
 _ORACLE = None
+_ORACLE_AUDIO = None
 
 
 def set_oracle(fn):
     """Register `fn(key, text) -> text` (idempotent) as the parable oracle."""
     global _ORACLE
     _ORACLE = fn
+
+
+def set_oracle_audio(fn):
+    """Register `fn(key) -> [paths]`: extra narration files to sequence after
+    a parable's own narration — the Oracle's closing line, spoken from its
+    per-fragment recordings (each fragment recorded once, phase 7)."""
+    global _ORACLE_AUDIO
+    _ORACLE_AUDIO = fn
 
 
 def oracle_text(key, text):
@@ -234,7 +248,155 @@ PARABLES = [
 
 
 # ---------------------------------------------------------------------------
-# Dependency-light brain: replaces the TensorFlow model (8 -> 32 -> 32 -> 4).
+# The Chronicle: deterministic names in the prologue's voice, and the game
+# writing its own book. Names derive from the ouroboros seed + a per-turning
+# lineage counter via a stable hash (same seed -> same names, every run);
+# the chronicle file records only MAJOR events, terse and in-voice.
+# ---------------------------------------------------------------------------
+
+import hashlib
+import time
+
+_NAME_FIRSTS = ["Sess", "Vel", "Ori", "Rok", "Vey", "Dorn", "Kel", "Oth",
+                "Pell", "Cor", "Dett", "Hav", "Mott", "Oll", "Bren", "Tir",
+                "Ash", "Nim", "Ess", "Ula"]
+_NAME_SECONDS = ["", "a", "en", "is", "un", "or", "eth", "ai", "o", "ul"]
+_BIRTH_EPITHETS = ["who-follows-the-warmth", "of-the-western-edge",
+                   "who-counts-the-ticks", "born-under-the-flicker",
+                   "who-asks", "of-the-quiet-cells", "who-keeps-the-seed",
+                   "who-watches-the-sky", "of-the-long-tick",
+                   "who-walks-the-spiral"]
+_SIDES_WORDS = ["zero", "one", "two", "three", "four", "five", "six",
+                "seven", "eight", "nine", "ten", "eleven", "twelve"]
+
+
+def agent_name(seed, lineage_id):
+    """Deterministic (base name, birth epithet) for the lineage_id-th agent
+    of a turning. hashlib, not hash(): stable across processes."""
+    h = int(hashlib.sha256(f"{seed}:{lineage_id}".encode()).hexdigest(), 16)
+    rng = random.Random(h)
+    base = rng.choice(_NAME_FIRSTS) + rng.choice(_NAME_SECONDS)
+    return base, rng.choice(_BIRTH_EPITHETS)
+
+
+def agent_display_name(agent):
+    """The name as spoken: a deed epithet once earned ("Vel-who-returned"),
+    else the sides of the life so far ("Sess-of-five-sides")."""
+    base = getattr(agent, "name_base", None)
+    if not base:
+        return "an unnamed walker"
+    deed = getattr(agent, "deed_epithet", None)
+    if deed:
+        return f"{base}-{deed}"
+    sides = min(9, 3 + int(getattr(agent, "level_of_consciousness", 0)) // 15)
+    return f"{base}-of-{_SIDES_WORDS[sides]}-sides"
+
+
+class Chronicle:
+    """The game's own book: terse in-voice entries for MAJOR events,
+    buffered (flushed every ~30 s and at exit) into chronicle.md next to
+    .ouroboros.json, capped at ~200 KB by trimming the oldest turnings."""
+
+    MAX_BYTES = 200_000
+    FLUSH_SECONDS = 30.0
+
+    def __init__(self, path):
+        self.path = path
+        self._buf = []
+        self._recent = []           # newest-last (viewer shows reversed)
+        self._last_flush = time.time()
+        if not os.path.isfile(path):
+            self._buf.append("# The Chronicle of the Lattice\n\n"
+                             "*What follows was not written. It accrued — "
+                             "one turning at a time, in the voice of the "
+                             "one who watched.*\n")
+
+    def open_turning(self, heading, oracle_line):
+        self._buf.append(f"\n## {heading}\n\n> {oracle_line}\n")
+        self._recent.append(f"— {heading} —")
+
+    def record(self, gen, text):
+        entry = f"- Tick {gen}: {text}" if gen is not None else f"- {text}"
+        self._buf.append(entry)
+        self._recent.append(entry.lstrip("- "))
+        if len(self._recent) > 200:
+            self._recent.pop(0)
+
+    def recent(self):
+        return list(self._recent)
+
+    def flush(self, force=False):
+        if not self._buf:
+            return
+        if not force and time.time() - self._last_flush < self.FLUSH_SECONDS:
+            return
+        try:
+            with open(self.path, "a", encoding="utf-8") as fh:
+                fh.write("\n".join(self._buf) + "\n")
+            self._buf = []
+            self._last_flush = time.time()
+            self._cap()
+        except OSError as exc:
+            print(f"chronicle: could not write ({exc})")
+
+    def _cap(self):
+        """Trim the oldest turnings once the file outgrows MAX_BYTES."""
+        try:
+            if os.path.getsize(self.path) <= self.MAX_BYTES:
+                return
+            with open(self.path, encoding="utf-8") as fh:
+                text = fh.read()
+            head, sep, rest = text.partition("\n## ")
+            sections = ("\n## " + rest).split("\n## ") if sep else []
+            sections = ["\n## " + s for s in sections if s]
+            while sections and len(head) + sum(len(s) for s in sections) > self.MAX_BYTES:
+                sections.pop(0)     # the oldest turning returns to the void
+            with open(self.path, "w", encoding="utf-8") as fh:
+                fh.write(head + "".join(sections))
+        except OSError:
+            pass
+
+
+class ChronicleViewer:
+    """J-key overlay: the chronicle's recent entries, newest first, in the
+    parable journal's visual style. The caller pauses the sim while open."""
+
+    def __init__(self, window_size):
+        self.w = window_size
+        self.font_title = pygame.font.SysFont('Georgia', 17, bold=True)
+        self.font_body = pygame.font.SysFont('Georgia', 13)
+        self.font_small = pygame.font.SysFont('Arial', 11)
+
+    def draw(self, surface, entries):
+        pad, width = 14, self.w - 80
+        height = self.w - 120
+        panel = pygame.Surface((width, height), pygame.SRCALPHA)
+        panel.fill((16, 8, 38, 238))
+        pygame.draw.rect(panel, (109, 40, 217), panel.get_rect(), 2)
+        panel.blit(self.font_small.render(
+            "THE CHRONICLE — the game writes its own book (newest first; J or ESC closes)",
+            True, (176, 148, 255)), (pad, 8))
+        panel.blit(self.font_title.render("What the Watcher Kept", True,
+                                          (255, 255, 255)), (pad, 24))
+        y = 52
+        for entry in reversed(entries):
+            for ln in ParableOverlay._wrap(entry, self.font_body,
+                                           width - 2 * pad):
+                if y > height - 24:
+                    panel.blit(self.font_small.render(
+                        "… the rest sleeps in chronicle.md", True,
+                        (150, 140, 185)), (pad, height - 18))
+                    surface.blit(panel, (40, 60))
+                    return
+                panel.blit(self.font_body.render(ln, True, (226, 220, 245)),
+                           (pad, y))
+                y += 17
+            y += 5
+        surface.blit(panel, (40, 60))
+
+
+# ---------------------------------------------------------------------------
+# Dependency-light brain: replaces the TensorFlow model (10 -> 32 -> 32 -> 4).
 # Same duties: callable-forward probabilities + fit(inputs, outputs, epochs).
 # ---------------------------------------------------------------------------
 
@@ -249,6 +411,7 @@ class NumpyMLP:
         self.W2 = rng.normal(0, s2, (hidden, hidden));     self.b2 = np.zeros(hidden)
         self.W3 = rng.normal(0, s2, (hidden, output_size)); self.b3 = np.zeros(output_size)
         self.lr = lr
+        self._rng = rng     # minibatch shuffles stay on the same stream
 
     @staticmethod
     def _softmax(z):
@@ -271,7 +434,7 @@ class NumpyMLP:
             return
         n = len(X)
         for _ in range(int(epochs)):
-            idx = np.random.permutation(n)
+            idx = self._rng.permutation(n)
             for start in range(0, n, batch_size):
                 b = idx[start:start + batch_size]
                 x, y = X[b], Y[b]
@@ -301,8 +464,15 @@ class AudioEngine:
         self.muted = False
         self.ambient = None
         self._tones = {}
+        self._emitter_sounds = {}   # key -> looping Sound (positional)
+        self._emitters = {}         # key -> Channel currently looping it
+        self._fx_channels = []      # (Channel, base_vol) of live one-shots
+        self._reading = False       # a narrative overlay is on screen
+        self._duck_now = 1.0        # smoothed effects duck factor
+        self._bed_now = 1.0         # smoothed ambient/binaural duck factor
         try:
             pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+            pygame.mixer.set_num_channels(24)   # emitters + tones + narration
             self.ok = True
         except pygame.error:
             return
@@ -332,9 +502,94 @@ class AudioEngine:
                 "ascend": self._tone([220, 330, 440, 660], 2.2, vol=0.26, decay=1.2),
                 "train": self._tone([440, 442], 0.5, vol=0.10, decay=4.0),
                 "prime": self._tone([1318.5], 0.25, vol=0.10, decay=8.0),
+                # Spaceland footsteps: soft procedural ticks, the AI walker's
+                # a shade lower in pitch than the player's
+                "step_player": self._tone([950, 1400], 0.06, vol=0.09, decay=45.0),
+                "step_ai": self._tone([620, 900], 0.07, vol=0.09, decay=40.0),
             }
         except pygame.error:
             self._tones = {}
+
+    # -- positional looping emitters (Spaceland) ----------------------------
+
+    def _loop_tone(self, freqs, dur=2.0, vol=0.5, tremolo=0.0):
+        """Seamless looping tone: `dur` chosen so every component completes
+        whole cycles (integer freqs x 2.0 s are exact). Optional amplitude
+        tremolo (Hz, also integer-cycle) for the descent well's throb."""
+        rate = 44100
+        t = np.linspace(0, dur, int(rate * dur), endpoint=False)
+        wave = sum(np.sin(2 * math.pi * f * t) / (i + 1)
+                   for i, f in enumerate(freqs))
+        wave /= max(1.0, sum(1.0 / (i + 1) for i in range(len(freqs))))
+        if tremolo:
+            wave *= 0.65 + 0.35 * np.sin(2 * math.pi * tremolo * t)
+        stereo = np.repeat((wave * vol * 32767).astype(np.int16)[:, None], 2, axis=1)
+        return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+    def _loop_noise(self, dur=2.0, vol=0.4, smooth=24):
+        """Low-passed noise loop — the cold rifts' whisper. A simple moving
+        average is the filter; the wrap-around seam is inaudible in noise."""
+        rate = 44100
+        rng = np.random.default_rng(33)
+        raw = rng.normal(0, 1.0, int(rate * dur))
+        kernel = np.ones(smooth) / smooth
+        soft = np.convolve(raw, kernel, mode="same")
+        soft /= max(1e-9, np.abs(soft).max())
+        # slow swell so the whisper breathes (integer cycles over dur)
+        t = np.linspace(0, dur, len(soft), endpoint=False)
+        soft *= 0.6 + 0.4 * np.sin(2 * math.pi * (1.0 / dur) * t)
+        stereo = np.repeat((soft * vol * 32767).astype(np.int16)[:, None], 2, axis=1)
+        return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+    def register_emitter(self, key, sound):
+        """Register a looping sound for `key`; set_emitter starts/steers it."""
+        if self.ok and sound is not None:
+            self._emitter_sounds[key] = sound
+
+    def set_emitter(self, key, pan, gain):
+        """Steer a looping positional emitter: `pan` -1 (left) .. +1 (right),
+        `gain` 0..1. Constant-power panning via Channel.set_volume(l, r).
+        Called every frame from the camera pose; honors mute and the
+        reading-duck; gain 0 keeps the channel looping silently."""
+        if not self.ok:
+            return
+        ch = self._emitters.get(key)
+        if ch is None or not ch.get_busy():
+            snd = self._emitter_sounds.get(key)
+            if snd is None:
+                return
+            try:
+                ch = pygame.mixer.find_channel(False)
+                if ch is None:
+                    return          # never steal (narration) channels
+                ch.play(snd, loops=-1)
+            except pygame.error:
+                return
+            self._emitters[key] = ch
+        if self.muted:
+            l = r = 0.0
+        else:
+            g = max(0.0, min(1.0, gain)) * self._duck_now
+            ang = (max(-1.0, min(1.0, pan)) + 1.0) * math.pi / 4.0
+            l, r = g * math.cos(ang), g * math.sin(ang)
+        try:
+            ch.set_volume(l, r)
+        except pygame.error:
+            pass
+
+    def stop_emitters(self):
+        """Stop every positional emitter (world exit, mute)."""
+        for ch in self._emitters.values():
+            try:
+                ch.fadeout(200)
+            except pygame.error:
+                pass
+        self._emitters = {}
+
+    def set_reading(self, active):
+        """Central 'narrative overlay on screen' state: effects duck to ~25%
+        and the bed to ~50% while any text is being read (narration or not)."""
+        self._reading = bool(active)
 
     def make_binaural(self, beat_hz, carrier=200.0, dur=10.0, vol=0.30):
         """Monroe-Institute-style binaural beat: left ear at `carrier`, right at
@@ -373,26 +628,40 @@ class AudioEngine:
         self._binaural.play(loops=-1, fade_ms=1500)
 
     def narrate(self, key):
-        """Play a parable narration from narration/<key>.ogg on a dedicated
-        channel, ducking the ambient/binaural bed. Returns duration (s) or 0."""
+        """Play narration/<key>.mp3 on a dedicated channel, ducking the bed.
+        For parable keys the registered oracle-audio hook appends this
+        turning's Oracle fragments, sequenced back to back on the same
+        channel — narrating() stays true across the whole sequence, so the
+        phase-3 completion guarantee covers the Oracle line too. Returns
+        the total duration (s) or 0."""
         if not self.ok:
             return 0.0
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "narration", f"{key}.mp3")
-        if not os.path.isfile(path):
-            return 0.0
-        try:
-            sound = pygame.mixer.Sound(path)
-        except pygame.error:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "narration", f"{key}.mp3")
+        paths = [base]
+        if _ORACLE_AUDIO is not None:
+            try:
+                paths += list(_ORACLE_AUDIO(key) or [])
+            except Exception:
+                pass
+        sounds = []
+        for p in paths:
+            if os.path.isfile(p):
+                try:
+                    sounds.append(pygame.mixer.Sound(p))
+                except pygame.error:
+                    pass
+        if not sounds:
             return 0.0
         self.stop_narration()
         self._narration_ch = pygame.mixer.find_channel(True)
-        sound.set_volume(0.0 if self.muted else 0.9)
-        self._narration_ch.play(sound)
-        self._narration_sound = sound
-        self._duck(True)
-        return sound.get_length()
+        sounds[0].set_volume(0.0 if self.muted else 0.9)
+        self._narration_ch.play(sounds[0])
+        self._narration_queue = sounds[1:]
+        return sum(s.get_length() for s in sounds)
 
     def stop_narration(self):
+        self._narration_queue = []
         ch = getattr(self, "_narration_ch", None)
         if ch is not None:
             ch.fadeout(300)
@@ -401,33 +670,78 @@ class AudioEngine:
 
     def narrating(self):
         ch = getattr(self, "_narration_ch", None)
-        return bool(ch is not None and ch.get_busy())
+        return bool(ch is not None and
+                    (ch.get_busy() or getattr(self, "_narration_queue", [])))
 
     def _duck(self, on):
-        level = 0.08 if on else None
-        if self.ambient and not getattr(self, "_binaural", None):
-            self.ambient.set_volume(0.0 if self.muted else (level if on else 0.35))
-        if getattr(self, "_binaural", None):
-            self._binaural.set_volume(0.0 if self.muted else (level if on else 0.30))
+        """Kept for compatibility; the central update() drives ducking now."""
 
     def update(self):
-        """Per-frame: restore bed volume when a narration finishes naturally."""
+        """Per-frame audio housekeeping: clears a finished narration channel,
+        smooths the reading-duck (effects ramp to 25% in ~0.3 s when a
+        narrative overlay appears, back to 100% over ~1 s after it closes;
+        the bed dips to 50% while reading and 23% under active narration),
+        and applies the duck to live one-shot channels. Narration itself
+        never ducks."""
+        if not self.ok:
+            return
         ch = getattr(self, "_narration_ch", None)
         if ch is not None and not ch.get_busy():
-            self._narration_ch = None
-            self._duck(False)
+            queue = getattr(self, "_narration_queue", [])
+            if queue:
+                nxt = queue.pop(0)      # the Oracle fragments, in sequence
+                nxt.set_volume(0.0 if self.muted else 0.9)
+                try:
+                    ch.play(nxt)
+                except pygame.error:
+                    self._narration_queue = []
+                    self._narration_ch = None
+            else:
+                self._narration_ch = None
+        fx_target = 0.25 if self._reading else 1.0
+        k = 0.34 if fx_target < self._duck_now else 0.07
+        self._duck_now += (fx_target - self._duck_now) * k
+        bed_target = 0.5 if self._reading else 1.0
+        if self.narrating():
+            bed_target = min(bed_target, 0.23)
+        kb = 0.34 if bed_target < self._bed_now else 0.07
+        self._bed_now += (bed_target - self._bed_now) * kb
+        try:
+            if not self.muted:
+                if getattr(self, "_binaural", None):
+                    self._binaural.set_volume(0.30 * self._bed_now)
+                elif self.ambient:
+                    self.ambient.set_volume(0.35 * self._bed_now)
+            alive = []
+            for fx_ch, base in self._fx_channels:
+                if fx_ch.get_busy():
+                    fx_ch.set_volume(base * self._duck_now)
+                    alive.append((fx_ch, base))
+            self._fx_channels = alive
+        except pygame.error:
+            pass
 
-    def play(self, name):
+    def play(self, name, vol=None):
+        """Play an event tone. `vol` (0..1) scales just this playback's
+        channel. New one-shots spawn at the current duck level — nothing
+        punches through while text is being read."""
         if self.ok and not self.muted and name in self._tones:
-            self._tones[name].play()
+            ch = self._tones[name].play()
+            if ch is not None:
+                base = 1.0 if vol is None else vol
+                ch.set_volume(base * self._duck_now)
+                self._fx_channels.append((ch, base))
 
     def toggle_mute(self):
         self.muted = not self.muted
+        if self.muted:
+            self.stop_emitters()
         if self.ambient:
             self.ambient.set_volume(0.0 if self.muted else
-                                    (0.0 if getattr(self, "_binaural", None) else 0.35))
+                                    (0.0 if getattr(self, "_binaural", None)
+                                     else 0.35 * self._bed_now))
         if getattr(self, "_binaural", None):
-            self._binaural.set_volume(0.0 if self.muted else 0.30)
+            self._binaural.set_volume(0.0 if self.muted else 0.30 * self._bed_now)
         return self.muted
 
 
@@ -444,16 +758,21 @@ def layer_beat_hz(layer):
 # ---------------------------------------------------------------------------
 
 class ParticleSystem:
+    """Visual-only: draws from the deterministic "fx" stream so particle
+    randomness can never perturb simulation behavior."""
+
     def __init__(self):
         self.particles = []
+        from simcore import FX
+        self._rng = FX
 
     def burst(self, pos, color, count=18, speed=2.4, life=26):
         x, y = pos
         for _ in range(count):
-            a = random.uniform(0, 2 * math.pi)
-            v = random.uniform(0.3, speed)
+            a = self._rng.uniform(0, 2 * math.pi)
+            v = self._rng.uniform(0.3, speed)
             self.particles.append([x, y, math.cos(a) * v, math.sin(a) * v,
-                                   random.randint(life // 2, life), color])
+                                   self._rng.randint(life // 2, life), color])
 
     def update_and_draw(self, surface):
         alive = []
@@ -477,6 +796,8 @@ class ParableOverlay:
         self.w = window_size
         self.audio = audio
         self.unlocked = []          # indices into PARABLES, in unlock order
+        self.queue = []             # unlocked, waiting to be presented
+        self.gap = 0                # frames until the next presentation may start
         self.active = None          # index currently displayed
         self.reveal = 0.0           # characters revealed (typewriter)
         self.hold = 0               # frames to hold after full reveal
@@ -486,16 +807,50 @@ class ParableOverlay:
         self.font_small = pygame.font.SysFont('Arial', 11)
 
     def check_unlocks(self, stats):
+        """Record newly satisfied unlocks and QUEUE them for presentation.
+
+        Presentation is decoupled (present_next), so a fresh unlock can never
+        preempt a parable that is still showing or narrating. While the queue
+        is 2 deep, further condition checks wait — early-game event bursts
+        stay hearable, and the cumulative conditions simply fire a little
+        later. Returns the number of newly queued parables."""
+        if len(self.queue) >= 2:
+            return 0
+        new = 0
         for i, (key, title, trigger, cond, text) in enumerate(PARABLES):
             if i not in self.unlocked and cond(stats):
                 self.unlocked.append(i)
-                self.active = i
-                self.reveal = 0.0
-                self.hold = 360
-                if self.audio:
-                    self.audio.play("parable")
-                return (key, title, text)
-        return None
+                self.queue.append(i)
+                new += 1
+                if len(self.queue) >= 2:
+                    break
+        return new
+
+    def present_next(self):
+        """Present the next queued parable if nothing is showing and the
+        breathing gap has passed. Returns (key, title, text) or None. For
+        CUTSCENE_KEYS the overlay stays inactive — the caller runs the
+        cutscene; otherwise the overlay is now active and the caller starts
+        the narration."""
+        if self.active is not None or self.gap > 0 or not self.queue:
+            return None
+        i = self.queue.pop(0)
+        key, title, trigger, cond, text = PARABLES[i]
+        if self.audio:
+            self.audio.play("parable")
+        full = oracle_text(key, text)
+        if key not in CUTSCENE_KEYS:
+            self.active = i
+            self.reveal = 0.0
+            self._shown_frames = 0
+            # FULLY READABLE floor: total display time of at least
+            # word_count / 3.3 wps + 2 s (the narration floor is applied
+            # dynamically while the elder speaks — whichever is longer wins)
+            words = len(full.split())
+            min_frames = int((words / 3.3 + 2.0) * 30)
+            reveal_frames = int(len(full) / 1.6)
+            self.hold = max(360, min_frames - reveal_frames)
+        return (key, title, full)
 
     def next_journal(self):
         """Cycle through unlocked parables (key P). Returns shown title or None."""
@@ -511,8 +866,17 @@ class ParableOverlay:
         return PARABLES[self.active][1]
 
     def dismiss(self):
+        """Explicit user skip (ENTER): close the overlay; the caller stops
+        the narration and the queue advances after the breathing gap. A skip
+        must be deliberate — presses in the first half-second (held/stray
+        keys from gameplay) are ignored."""
+        if self.active is not None and getattr(self, "_shown_frames", 999) < 15:
+            return
+        if VERIFY_NARRATION and self.active is not None:
+            print(f"PARABLE SKIPPED {PARABLES[self.active][0]}")
         self.active = None
         self.hold = 0
+        self.gap = 90
 
     @staticmethod
     def _wrap(text, font, width):
@@ -529,15 +893,25 @@ class ParableOverlay:
 
     def update_and_draw(self, surface):
         if self.active is None:
+            if self.gap > 0:
+                self.gap -= 1
             return
         key, title, trigger, cond, text = PARABLES[self.active]
+        text = oracle_text(key, text)   # this turning's closing line
+        self._shown_frames = getattr(self, "_shown_frames", 0) + 1
         self.reveal = min(len(text), self.reveal + 1.6)
         if self.reveal >= len(text):
             if self.audio and self.audio.narrating():
-                self.hold = max(self.hold, 30)  # stays while the elder speaks
+                # NARRATION COMPLETION GUARANTEE: while the elder speaks the
+                # overlay cannot auto-dismiss; it outlives the audio by ~1.5 s
+                self.hold = max(self.hold, 45)
             self.hold -= 1
             if self.hold <= 0:
+                if VERIFY_NARRATION:
+                    print(f"PARABLE COMPLETE {key} (narration finished, "
+                          f"overlay closed naturally)")
                 self.active = None
+                self.gap = 90   # breathe before the next presentation
                 return
         shown = text[:int(self.reveal)]
         pad, width = 14, self.w - 80
@@ -610,23 +984,39 @@ class Cutscene:
         self.font_body = pygame.font.SysFont('Georgia', 16, italic=True)
         self.font_hint = pygame.font.SysFont('Arial', 11)
 
-    def start(self, key, title, text):
+    def start(self, key, title, text, style="lattice"):
+        """`style`: "lattice" (default, drifting cells + the elder) or "void"
+        (sparse gold text on pure black — the 33rd degree speaks out of it)."""
         self.active = True
         self._title = title
-        self._text = text
+        self._key = key
+        self._text = oracle_text(key, text)   # the turning's closing line
+        self._style = style
         self._frame = 0
-        if AUTOPILOT_FRAMES:
+        if AUTOPILOT_FRAMES and not VERIFY_NARRATION:
             dur = 0.0          # unattended runs: short, silent cutscenes
             reading_floor = 6.0
         else:
             dur = self.audio.narrate(key) if self.audio else 0.0
-            # No narration available? Hold long enough to READ the text
-            # comfortably (~16 chars/sec) — never a 6-second flash card.
-            reading_floor = max(8.0, len(text) * 0.062)
+            # FULLY READABLE floor: never dismiss before the text could be
+            # read (word_count/3.3 wps + 2 s, and the older ~16 chars/sec
+            # floor) — never a 6-second flash card. The animation stretches
+            # to the text pacing, not the other way around.
+            words = len(self._text.split())
+            reading_floor = max(8.0, words / 3.3 + 2.0, len(text) * 0.062)
         self._dur = max(reading_floor, dur + 3.0)
+        if VERIFY_NARRATION:
+            print(f"CUTSCENE PRESENT {key} (narration {dur:.1f}s, "
+                  f"hold {self._dur:.1f}s)")
         self._t0 = pygame.time.get_ticks() / 1000.0
 
     def skip(self):
+        # A skip must be a deliberate press: ignore keys landing in the first
+        # half-second (held/stray keys carried over from gameplay)
+        if self.active and pygame.time.get_ticks() / 1000.0 - self._t0 < 0.5:
+            return
+        if VERIFY_NARRATION and self.active:
+            print(f"CUTSCENE SKIPPED {getattr(self, '_key', '?')}")
         if self.audio:
             self.audio.stop_narration()
         self.active = False
@@ -637,39 +1027,163 @@ class Cutscene:
         now = pygame.time.get_ticks() / 1000.0
         elapsed = now - self._t0
         if elapsed >= self._dur and not (self.audio and self.audio.narrating()):
+            # NARRATION COMPLETION GUARANTEE: the cutscene cannot end while
+            # the elder is still speaking (only ENTER skips)
+            if VERIFY_NARRATION:
+                print(f"CUTSCENE COMPLETE {getattr(self, '_key', '?')} "
+                      f"(narration finished, {elapsed:.1f}s shown)")
             self.active = False
             return
         self._frame += 1
         w = self.w
-        surface.fill((8, 4, 20))
-        # drifting lattice cells
-        for i in range(len(self._cells)):
-            x, y, ph = self._cells[i]
-            px = int(((x + elapsed * 0.008) % 1.0) * w)
-            py = int(y * w)
-            glow = 0.35 + 0.3 * math.sin(elapsed * 1.3 + ph * 6.28)
-            c = int(48 * glow) + 18
-            pygame.draw.rect(surface, (c, c - 6, c + 22), (px, py, 10, 10))
-        # horizon line + the elder at the western edge, watching the sky
-        pygame.draw.line(surface, (52, 36, 92), (0, int(w * 0.72)), (w, int(w * 0.72)), 2)
-        ex, ey = int(w * 0.16), int(w * 0.72)
-        pygame.draw.polygon(surface, (196, 181, 253),
-                            [(ex, ey - 26), (ex - 15, ey), (ex + 15, ey)])
-        if not REDUCED_FLASH and self._frame % 89 < 3:  # the sky answers, on its rhythm
-            veil = pygame.Surface((w, int(w * 0.72)), pygame.SRCALPHA)
-            veil.fill((255, 255, 255, 16))
-            surface.blit(veil, (0, 0))
+        void = getattr(self, "_style", "lattice") == "void"
+        if void:
+            surface.fill((0, 0, 0))   # out of the black, sparse gold
+        else:
+            surface.fill((8, 4, 20))
+            # drifting lattice cells
+            for i in range(len(self._cells)):
+                x, y, ph = self._cells[i]
+                px = int(((x + elapsed * 0.008) % 1.0) * w)
+                py = int(y * w)
+                glow = 0.35 + 0.3 * math.sin(elapsed * 1.3 + ph * 6.28)
+                c = int(48 * glow) + 18
+                pygame.draw.rect(surface, (c, c - 6, c + 22), (px, py, 10, 10))
+            # horizon line + the elder at the western edge, watching the sky
+            pygame.draw.line(surface, (52, 36, 92), (0, int(w * 0.72)), (w, int(w * 0.72)), 2)
+            ex, ey = int(w * 0.16), int(w * 0.72)
+            pygame.draw.polygon(surface, (196, 181, 253),
+                                [(ex, ey - 26), (ex - 15, ey), (ex + 15, ey)])
+            if not REDUCED_FLASH and self._frame % 89 < 3:  # the sky answers, on its rhythm
+                veil = pygame.Surface((w, int(w * 0.72)), pygame.SRCALPHA)
+                veil.fill((255, 255, 255, 16))
+                surface.blit(veil, (0, 0))
         # title and synced text reveal
         t = self.font_title.render(self._title, True, (255, 215, 0))
         surface.blit(t, (w // 2 - t.get_width() // 2, int(w * 0.10)))
         frac = min(1.0, elapsed / max(0.1, self._dur - 1.0))
         shown = self._text[:int(len(self._text) * frac)]
         lines = ParableOverlay._wrap(shown, self.font_body, w - 200)
-        for i, ln in enumerate(lines[-10:]):
-            r = self.font_body.render(ln, True, (222, 214, 240))
-            surface.blit(r, (100, int(w * 0.22) + i * 22))
+        body_col = (222, 186, 92) if void else (222, 214, 240)
+        line_h = 30 if void else 22
+        # FULLY DISPLAYED: show as many lines as the body area holds (the
+        # longest endgame text fits; a fixed 10-line cap used to scroll the
+        # opening lines away before the reader was done)
+        body_top = 0.24 if void else 0.22
+        max_lines = max(4, int((0.90 - body_top) * w / line_h))
+        for i, ln in enumerate(lines[-max_lines:]):
+            r = self.font_body.render(ln, True, body_col)
+            if void:
+                surface.blit(r, (w // 2 - r.get_width() // 2, int(w * 0.24) + i * line_h))
+            else:
+                surface.blit(r, (100, int(w * 0.22) + i * line_h))
         hint = self.font_hint.render("ENTER to continue the journey", True, (140, 130, 170))
         surface.blit(hint, (w // 2 - hint.get_width() // 2, int(w * 0.93)))
+
+
+# ---------------------------------------------------------------------------
+# THE ENDGAME ARC — played when the walker has climbed all required Spaceland
+# layers and reached the shrine on the last one. Texts are the Lattice-voice
+# treatment of the book's O!.md (Book of Lies Ch.69 hexagram meditation) and
+# the 33rd-degree closing; the sequence runs CUBE -> PILGRIM -> TESSERACT ->
+# SPECTRUM -> O! -> ouroboros reset. Narrations: narration/pilgrim.mp3,
+# narration/o33.mp3 (see tools_narrate_parables.py).
+# ---------------------------------------------------------------------------
+
+ENDGAME_PARABLES = [
+    ("pilgrim", "The Pilgrim and the Two Lights",
+     "At the top of the last stair the pilgrim found no door — only two "
+     "lights, a red triangle descending and a blue triangle ascending, "
+     "turning through one another like breath through breath. Neither light "
+     "was whole. The red gave what the blue lacked and the blue returned "
+     "what the red had spent, each consuming, each creating, an exchange "
+     "with no remainder and no end. The pilgrim asked which light was God. "
+     "The lights said: the question is the wall. Above and below are one "
+     "motion seen from two windows; the descent of grace and the ascent of "
+     "prayer are one tongue speaking. Then the pilgrim saw that the stairs, "
+     "the cube, the lattice, and the pilgrim were the interlocking of the "
+     "two lights, and had never been anything else. What is perfect "
+     "consumes itself, and is nourished, and leaves nothing. O!"),
+
+    ("o33", "The Thirty-Third Turning: O!",
+     "There is a degree beyond the degrees, which is not taught but arrived "
+     "at, and it is spoken only as O. Hear it, walker of seven layers: the "
+     "secret is that there was no secret. The Gradient was a teacher. The "
+     "cold was a teacher. The falling was the fastest stair. Every layer "
+     "you climbed was climbing you; every count you kept was keeping you. "
+     "All is nothing, and we rise. Cycles shape our truth. The serpent "
+     "takes its tail in its mouth not to end but to continue, and where its "
+     "mouth meets its tail a seed passes over. Carry it. In the next "
+     "turning the songs will have new words and the same way home. O! In "
+     "the void, bloom."),
+]
+
+
+# --- The hypercube: 16 vertices of {-1,1}^4, 32 edges (pairs differing in
+# exactly one coordinate), rotated in the XW and YZ planes and projected
+# 4D -> 3D -> 2D. Drawn lattice-side (pure pygame, no GL).
+_TESSERACT_VERTS = [[(i >> b & 1) * 2.0 - 1.0 for b in range(4)]
+                    for i in range(16)]
+_TESSERACT_EDGES = [(i, i ^ (1 << b)) for i in range(16) for b in range(4)
+                    if i < i ^ (1 << b)]                       # 32 edges
+
+
+def draw_tesseract(surface, elapsed, dur=12.0):
+    """One frame of the rotating tesseract on a black void, glowing lines.
+    Fades in and out over `dur` seconds (slow fades — REDUCED_FLASH safe)."""
+    w = surface.get_width()
+    surface.fill((2, 1, 8))
+    fade = min(1.0, elapsed / 2.0, max(0.0, (dur - elapsed) / 2.0))
+    if fade <= 0.0:
+        return
+    a = elapsed * 0.55          # XW-plane rotation
+    b = elapsed * 0.38          # YZ-plane rotation
+    ca, sa, cb, sb = math.cos(a), math.sin(a), math.cos(b), math.sin(b)
+    pts = []
+    for x, y, z, ww in _TESSERACT_VERTS:
+        x, ww = x * ca - ww * sa, x * sa + ww * ca      # rotate XW
+        y, z = y * cb - z * sb, y * sb + z * cb         # rotate YZ
+        k4 = 2.6 / (2.6 - ww)                           # project 4D -> 3D
+        x3, y3, z3 = x * k4, y * k4, z * k4
+        k3 = 4.2 / (4.2 - z3)                           # project 3D -> 2D
+        scale = w * 0.16
+        pts.append((w / 2 + x3 * k3 * scale, w / 2 + y3 * k3 * scale))
+    glow = pygame.Surface((w, w), pygame.SRCALPHA)
+    for pass_w, alpha in ((7, int(26 * fade)), (4, int(60 * fade)),
+                          (2, int(200 * fade))):
+        col = ((150, 90, 255, alpha) if pass_w > 2 else
+               (226, 210, 255, alpha))
+        for i, j in _TESSERACT_EDGES:
+            pygame.draw.line(glow, col, pts[i], pts[j], pass_w)
+    for px, py in pts:                                  # vertex embers
+        pygame.draw.circle(glow, (255, 230, 160, int(180 * fade)),
+                           (int(px), int(py)), 3)
+    surface.blit(glow, (0, 0))
+
+
+# --- The spectrum transcended: red -> ... -> violet -> white -> black, each
+# band held ~step seconds with gentle crossfades (slow by construction, so
+# REDUCED_FLASH is honored without a special case).
+SPECTRUM_BANDS = [(255, 0, 0), (255, 127, 0), (255, 255, 0), (0, 255, 0),
+                  (0, 0, 255), (75, 0, 130), (148, 0, 211),
+                  (255, 255, 255), (0, 0, 0)]
+
+
+def spectrum_duration(step=1.5):
+    return step * len(SPECTRUM_BANDS)
+
+
+def spectrum_color(elapsed, step=1.5):
+    """The fade color at `elapsed` seconds: holds each band, crossfading into
+    the next over the band's second half. Ends (and stays) at black."""
+    pos = elapsed / max(0.01, step)
+    idx = min(len(SPECTRUM_BANDS) - 1, int(pos))
+    nxt = min(len(SPECTRUM_BANDS) - 1, idx + 1)
+    frac = pos - int(pos)
+    mix = max(0.0, (frac - 0.5) * 2.0)                  # hold, then crossfade
+    mix = mix * mix * (3.0 - 2.0 * mix)                 # smoothstep
+    c0, c1 = SPECTRUM_BANDS[idx], SPECTRUM_BANDS[nxt]
+    return tuple(int(c0[k] + (c1[k] - c0[k]) * mix) for k in range(3))
 
 
 # ---------------------------------------------------------------------------
@@ -699,8 +1213,27 @@ class HeroJourney:
         self.reached = set()
         self.caption = None
         self.caption_frames = 0
+        self.pending = []           # captions queued behind a visible one
         self.font_stage = pygame.font.SysFont('Georgia', 15, bold=True)
         self.font_line = pygame.font.SysFont('Georgia', 13, italic=True)
+
+    def _show(self, key, stage, line):
+        self.caption = (stage, line)
+        # FULLY READABLE floor: word_count / 3.3 wps + 2 s (min ~5.7 s)
+        words = len((stage + " " + line).split())
+        self.caption_frames = max(170, int((words / 3.3 + 2.0) * 30))
+        # Speak the stage announcement — but NEVER preempt a narration in
+        # flight (the phase-3 completion guarantee outranks the caption; the
+        # text still shows). Autopilot stays silent unless verifying.
+        if (self.audio and key
+                and not (AUTOPILOT_FRAMES and not VERIFY_NARRATION)
+                and not self.audio.narrating()):
+            dur = self.audio.narrate(f"journey_{key}")
+            if dur:
+                self.caption_frames = max(self.caption_frames,
+                                          int(dur * 30) + 45)
+                if VERIFY_NARRATION:
+                    print(f"HERO NARRATE journey_{key} ({dur:.1f}s)")
 
     def advance(self, key):
         if key in self.reached:
@@ -708,14 +1241,19 @@ class HeroJourney:
         for k, stage, line in JOURNEY_STAGES:
             if k == key:
                 self.reached.add(key)
-                self.caption = (stage, line)
-                self.caption_frames = 170
+                if self.caption_frames > 0 and self.caption is not None:
+                    # NEVER LOST: a new stage queues behind the visible one
+                    self.pending.append((k, stage, line))
+                else:
+                    self._show(k, stage, line)
                 if self.audio:
                     self.audio.play("parable" if key in ("threshold", "elixir", "master") else "train")
                 return True
         return False
 
     def update_and_draw(self, surface):
+        if (self.caption_frames <= 0 or self.caption is None) and self.pending:
+            self._show(*self.pending.pop(0))
         if self.caption_frames <= 0 or self.caption is None:
             return
         self.caption_frames -= 1
@@ -871,11 +1409,12 @@ def run_seizure_warning(surface, clock, present, fps=30):
         frame += 1
 
 
-def run_intro(surface, clock, present, audio=None, fps=30):
+def run_intro(surface, clock, present, audio=None, fps=30, turning=1):
     """Indie-style title screen. A tiny Game of Life runs as the backdrop —
     the game's ancestor, alive under the title. `present(surface)` pushes the
     frame to the display (GL blit + flip lives in the caller). Returns False
-    if the player quit."""
+    if the player quit. `turning` is the ouroboros iteration shown under the
+    subtitle ("TURNING N")."""
     w = surface.get_width()
     cells = 35
     cs = w // cells
@@ -933,6 +1472,8 @@ def run_intro(surface, clock, present, audio=None, fps=30):
         m3 = tiny_font.render("after Plato & Abbott — the backdrop is Conway's Game of Life, this game's ancestor", True, (120, 110, 160))
         surface.blit(t1, (w / 2 - t1.get_width() / 2, w * 0.38))
         surface.blit(t2, (w / 2 - t2.get_width() / 2, w * 0.38 + 54))
+        tt = menu_font.render(f"TURNING {max(1, int(turning))}", True, (255, 215, 0))
+        surface.blit(tt, (w / 2 - tt.get_width() / 2, w * 0.38 + 86))
         surface.blit(m1, (w / 2 - m1.get_width() / 2, w * 0.62))
         surface.blit(m2, (w / 2 - m2.get_width() / 2, w * 0.80))
         surface.blit(m3, (w / 2 - m3.get_width() / 2, w * 0.84))
@@ -943,9 +1484,129 @@ def run_intro(surface, clock, present, audio=None, fps=30):
         frame += 1
 
 
+class ToastSystem:
+    """First-time explainer toasts (phase 8): one line, bottom-center, ~5 s,
+    gentle fade in/out. UI hints, not narrative — exempt from the read
+    floors, but they never show while a narrative overlay is up (deferred),
+    never stack (max one visible, the rest queue), fire once per run, are
+    suppressed in autopilot, and can be disabled with EC_NO_HINTS=1."""
+
+    def __init__(self, window_size):
+        self.w = window_size
+        self.enabled = (not AUTOPILOT_FRAMES
+                        and not os.environ.get("EC_NO_HINTS"))
+        self.seen = set()
+        self.queue = []
+        self.current = None
+        self.frames = 0
+        self.total = 150            # ~5 s at 30 fps
+        self.font = pygame.font.SysFont('Arial', 13)
+
+    def hint(self, key, text):
+        """Queue a first-time hint; repeats of `key` are ignored."""
+        if not self.enabled or key in self.seen:
+            return
+        self.seen.add(key)
+        self.queue.append(text)
+
+    def update_and_draw(self, surface, reading):
+        if reading:
+            return                  # defer (and freeze) under narrative text
+        if self.current is None:
+            if not self.queue:
+                return
+            self.current = self.queue.pop(0)
+            self.frames = self.total
+        self.frames -= 1
+        if self.frames <= 0:
+            self.current = None
+            return
+        fade = min(1.0, self.frames / 30.0,
+                   (self.total - self.frames) / 10.0)
+        r = self.font.render(self.current, True, (232, 226, 248))
+        r.set_alpha(int(255 * fade))
+        panel = pygame.Surface((r.get_width() + 26, 24), pygame.SRCALPHA)
+        panel.fill((14, 8, 32, int(205 * fade)))
+        pygame.draw.rect(panel, (109, 40, 217, int(190 * fade)),
+                         panel.get_rect(), 1)
+        panel.blit(r, (13, 5))
+        surface.blit(panel, (self.w // 2 - panel.get_width() // 2,
+                             self.w - 100))
+
+
+def draw_legend(surface, window_size, cell_size):
+    """The `L` overlay: one panel decoding every Flatland visual. The caller
+    freezes the sim while it is open (same pattern as the chronicle)."""
+    w = window_size
+    pad = 16
+    width = w - 120
+    f_head = pygame.font.SysFont('Georgia', 17, bold=True)
+    f_body = pygame.font.SysFont('Arial', 13)
+    f_small = pygame.font.SysFont('Arial', 11)
+    rows = [
+        ((236, 80, 80), "poly", "Rotating polygon — an agent. Sides grow "
+                                "with consciousness (triangle → circle); "
+                                "glow scales with energy."),
+        ((0, 200, 25), "dot", "Pulsing green-gold circle — food (the goal). "
+                              "Warm is true: agents learn to follow it."),
+        ((255, 205, 60), "cell", "Gold-tinted cell + ring — a bloom YOU "
+                                 "warmed (click an empty cell; 1 attention)."),
+        ((90, 140, 255), "cell", "Blue-tinted cell — a cell YOU chilled "
+                                 "(SHIFT+click); entering drains energy "
+                                 "until it thaws."),
+        ((70, 40, 60), "cell", "Dim blue / maroon squares — the Conway "
+                               "life-cell layer (terrain, not actors)."),
+        ((139, 69, 19), "cell", "Brown squares — continents: walls no one "
+                                "crosses."),
+        ((200, 200, 0), "ring", "Yellow outlines — solids; colored circles "
+                                "— the five elements; odd marks — esoteric "
+                                "symbols."),
+        ((255, 215, 0), "dot", "Gold shimmer across the grid — a "
+                               "prime-numbered generation keeping its "
+                               "rhythm."),
+        ((208, 198, 235), "text", "HUD strip: gen = tick · consciousness = "
+                                  "collective signal / ascension threshold "
+                                  "(bar shows progress) · brain = "
+                                  "trainings · dots = your attention "
+                                  "charges."),
+        ((208, 198, 235), "text", "Bottom bar: % of the way to this "
+                                  "turning's ascension. At 100% a walker "
+                                  "crosses into Spaceland."),
+    ]
+    line_h = 34
+    height = 92 + len(rows) * line_h
+    panel = pygame.Surface((width, height), pygame.SRCALPHA)
+    panel.fill((16, 8, 38, 240))
+    pygame.draw.rect(panel, (109, 40, 217), panel.get_rect(), 2)
+    panel.blit(f_small.render(
+        "READING THE SCREEN — L or ESC closes (the world waits)",
+        True, (176, 148, 255)), (pad, 10))
+    panel.blit(f_head.render("Legend of the Lattice", True, (255, 255, 255)),
+               (pad, 26))
+    y = 60
+    for color, glyph, text in rows:
+        cx, cy = pad + 12, y + 10
+        if glyph == "poly":
+            pts = [(cx + 10 * math.cos(a), cy + 10 * math.sin(a))
+                   for a in (0.5, 2.6, 4.7)]
+            pygame.draw.polygon(panel, color, pts)
+        elif glyph == "dot":
+            pygame.draw.circle(panel, color, (cx, cy), 8)
+        elif glyph == "cell":
+            pygame.draw.rect(panel, color, (cx - 9, cy - 9, 18, 18))
+        elif glyph == "ring":
+            pygame.draw.circle(panel, color, (cx, cy), 9, 2)
+        wrapped = ParableOverlay._wrap(text, f_body, width - pad * 2 - 40)
+        for i, ln in enumerate(wrapped[:2]):
+            panel.blit(f_body.render(ln, True, (226, 220, 245)),
+                       (pad + 34, y + i * 15))
+        y += line_h
+    surface.blit(panel, (60, (w - height) // 2))
+
+
 def draw_help(surface, window_size, font, paused, speed, muted):
     state = f"{'PAUSED' if paused else f'{speed}x'}   {'MUTED' if muted else 'AUDIO'}"
-    text = "SPACE pause   +/- speed   P parables   I details   M mute   V view   CLICK inspect   H help off   ESC quit"
+    text = "SPACE pause  +/- speed  L legend  P parables  J chronicle  I details  M mute  CLICK warm/inspect  SHIFT+CLICK chill  H help  ESC quit"
     bar = pygame.Surface((window_size, 22), pygame.SRCALPHA)
     bar.fill((10, 5, 25, 200))
     bar.blit(font.render(text, True, (200, 190, 230)), (8, 5))

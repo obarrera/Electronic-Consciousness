@@ -13,3 +13,12 @@ env/
 .idea/
 .vscode/
 *.swp
+
+# EC-2D-Land ouroboros seed (per-machine save state)
+.ouroboros.json
+
+# EC-2D-Land per-machine runtime artifacts
+EC-2D-Land-Game/.venv312/
+EC-2D-Land-Game/out_learning.csv
+EC-2D-Land-Game/chronicle.md
+EC-2D-Land-Game/run/

@@ -114,6 +114,16 @@ def _key_hash(key):
     return h
 
 
+def oracle_fragment_indices(iteration, key):
+    """The (opener, turn, seal) pool indices for this (iteration, key) —
+    shared by the text composer below and the narration sequencer (each
+    fragment is recorded once; the game plays them back to back)."""
+    idx = (_key_hash(key) + int(iteration) * _STRIDE) % _POOL
+    a, rest = divmod(idx, len(_TURNS) * len(_SEALS))
+    b, c = divmod(rest, len(_SEALS))
+    return a, b, c
+
+
 def oracle_line(iteration, key):
     """The iteration-specific closing line for parable `key`.
 
@@ -121,9 +131,7 @@ def oracle_line(iteration, key):
     advances by a stride coprime to the pool size, so no combination repeats
     within 1000 turnings (far beyond the required 100).
     """
-    idx = (_key_hash(key) + int(iteration) * _STRIDE) % _POOL
-    a, rest = divmod(idx, len(_TURNS) * len(_SEALS))
-    b, c = divmod(rest, len(_SEALS))
+    a, b, c = oracle_fragment_indices(iteration, key)
     return (f"In the {_ordinal(int(iteration))} turning the elder added: "
             f"{_OPENERS[a]}, {_TURNS[b]}. {_SEALS[c]}")
 

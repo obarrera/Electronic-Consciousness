@@ -29,6 +29,13 @@ import random
 import numpy as np
 import pygame
 
+import simcore
+
+
+def _layer_rng(layer, salt=""):
+    """Deterministic per-layer RNG derived from the root seed (phase 6)."""
+    return random.Random(simcore.seed_for(f"spaceland:{salt}:{layer}"))
+
 try:
     from OpenGL.GL import *
     from OpenGL.GLU import *
@@ -201,6 +208,58 @@ def current_layer():
 
 
 # --------------------------------------------------------------------------
+# Positional audio: pans/gains for the caller's AudioEngine emitters
+# --------------------------------------------------------------------------
+def pan_gain(pos, yaw, target_cell, max_radius=8.0):
+    """Stereo pan (-1 left .. +1 right) and distance gain (1/(1+d), fading
+    to 0 at `max_radius` cells) for an emitter at grid cell `target_cell`,
+    heard from world position `pos` facing `yaw`. Pure function — unit
+    testable without GL."""
+    dx = (target_cell[1] + 0.5) - pos[0]
+    dz = (target_cell[0] + 0.5) - pos[1]
+    dist = math.hypot(dx, dz)
+    if dist >= max_radius:
+        return 0.0, 0.0
+    if dist > 1e-6:
+        # camera right vector for gluLookAt(..., up=(0,1,0)) is (-sin, cos)
+        pan = (-math.sin(yaw) * dx + math.cos(yaw) * dz) / dist
+    else:
+        pan = 0.0
+    gain = (1.0 / (1.0 + dist)) * min(1.0, (max_radius - dist) / 2.0)
+    return max(-1.0, min(1.0, pan)), gain
+
+
+def emitters():
+    """This frame's positional emitters from the walker's pose: the shrine's
+    hum, the descent well's throb, and the three nearest cold rifts'
+    whispers. Empty when no world is active."""
+    if not (_GL_OK and _S.get("ready")):
+        return []
+    w = _S["walker"]
+    pos, yaw = w["pos"], w["yaw"]
+    out = []
+    pan, gain = pan_gain(pos, yaw, _S["goal"])
+    out.append(("shrine", pan, gain * 0.6))
+    if _S.get("well"):
+        pan, gain = pan_gain(pos, yaw, _S["well"])
+        out.append(("well", pan, gain * 0.5))
+    rifts = sorted(_S.get("rifts", ()),
+                   key=lambda c: ((c[1] + 0.5 - pos[0]) ** 2 +
+                                  (c[0] + 0.5 - pos[1]) ** 2))[:3]
+    for i, cell in enumerate(rifts):
+        pan, gain = pan_gain(pos, yaw, cell)
+        out.append((f"rift{i}", pan, gain * 0.35))
+    return out
+
+
+def consume_step():
+    """Pop this frame's footstep event: None, "player", or "ai"."""
+    ev = _S.get("step_event")
+    _S["step_event"] = None
+    return ev
+
+
+# --------------------------------------------------------------------------
 # World building
 # --------------------------------------------------------------------------
 def _bfs_field(start, walk, n):
@@ -220,15 +279,26 @@ def _bfs_field(start, walk, n):
 
 
 def _path_to_goal(cell):
-    """Walk the precomputed distance-from-goal field downhill to the shrine."""
-    field = _S["field"]
+    """Walk a precomputed distance-from-goal field downhill to the shrine.
+
+    Prefers the hazard-avoiding field (rifts and the descent well excluded)
+    so the AI walker can genuinely climb the stack; without it, a well or
+    rift sitting on the only downhill path traps the walker in an endless
+    descend-and-reclimb loop. Falls back to the full field when the walker
+    stands off the safe field or the shrine is unreachable safely."""
+    field = _S.get("field_safe") or {}
+    if cell not in field or _S["goal"] not in field:
+        field = _S["field"]
     if cell not in field:
         return []
     path, cur = [], cell
     while field[cur] > 0:
-        cur = min(((cur[0] + dr, cur[1] + dc)
+        nxt = min(((cur[0] + dr, cur[1] + dc)
                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1))),
                   key=lambda c: field.get(c, 1 << 30))
+        if field.get(nxt, 1 << 30) >= field[cur]:
+            return path            # stuck (shouldn't happen): stop cleanly
+        cur = nxt
         path.append(cur)
     return path
 
@@ -357,22 +427,28 @@ def enter(grid, goal, layer=1):
                     seen |= comp
                     if len(comp) > len(best):
                         best = comp
-            goal = random.Random(layer).choice(sorted(best))
+            goal = _layer_rng(layer, 'goal').choice(sorted(best))
             field = _bfs_field(goal, walk, n)
 
         far = max(field.values())
-        spawn = random.Random(layer * 31).choice(
+        spawn = _layer_rng(layer, 'spawn').choice(
             [c for c, d in field.items() if d >= max(3, far - 2)] or [goal])
 
         # Hazards: cold rifts (+1 per layer) and one descent well, placed on
         # reachable open cells so they genuinely threaten the walk.
-        rng = random.Random(104729 * layer + 7)
+        rng = _layer_rng(layer, 'hazards')
         pool = [c for c in sorted(field) if g[c] == 0
                 and c not in (goal, spawn)]
         rng.shuffle(pool)
         n_rifts = min(3 + layer, 10)
         rifts = set(pool[:n_rifts])
         well = pool[n_rifts] if len(pool) > n_rifts else None
+
+        # Hazard-avoiding distance field for the AI walker's pathing (the
+        # player is unaffected). Without it a well on the only downhill path
+        # traps the AI in a descend-and-reclimb loop forever.
+        safe_walk = (walk - rifts) - ({well} if well else set())
+        field_safe = _bfs_field(goal, safe_walk, n)
 
         # Free any stale GL objects from a previous layer
         for key in ("world_list", "star_list"):
@@ -389,18 +465,26 @@ def enter(grid, goal, layer=1):
                               "gold": _upload_texture(_tex_gold(trng))}
 
         _S.update(grid=g, n=n, walls=walls, walk=walk, goal=goal,
-                  field=field, layer=layer, done=False, last_t=None,
+                  field=field, field_safe=field_safe, layer=layer,
+                  done=False, last_t=None,
                   last_input=-1e9, bob=0.0, rifts=rifts, well=well,
                   haz_t=-1e9, desc_t=-1e9)
         if fresh:
             _S["mind"] = 100.0
             _S["stage"] = 0
             _S["chill"] = 0.0
+            _S["history"] = {}
+        # Remember every traversed layer's lattice (walls / rune cells /
+        # shrine) so THE COMPLETION can render the whole journey stacked as
+        # one cube. Keyed by layer: descents that revisit a layer overwrite.
+        _S.setdefault("history", {})[layer] = {
+            "n": n, "goal": goal, "walls": set(walls),
+            "runes": {c for c in walk if g[c] in (1, 2)}}
         _S["walker"] = {"pos": [spawn[1] + 0.5, spawn[0] + 0.5],
                         "yaw": 0.0, "path": _path_to_goal(spawn)}
         _S["solids"] = _place_solids(layer, rng)
         # Ghost footprint of the layer beneath (glows up through the floor)
-        brng = random.Random(104729 * (layer - 1) + 7)
+        brng = _layer_rng(layer - 1, 'hazards')
         opens = sorted(walk)
         _S["below_cells"] = [opens[brng.randrange(len(opens))]
                              for _ in range(min(40, len(opens)))]
@@ -504,7 +588,14 @@ def _advance(t, dt, keys):
             if dist < 0.10:
                 w["path"].pop(0)
 
+    # Footsteps ride the head-bob: one tick per half bob cycle while moving
+    prev_step = _S.get("bob_phase", 0)
     _S["bob"] += moved * 7.0
+    cur_step = int(_S["bob"] / math.pi)
+    if moved > 0 and cur_step != prev_step:
+        _S["step_event"] = ("player" if t - _S["last_input"] < PLAYER_TIMEOUT
+                            else "ai")
+    _S["bob_phase"] = cur_step
     _S["chill"] = max(0.0, _S["chill"] - dt)
 
     # --- Consciousness: cold rifts + ambient drain, staged descents -------
@@ -543,7 +634,7 @@ def _advance(t, dt, keys):
     if (not _S["done"] and
             math.hypot(w["pos"][0] - (gc + 0.5), w["pos"][1] - (gr + 0.5)) < 0.45):
         _S["done"] = True
-        _S["mind"] = min(100.0, _S["mind"] + 15.0)   # the shrine restores
+        _S["mind"] = min(100.0, _S["mind"] + 20.0)   # the shrine restores
         return "goal"
     return event
 
@@ -773,6 +864,127 @@ def _camera(t):
         gluLookAt(ex, ey, ez,
                   ex + math.cos(w["yaw"]), ey, ez + math.sin(w["yaw"]),
                   0, 1, 0)
+
+
+# --------------------------------------------------------------------------
+# THE COMPLETION — the cube revealed. When the walker has climbed every
+# required layer, the camera pulls back (the overview orbit, pulled further)
+# and all traversed layer-lattices render stacked into one CUBE: the whole
+# journey seen at once. The main loop drives timing; this only draws frames.
+# --------------------------------------------------------------------------
+
+def _completion_caption(text):
+    """Gold caption strip along the bottom of the GL frame."""
+    if _S["font"] is None:
+        return
+    try:
+        win = _S["win"]
+        strip = pygame.Surface((win, 24), pygame.SRCALPHA)
+        strip.fill((0, 0, 0, 170))
+        r = _S["font"].render(text, True, (255, 215, 0))
+        strip.blit(r, (win // 2 - r.get_width() // 2, 4))
+        data = pygame.image.tostring(strip, "RGBA", True)
+        glDisable(GL_DEPTH_TEST)
+        glWindowPos2i(0, 40)
+        glDrawPixels(win, 24, GL_RGBA, GL_UNSIGNED_BYTE, data)
+        glWindowPos2i(0, 0)
+        glEnable(GL_DEPTH_TEST)
+    except Exception:
+        pass
+
+
+def render_completion(t):
+    """Draw one frame of the cube reveal: slow orbit around the stacked
+    layer-lattices of the whole ascent. Safe no-op without GL/world."""
+    if not (_GL_OK and _S["ready"]):
+        return
+    try:
+        n = _S["n"]
+        hist = _S.get("history") or {}
+        layers = [hist[k] for k in sorted(hist)] or \
+                 [{"n": n, "goal": _S["goal"], "walls": set(_S["walls"]),
+                   "runes": set()}]
+        count = len(layers)
+        spacing = n / max(1, count)            # total height ~ n: a true cube
+        height = spacing * count
+        cx = cz = n / 2.0
+        cy = height / 2.0
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glLoadIdentity()
+        a = t * 0.12                           # the slow orbit
+        eye = (cx + n * 1.65 * math.cos(a), cy + n * 0.95,
+               cz + n * 1.65 * math.sin(a))
+        glFogf(GL_FOG_DENSITY, 0.004)          # the fog lifts for the reveal
+        gluLookAt(*eye, cx, cy, cz, 0, 1, 0)
+
+        # Starfield centered on the cube
+        glDepthMask(GL_FALSE)
+        glPushMatrix()
+        glTranslatef(cx, cy, cz)
+        glCallList(_S["star_list"])
+        glPopMatrix()
+
+        # Every traversed layer, stacked: grid lines, wall footprints, runes,
+        # and each layer's shrine cell in gold. Hue warms as the stack rises,
+        # echoing the per-layer fog.
+        shim = 0.5 + 0.5 * math.sin(t * 0.8)
+        for idx, snap in enumerate(layers):
+            y = idx * spacing
+            k = min(idx, 8)
+            col = (0.55 + 0.05 * k, 0.42 + 0.02 * k, 0.95 - 0.05 * k)
+            glColor4f(*col, 0.16 + 0.05 * shim)
+            glBegin(GL_LINES)
+            for i in range(n + 1):
+                glVertex3f(i, y, 0); glVertex3f(i, y, n)
+                glVertex3f(0, y, i); glVertex3f(n, y, i)
+            glEnd()
+            glColor4f(*col, 0.34)
+            glBegin(GL_QUADS)
+            for (r, c) in snap["walls"]:
+                glVertex3f(c + 0.06, y, r + 0.06)
+                glVertex3f(c + 0.94, y, r + 0.06)
+                glVertex3f(c + 0.94, y, r + 0.94)
+                glVertex3f(c + 0.06, y, r + 0.94)
+            glEnd()
+            glColor4f(0.45, 1.0, 0.72, 0.22)
+            glBegin(GL_QUADS)
+            for (r, c) in snap["runes"]:
+                glVertex3f(c + 0.22, y + 0.01, r + 0.22)
+                glVertex3f(c + 0.78, y + 0.01, r + 0.22)
+                glVertex3f(c + 0.78, y + 0.01, r + 0.78)
+                glVertex3f(c + 0.22, y + 0.01, r + 0.78)
+            glEnd()
+            gr, gc = snap["goal"]
+            glColor4f(1.0, 0.84, 0.30, 0.6 + 0.3 * shim)
+            glBegin(GL_QUADS)
+            glVertex3f(gc + 0.15, y + 0.02, gr + 0.15)
+            glVertex3f(gc + 0.85, y + 0.02, gr + 0.15)
+            glVertex3f(gc + 0.85, y + 0.02, gr + 0.85)
+            glVertex3f(gc + 0.15, y + 0.02, gr + 0.85)
+            glEnd()
+
+        # The bounding CUBE, gold wireframe — the journey seen at once
+        glLineWidth(2.0)
+        glColor4f(1.0, 0.84, 0.30, 0.55 + 0.25 * shim)
+        glBegin(GL_LINES)
+        for x in (0.0, float(n)):
+            for z in (0.0, float(n)):
+                glVertex3f(x, 0.0, z); glVertex3f(x, height, z)
+        for y in (0.0, height):
+            glVertex3f(0, y, 0); glVertex3f(n, y, 0)
+            glVertex3f(n, y, 0); glVertex3f(n, y, n)
+            glVertex3f(n, y, n); glVertex3f(0, y, n)
+            glVertex3f(0, y, n); glVertex3f(0, y, 0)
+        glEnd()
+        glLineWidth(1.0)
+        glDepthMask(GL_TRUE)
+
+        _completion_caption(
+            f"THE COMPLETION — {count} layers, one cube. The whole journey, "
+            f"seen at once.")
+    except Exception as exc:
+        print(f"spaceland: completion degraded ({exc})")
 
 
 def update_and_render(t, keys_pressed=None):
