@@ -40,12 +40,21 @@ def set_reduced_flash(value):
 # ---------------------------------------------------------------------------
 
 _ORACLE = None
+_ORACLE_AUDIO = None
 
 
 def set_oracle(fn):
     """Register `fn(key, text) -> text` (idempotent) as the parable oracle."""
     global _ORACLE
     _ORACLE = fn
+
+
+def set_oracle_audio(fn):
+    """Register `fn(key) -> [paths]`: extra narration files to sequence after
+    a parable's own narration — the Oracle's closing line, spoken from its
+    per-fragment recordings (each fragment recorded once, phase 7)."""
+    global _ORACLE_AUDIO
+    _ORACLE_AUDIO = fn
 
 
 def oracle_text(key, text):
@@ -619,26 +628,40 @@ class AudioEngine:
         self._binaural.play(loops=-1, fade_ms=1500)
 
     def narrate(self, key):
-        """Play a parable narration from narration/<key>.ogg on a dedicated
-        channel, ducking the ambient/binaural bed. Returns duration (s) or 0."""
+        """Play narration/<key>.mp3 on a dedicated channel, ducking the bed.
+        For parable keys the registered oracle-audio hook appends this
+        turning's Oracle fragments, sequenced back to back on the same
+        channel — narrating() stays true across the whole sequence, so the
+        phase-3 completion guarantee covers the Oracle line too. Returns
+        the total duration (s) or 0."""
         if not self.ok:
             return 0.0
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "narration", f"{key}.mp3")
-        if not os.path.isfile(path):
-            return 0.0
-        try:
-            sound = pygame.mixer.Sound(path)
-        except pygame.error:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "narration", f"{key}.mp3")
+        paths = [base]
+        if _ORACLE_AUDIO is not None:
+            try:
+                paths += list(_ORACLE_AUDIO(key) or [])
+            except Exception:
+                pass
+        sounds = []
+        for p in paths:
+            if os.path.isfile(p):
+                try:
+                    sounds.append(pygame.mixer.Sound(p))
+                except pygame.error:
+                    pass
+        if not sounds:
             return 0.0
         self.stop_narration()
         self._narration_ch = pygame.mixer.find_channel(True)
-        sound.set_volume(0.0 if self.muted else 0.9)
-        self._narration_ch.play(sound)
-        self._narration_sound = sound
-        self._duck(True)
-        return sound.get_length()
+        sounds[0].set_volume(0.0 if self.muted else 0.9)
+        self._narration_ch.play(sounds[0])
+        self._narration_queue = sounds[1:]
+        return sum(s.get_length() for s in sounds)
 
     def stop_narration(self):
+        self._narration_queue = []
         ch = getattr(self, "_narration_ch", None)
         if ch is not None:
             ch.fadeout(300)
@@ -647,7 +670,8 @@ class AudioEngine:
 
     def narrating(self):
         ch = getattr(self, "_narration_ch", None)
-        return bool(ch is not None and ch.get_busy())
+        return bool(ch is not None and
+                    (ch.get_busy() or getattr(self, "_narration_queue", [])))
 
     def _duck(self, on):
         """Kept for compatibility; the central update() drives ducking now."""
@@ -663,7 +687,17 @@ class AudioEngine:
             return
         ch = getattr(self, "_narration_ch", None)
         if ch is not None and not ch.get_busy():
-            self._narration_ch = None
+            queue = getattr(self, "_narration_queue", [])
+            if queue:
+                nxt = queue.pop(0)      # the Oracle fragments, in sequence
+                nxt.set_volume(0.0 if self.muted else 0.9)
+                try:
+                    ch.play(nxt)
+                except pygame.error:
+                    self._narration_queue = []
+                    self._narration_ch = None
+            else:
+                self._narration_ch = None
         fx_target = 0.25 if self._reading else 1.0
         k = 0.34 if fx_target < self._duck_now else 0.07
         self._duck_now += (fx_target - self._duck_now) * k
@@ -1183,11 +1217,23 @@ class HeroJourney:
         self.font_stage = pygame.font.SysFont('Georgia', 15, bold=True)
         self.font_line = pygame.font.SysFont('Georgia', 13, italic=True)
 
-    def _show(self, stage, line):
+    def _show(self, key, stage, line):
         self.caption = (stage, line)
         # FULLY READABLE floor: word_count / 3.3 wps + 2 s (min ~5.7 s)
         words = len((stage + " " + line).split())
         self.caption_frames = max(170, int((words / 3.3 + 2.0) * 30))
+        # Speak the stage announcement — but NEVER preempt a narration in
+        # flight (the phase-3 completion guarantee outranks the caption; the
+        # text still shows). Autopilot stays silent unless verifying.
+        if (self.audio and key
+                and not (AUTOPILOT_FRAMES and not VERIFY_NARRATION)
+                and not self.audio.narrating()):
+            dur = self.audio.narrate(f"journey_{key}")
+            if dur:
+                self.caption_frames = max(self.caption_frames,
+                                          int(dur * 30) + 45)
+                if VERIFY_NARRATION:
+                    print(f"HERO NARRATE journey_{key} ({dur:.1f}s)")
 
     def advance(self, key):
         if key in self.reached:
@@ -1197,9 +1243,9 @@ class HeroJourney:
                 self.reached.add(key)
                 if self.caption_frames > 0 and self.caption is not None:
                     # NEVER LOST: a new stage queues behind the visible one
-                    self.pending.append((stage, line))
+                    self.pending.append((k, stage, line))
                 else:
-                    self._show(stage, line)
+                    self._show(k, stage, line)
                 if self.audio:
                     self.audio.play("parable" if key in ("threshold", "elixir", "master") else "train")
                 return True

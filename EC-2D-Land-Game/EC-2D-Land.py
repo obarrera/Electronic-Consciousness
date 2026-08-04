@@ -19,7 +19,8 @@ from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      draw_agent_polygon, draw_goal_pulse, draw_flicker, draw_help,
                      run_intro, is_prime, draw_prime_constellation, draw_easter_egg,
                      door_answers, HeroJourney, Cutscene, CUTSCENE_KEYS, layer_beat_hz,
-                     set_oracle, ENDGAME_PARABLES, draw_tesseract,
+                     set_oracle, set_oracle_audio, PARABLES,
+                     ENDGAME_PARABLES, draw_tesseract,
                      spectrum_color, spectrum_duration,
                      agent_name, agent_display_name, Chronicle, ChronicleViewer)
 import ouroboros
@@ -94,6 +95,26 @@ ROOT_SEED = int(os.environ.get("EC_SEED", OURO.seed))
 simcore.init_pool(ROOT_SEED)
 print(f"Sim core: root seed {ROOT_SEED} "
       f"(streams: world · agents · brain · fx · spaceland).")
+
+# The Oracle, spoken: parable narrations are followed by this turning's
+# closing-line fragments (each fragment recorded once — see phase 7 and
+# tools_narrate_parables.py). Non-parable narrations get nothing appended.
+_ORACLE_NARRATED_KEYS = ({p[0] for p in PARABLES} |
+                         {e[0] for e in ENDGAME_PARABLES})
+
+
+def _oracle_audio_paths(key):
+    if key not in _ORACLE_NARRATED_KEYS:
+        return []
+    a, b, c = ouroboros.oracle_fragment_indices(OURO.iteration, key)
+    nd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "narration")
+    return [os.path.join(nd, "oracle_intro.mp3"),
+            os.path.join(nd, f"oracle_open_{a}.mp3"),
+            os.path.join(nd, f"oracle_turn_{b}.mp3"),
+            os.path.join(nd, f"oracle_seal_{c}.mp3")]
+
+
+set_oracle_audio(_oracle_audio_paths)
 
 # Pristine palette, captured once so each turning's hue drift is applied to
 # the original colors (drift is absolute per turning, not cumulative).
@@ -3045,6 +3066,10 @@ def run_simulation():
                         cutscene.skip()
                     elif parables.active is not None:
                         parables.dismiss()
+                        if parables.active is None:   # actually closed
+                            audio.stop_narration()
+                    elif audio.narrating():
+                        # a hero-stage (or orphaned) narration: ENTER skips
                         audio.stop_narration()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button in (1, 3):
                 mx, my = event.pos
