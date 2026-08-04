@@ -52,8 +52,15 @@ TURN_SPEED = 2.6                    # rad/sec
 PLAYER_TIMEOUT = 3.0                # seconds of no input before AI resumes
 FOG_FPS = 0.11                      # exp2 density tuned for a 20-cell world
 FOG_OVERVIEW = 0.028
-RIFT_DRAIN = 1.5                    # consciousness per frame while in a rift
-AMBIENT_DRAIN = float(os.environ.get("EC_SPACELAND_DRAIN", "0.035"))
+import genome as _genome            # genome-governed drains (dna.py)
+
+def _rift_drain():
+    return _genome.gene("rift_drain")
+
+def _ambient_drain():
+    """EC_SPACELAND_DRAIN still wins when set; otherwise the genome governs."""
+    env = os.environ.get("EC_SPACELAND_DRAIN")
+    return float(env) if env else _genome.gene("ambient_drain")
 STAGES = (66.0, 33.0)               # consciousness stage thresholds
 
 # Module state (single world at a time, mirroring the game's single 3D agent)
@@ -601,12 +608,12 @@ def _advance(t, dt, keys):
     # --- Consciousness: cold rifts + ambient drain, staged descents -------
     here = (int(w["pos"][1]), int(w["pos"][0]))
     if here in _S["rifts"]:
-        _S["mind"] -= RIFT_DRAIN * 30.0 * dt
+        _S["mind"] -= _rift_drain() * 30.0 * dt
         _S["chill"] = 0.6
         if t - _S["haz_t"] > 1.2:
             _S["haz_t"] = t
             event = "hazard"
-    _S["mind"] -= AMBIENT_DRAIN * 30.0 * dt
+    _S["mind"] -= _ambient_drain() * 30.0 * dt
 
     if _S["mind"] <= 0.0:
         return "fell"

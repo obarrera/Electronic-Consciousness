@@ -67,6 +67,25 @@ eating it — the player literally teaches), `SHIFT`+click to **chill** one (a c
 that drains energy until it thaws). A small regenerating **attention meter** (three
 dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a god-mode.
 
+## The Genome — the game rewrites itself
+
+EC-2D-Land is **self-modifying**: ten of its world constants — metabolism, food
+blooms, lifespans, reproduction cost, the Spaceland drains, even how bold its own
+mutations may be — live in `dna.py`, *a Python module the game itself writes*. At
+every ouroboros turning the game proposes one mutation; every 500th generation, a
+smaller one. Each adopted change bumps the genome version (watch the HUD strip),
+appends to the ledger inside `dna.py`, and atomically rewrites the file — so your
+copy of the world drifts, run over run, away from everyone else's. The Chronicle
+records each rewriting: *"And the law itself was rewritten."*
+
+The safeguards are the point (see the book, Chapter 10): every gene is clamped to
+stated bounds, a rewritten `dna.py` must compile before it is adopted, a corrupt or
+hand-mangled file falls back to pristine defaults, and mutations are derived
+deterministically from the ouroboros seed — they never consume the simulation's
+RNG streams, and headless runs (`EC_HEADLESS=1`) freeze the genome entirely so
+determinism tests compare like with like. Delete `dna.py` to return to the
+pristine world; set `EC_GENOME=0` to disable the system.
+
 ## Sound
 
 - The bundled **6.1 Hz binaural bed** hums under Flatland; each Spaceland layer shifts a
@@ -135,6 +154,7 @@ No TensorFlow, no GPU, no accounts. `PyOpenGL-accelerate` is optional.
 | `EC_SPACELAND_DRAIN=<n>` | ambient mind-drain per frame in Spaceland |
 | `EC_SPACELAND_OVERVIEW=1` | start Spaceland in overview camera |
 | `EC_FULL_FLASH=1` | enable full flashing effects (reduced by default) |
+| `EC_GENOME=0` | disable the self-modifying genome (pristine constants, no `dna.py` reads/writes) |
 
 ### Regenerating the narration
 
