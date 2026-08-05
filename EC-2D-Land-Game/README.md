@@ -181,9 +181,11 @@ toast at the bottom (disable with `EC_NO_HINTS=1`).
 | hover | mouse over anything to identify it (agents by name, blooms, walls…) |
 | `I` | verbose info panels (default: compact HUD strip) |
 | `M` | mute |
+| `[` / `]` | master volume down / up (also `EC_VOLUME=0.8` to start lower) |
 | `H` | toggle help bar |
 | click agent | inspect it (thoughts, stats) |
 | click empty cell | **warm** it — bloom food there (costs 1 attention charge) |
+| click + **drag** | draw a stroke of warmth (or chill) across the lattice, attention permitting |
 | right-click / `SHIFT`+click | **chill** an empty cell — agents that enter lose energy (costs 1 charge) |
 | `ENTER` | skip cutscene / dismiss parable |
 | `W A S D` / arrows | walk and turn in Spaceland (AI resumes after 3 s idle) |

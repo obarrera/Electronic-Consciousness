@@ -2875,6 +2875,8 @@ def run_simulation():
     attention = ATTENTION_MAX
     smoothed_consciousness = 0.0   # EMA the ascension threshold listens to
     paused = False
+    hand_drag = None          # "warm"/"chill" while a mouse-drag stroke is live
+    hand_drag_cell = None     # last cell the stroke touched
     cutscene_was_active = False    # for the post-cutscene presentation gap
     speed = 1                      # 1x / 2x / 4x via +/-
     show_help = True
@@ -2929,7 +2931,7 @@ def run_simulation():
         glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, data)
         pygame.display.flip()
 
-    def player_touch(cell, kind):
+    def player_touch(cell, kind, quiet=False):
         """The player warms or chills an empty cell (the layer above acting on
         the lattice). Costs one attention charge. Returns True if it landed."""
         nonlocal attention
@@ -2945,6 +2947,8 @@ def run_simulation():
         if cell in environment.warm_cells or cell in environment.chill_cells:
             return False
         if attention < 1.0:
+            if not quiet:
+                audio.play("denied")     # the hand reaches, the well is dry
             return False
         attention -= 1.0
         px = (y * CELL_SIZE + CELL_SIZE // 2, x * CELL_SIZE + CELL_SIZE // 2)
@@ -3111,16 +3115,29 @@ def run_simulation():
                               f"(frame {frame_count}).")
                 elif event.key == pygame.K_SPACE:
                     paused = not paused
+                    audio.play("ui")
                 elif event.key in (pygame.K_PLUS, pygame.K_EQUALS):
                     speed = min(4, speed * 2)
+                    audio.play("ui")
                 elif event.key == pygame.K_MINUS:
                     speed = max(1, speed // 2)
+                    audio.play("ui")
+                elif event.key == pygame.K_LEFTBRACKET:
+                    audio.nudge_master(-0.1)
+                    audio.play("ui")
+                elif event.key == pygame.K_RIGHTBRACKET:
+                    audio.nudge_master(0.1)
+                    audio.play("ui")
                 elif event.key == pygame.K_m:
+                    # blip after the toggle: confirms the UNMUTE audibly,
+                    # stays silent on mute (play() honors the new state)
                     audio.toggle_mute()
+                    audio.play("ui")
                 elif event.key == pygame.K_p:
                     parables.next_journal()
                 elif event.key == pygame.K_h:
                     show_help = not show_help
+                    audio.play("ui")
                 elif event.key == pygame.K_i:
                     show_info = not show_info
                 elif event.key == pygame.K_v:
@@ -3151,9 +3168,23 @@ def run_simulation():
                         selected_agent = agent_hit
                     else:
                         player_touch(cell, "warm")
+                        hand_drag, hand_drag_cell = "warm", cell
                 elif agent_hit is None:
                     # right-click or SHIFT+click on an empty cell: chill
                     player_touch(cell, "chill")
+                    hand_drag, hand_drag_cell = "chill", cell
+            elif event.type == pygame.MOUSEMOTION and hand_drag:
+                # The unseen hand drags across the lattice: each new cell the
+                # cursor crosses gets the same touch, attention permitting —
+                # the player draws warmth (or chill) as a stroke, not a poke
+                mx, my = event.pos
+                cell = (my // CELL_SIZE, mx // CELL_SIZE)
+                if cell != hand_drag_cell:
+                    hand_drag_cell = cell
+                    if not any(a.position == cell for a in ai_agents_2d):
+                        player_touch(cell, hand_drag, quiet=True)
+            elif event.type == pygame.MOUSEBUTTONUP and event.button in (1, 3):
+                hand_drag = None
 
         frame_count += 1
         chronicle.flush()          # buffered; writes every ~30 s
@@ -3337,7 +3368,8 @@ def run_simulation():
             parables.update_and_draw(frozen)
             draw_flicker(frozen, frame_count, WINDOW_SIZE)
             if show_help:
-                draw_help(frozen, WINDOW_SIZE, HELP_FONT, paused, speed, audio.muted)
+                draw_help(frozen, WINDOW_SIZE, HELP_FONT, paused, speed,
+                          audio.muted, audio.master)
             texture_data = pygame.image.tostring(frozen, "RGB", True)
             glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, texture_data)
             pygame.display.flip()
@@ -3580,15 +3612,21 @@ def run_simulation():
                 draw_goal_pulse(surface, environment.goal[0], environment.goal[1], CELL_SIZE, t)
 
                 # The player's marks on the lattice: gold warmth, blue chill.
-                # Static tints with a slow fade-out — REDUCED_FLASH safe.
+                # Slow-fading tints; the warmth ring breathes gently, each
+                # cell phase-shifted so a drawn stroke shimmers as a field
+                # rather than blinking in unison — REDUCED_FLASH safe (slow,
+                # 1-px ring, ±2 px).
                 for (wx, wy), ticks in environment.warm_cells.items():
                     veil = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
                     veil.fill((255, 205, 60, int(110 * min(1.0, ticks / 100.0))))
                     surface.blit(veil, (wy * CELL_SIZE, wx * CELL_SIZE))
+                    _wr = max(2, int(CELL_SIZE // 5
+                                     + 1.0 + 2.0 * math.sin(t * 1.7
+                                                            + 0.9 * (wx + wy))))
                     pygame.draw.circle(surface, GOLD,
                                        (wy * CELL_SIZE + CELL_SIZE // 2,
                                         wx * CELL_SIZE + CELL_SIZE // 2),
-                                       max(2, CELL_SIZE // 5), 1)
+                                       _wr, 1)
                 for (cx_, cy_), ticks in environment.chill_cells.items():
                     veil = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
                     veil.fill((90, 140, 255, int(110 * min(1.0, ticks / 100.0))))
@@ -3683,6 +3721,26 @@ def run_simulation():
                         panel.blit(STRIP_FONT.render(info[:110], True, (255, 235, 190)), (8, 3))
                         surface.blit(panel, (0, WINDOW_SIZE - 74))
 
+            # The unseen hand, faintly seen: a soft halo rides the cursor —
+            # gold for warmth, chill blue while SHIFT is held or a chill
+            # stroke is live — and dims to a shadow when attention is spent,
+            # so the hand's reach and its cost are readable at a glance.
+            # Slow breath (~0.4 Hz), REDUCED_FLASH safe.
+            if (not HEADLESS and not recursive_manager.in_3d_world
+                    and pygame.mouse.get_focused()):
+                _hx_, _hy_ = pygame.mouse.get_pos()
+                _ht = pygame.time.get_ticks() / 1000.0
+                _chill_hand = (hand_drag == "chill"
+                               or (pygame.key.get_mods() & pygame.KMOD_SHIFT))
+                _hc = (120, 170, 255) if _chill_hand else (255, 215, 0)
+                _dim = 1.0 if attention >= 1.0 else 0.35
+                _breath = 1.0 + 0.12 * math.sin(_ht * 2.4)
+                _halo = pygame.Surface((64, 64), pygame.SRCALPHA)
+                for _rad, _al in ((22, 22), (14, 42), (7, 78)):
+                    pygame.draw.circle(_halo, (*_hc, int(_al * _dim)),
+                                       (32, 32), max(2, int(_rad * _breath)))
+                surface.blit(_halo, (_hx_ - 32, _hy_ - 32))
+
             # Hover identification (phase 8): name what is under the cursor
             if pygame.mouse.get_focused():
                 _mx, _my = pygame.mouse.get_pos()
@@ -3762,7 +3820,8 @@ def run_simulation():
                 toasts.update_and_draw(surface, reading_now)
                 draw_flicker(surface, frame_count, WINDOW_SIZE)
                 if show_help:
-                    draw_help(surface, WINDOW_SIZE, HELP_FONT, paused, speed, audio.muted)
+                    draw_help(surface, WINDOW_SIZE, HELP_FONT, paused, speed,
+                              audio.muted, audio.master)
 
                 # Blit the 2D surface onto the OpenGL context
                 _record(surface)
