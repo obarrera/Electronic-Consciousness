@@ -31,7 +31,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame  # noqa: E402
 pygame.init()
-from lattice import PARABLES, ENDGAME_PARABLES, JOURNEY_STAGES  # noqa: E402
+from lattice import PARABLES, ENDGAME_PARABLES, JOURNEY_STAGES, SUMMATION  # noqa: E402
 import ouroboros  # noqa: E402
 
 HOME = Path.home() / ".local/share/socket-demo-video"
@@ -71,6 +71,9 @@ def build_entries():
         entries.append((key, spoken(f"{title}. {text}"), 0.95))
     for key, title, text in ENDGAME_PARABLES:
         entries.append((key, spoken(f"{title}. {text}"), 0.9))
+    s_key, s_title, s_beats = SUMMATION
+    s_text = " ".join(b[1] for b in s_beats)
+    entries.append((s_key, spoken(f"{s_title}. {s_text}"), 0.9))
     for key, stage, line in JOURNEY_STAGES:
         head = stage
         for rn, sp in _ROMAN_SPOKEN.items():
@@ -153,6 +156,11 @@ def main():
         sys.exit("Kokoro not found — see the book video pipeline's setup notes.")
     OUT.mkdir(exist_ok=True)
     entries = build_entries()
+    if len(sys.argv) > 1:      # regenerate only the named stems
+        want = set(sys.argv[1:])
+        entries = [e for e in entries if e[0] in want]
+        if not entries:
+            sys.exit(f'no entries match {sorted(want)}')
     tmpdir = synthesize(entries)
     encode(entries, tmpdir)
     print(f"Done: {len(entries)} narrations in {OUT}/")
