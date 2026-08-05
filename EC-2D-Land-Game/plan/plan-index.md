@@ -16,6 +16,7 @@ phase-specific checks below.
 | 6 | [Deterministic headless core](phases/phase-06-deterministic-core.md) | ✅ complete | 1–5 |
 | 7 | [Narration coverage + quality pass](phases/phase-07-narration-quality.md) | ✅ complete | 3, 6 |
 | 8 | [2D legibility — legend, toasts, labeled HUD, hover](phases/phase-08-legibility.md) | ✅ complete | 2, 5, 7 |
+| 9 | [Sound quality — declick, mix, Hemi-Sync shimmer](phases/phase-09-sound-quality.md) | awaiting verification | 4 |
 
 Invariants (verifier attacks every phase): read-only guardrails N/A here, but —
 no TensorFlow returns; autopilot must stay deterministic-enough to exit cleanly;

@@ -2803,8 +2803,9 @@ def run_simulation():
     # the AudioEngine here so lattice.py itself stays untouched
     try:
         if audio.ok:
-            audio._tones["cold"] = audio._tone([82, 87, 123], 0.9,
-                                               vol=0.22, decay=2.5)
+            audio._tones["cold"] = audio._tone([82, 87, 123], 1.0,
+                                               vol=0.18, decay=2.5,
+                                               attack=0.02)
             # Spaceland's positional emitters: the shrine's warm hum, the
             # descent well's low throb, the cold rifts' filtered whisper
             # (three channels shared by the nearest rifts). All are steered
