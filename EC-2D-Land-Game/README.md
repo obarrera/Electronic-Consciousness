@@ -36,6 +36,11 @@ the goal, cold rifts that drain the mind, one descent well per map — and, fain
 stars and below the floor, the **layers above and below the one you walk**.
 *As above, so below.*
 
+And the recursion is lived, not just implied: while you walk Spaceland, **the world
+below keeps simulating** — its Conway layer ticks on at one-third speed, and a small
+live window in the corner watches it turn. The simulation you left is still a
+simulation, running inside the one you're in.
+
 ![Spaceland overview](screenshots/spaceland-overview.png)
 
 ## The Lattice parables — the story in the simulation
@@ -64,8 +69,15 @@ to read it, newest first.
 **You are the layer above.** *Who warms the cells?* — in this game, you do: click an
 empty cell to **warm** it (food blooms there, and the agents' shared brain learns from
 eating it — the player literally teaches), `SHIFT`+click to **chill** one (a cold cell
-that drains energy until it thaws). A small regenerating **attention meter** (three
-dots in the HUD strip, +1 charge per 100 ticks) keeps your hand a nudge, not a god-mode.
+that drains energy until it thaws), or click and **drag** to draw a whole stroke of
+warmth. A small regenerating **attention meter** (three dots in the HUD strip,
++1 charge per 100 ticks) keeps your hand a nudge, not a god-mode.
+
+**THE SUMMATION.** When a walker completes the last required layer, the arc runs cube →
+pilgrim → tesseract → spectrum → O! — and then **The Summation**: a six-movement narrated
+cinematic (the lattice, the hand, the nested layers, the hypercube, the two lights, the
+ouroboros) that compresses the whole manifesto into ninety seconds, ending as the theta
+bed returns and the world is reborn into its next turning.
 
 ## The Mirror — agents that model the world, each other, and themselves
 
@@ -217,6 +229,8 @@ No TensorFlow, no GPU, no accounts. `PyOpenGL-accelerate` is optional.
 | `EC_SPACELAND_OVERVIEW=1` | start Spaceland in overview camera |
 | `EC_FULL_FLASH=1` | enable full flashing effects (reduced by default) |
 | `EC_GENOME=0` | disable the self-modifying genome (pristine constants, no `dna.py` reads/writes) |
+| `EC_SEED=<n>` | pin ALL randomness (sim streams, turnings, oracle lines, names) for reproducible runs. Without it, real entropy folds into every launch and every turning — no two runs ever speak the same lines or grow the same world |
+| `EC_VOLUME=<0..1>` | starting master volume (also `[` / `]` in game) |
 
 ### Regenerating the narration
 

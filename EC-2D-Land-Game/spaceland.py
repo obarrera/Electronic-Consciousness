@@ -194,11 +194,21 @@ def init_gl(window_size):
 
 
 def leave():
-    """Restore GL state the 2D glDrawPixels path relies on."""
+    """Restore GL state the 2D glDrawPixels path relies on. Depth test is
+    the critical one: glDrawPixels fragments carry the raster position's
+    z (0), so with GL_DEPTH_TEST left enabled the FIRST 2D frame writes
+    depth 0 across the screen and every frame after it fails GL_LESS —
+    the display freezes on one stale frame (Flatland unwatchable after a
+    return, no tesseract/spectrum in the completion arc). Fog tints pixel
+    rectangles the same way; texture/blend are restored for parity with
+    the pre-ascension state."""
     if not (_GL_OK and _S["ready"]):
         return
     try:
+        glDisable(GL_DEPTH_TEST)
         glDisable(GL_FOG)
+        glDisable(GL_TEXTURE_2D)
+        glDisable(GL_BLEND)
         glWindowPos2i(0, 0)
     except Exception:
         pass

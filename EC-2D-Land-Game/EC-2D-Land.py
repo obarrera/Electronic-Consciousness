@@ -20,7 +20,7 @@ from lattice import (NumpyMLP, AudioEngine, ParticleSystem, ParableOverlay,
                      run_intro, is_prime, draw_prime_constellation, draw_easter_egg,
                      door_answers, HeroJourney, Cutscene, CUTSCENE_KEYS, layer_beat_hz,
                      set_oracle, set_oracle_audio, PARABLES,
-                     ENDGAME_PARABLES, draw_tesseract,
+                     ENDGAME_PARABLES, SUMMATION, draw_tesseract,
                      spectrum_color, spectrum_duration,
                      agent_name, agent_display_name, Chronicle, ChronicleViewer,
                      ToastSystem, draw_legend)
@@ -111,7 +111,11 @@ def genome_lifespan(rng):
 # fans out into named streams — world / agents / brain / fx / spaceland.
 # Visual randomness (fx) is a separate stream by construction, so rendering
 # can never perturb behavior.
-ROOT_SEED = int(os.environ.get("EC_SEED", OURO.seed))
+# Session-unique by default (no two runs replay the same world, even inside
+# one saved turning); EC_SEED pins everything for reproducible verification.
+_ENV_SEED = os.environ.get("EC_SEED")
+ROOT_SEED = (int(_ENV_SEED) if _ENV_SEED
+             else (OURO.seed ^ OURO.session) & ((1 << 63) - 1))
 simcore.init_pool(ROOT_SEED)
 print(f"Sim core: root seed {ROOT_SEED} "
       f"(streams: world · agents · brain · fx · spaceland).")
@@ -126,7 +130,8 @@ _ORACLE_NARRATED_KEYS = ({p[0] for p in PARABLES} |
 def _oracle_audio_paths(key):
     if key not in _ORACLE_NARRATED_KEYS:
         return []
-    a, b, c = ouroboros.oracle_fragment_indices(OURO.iteration, key)
+    a, b, c = ouroboros.oracle_fragment_indices(OURO.iteration, key,
+                                                OURO.oracle_salt())
     nd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "narration")
     return [os.path.join(nd, "oracle_intro.mp3"),
             os.path.join(nd, f"oracle_open_{a}.mp3"),
@@ -2804,7 +2809,7 @@ def run_simulation():
     try:
         if audio.ok:
             audio._tones["cold"] = audio._tone([82, 87, 123], 1.0,
-                                               vol=0.18, decay=2.5,
+                                               vol=0.14, decay=2.5,
                                                attack=0.02)
             # Spaceland's positional emitters: the shrine's warm hum, the
             # descent well's low throb, the cold rifts' filtered whisper
@@ -2925,11 +2930,70 @@ def run_simulation():
             _rec_n[0] += 1
 
     def _present(frame_surface):
-        """Push a 2D surface to the OpenGL display (shared by intro + pause)."""
+        """Push a 2D surface to the OpenGL display (shared by intro + pause +
+        cutscenes + the endgame arc). Depth test and fog would eat or tint
+        the pixel rectangle (see spaceland.leave), and a cutscene can fire
+        while Spaceland is live — so the enable bits are saved, forced 2D-safe
+        for the draw, and restored for whoever renders next."""
         _record(frame_surface)
         data = pygame.image.tostring(frame_surface, "RGB", True)
+        if not HEADLESS:
+            glPushAttrib(GL_ENABLE_BIT)
+            glDisable(GL_DEPTH_TEST)
+            glDisable(GL_FOG)
         glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, data)
+        if not HEADLESS:
+            glPopAttrib()
         pygame.display.flip()
+
+    _WORLD_BELOW = {"size": 148, "mini": None}
+
+    def _draw_world_below():
+        """The window back into the layer below: a small live view of the 2D
+        lattice, drawn into the Spaceland frame's top-right corner. The
+        walker literally watches the simulation they came from continue —
+        the game is a simulation of a recursive simulation, and this is the
+        seam where that shows. GL enable bits are saved/restored so the 3D
+        state is untouched."""
+        size = _WORLD_BELOW["size"]
+        if _WORLD_BELOW["mini"] is None:
+            _WORLD_BELOW["mini"] = pygame.Surface((size, size + 14))
+        mini = _WORLD_BELOW["mini"]
+        mini.fill((6, 3, 16))
+        cs = size / float(GRID_SIZE)
+        cell_cols = {1: (90, 160, 255), 2: (255, 120, 180), 3: (66, 56, 96),
+                     4: (110, 100, 150), 5: (86, 132, 88), 6: (146, 118, 62)}
+        for i in range(GRID_SIZE):
+            for j in range(GRID_SIZE):
+                col = cell_cols.get(int(environment.grid[i][j]))
+                if col:
+                    mini.fill(col, (j * cs, i * cs, max(1, cs - 1),
+                                    max(1, cs - 1)))
+        for (wx, wy) in environment.warm_cells:
+            mini.fill((255, 205, 60), (wy * cs, wx * cs,
+                                       max(1, cs - 1), max(1, cs - 1)))
+        gx, gy = environment.goal
+        pygame.draw.circle(mini, GOLD, (int(gy * cs + cs / 2),
+                                        int(gx * cs + cs / 2)),
+                           max(2, int(cs)))
+        for a in ai_agents_2d:
+            ax, ay = a.position
+            pygame.draw.circle(mini, (196, 181, 253),
+                               (int(ay * cs + cs / 2), int(ax * cs + cs / 2)),
+                               max(1, int(cs / 2)))
+        pygame.draw.rect(mini, (255, 215, 0), (0, 0, size, size), 1)
+        label = STRIP_FONT.render("the world below, still turning",
+                                  True, (200, 190, 230))
+        mini.blit(label, (max(2, (size - label.get_width()) // 2), size + 1))
+        data = pygame.image.tostring(mini, "RGB", True)
+        glPushAttrib(GL_ENABLE_BIT)
+        glDisable(GL_DEPTH_TEST)
+        glDisable(GL_FOG)
+        glWindowPos2i(WINDOW_SIZE - size - 12,
+                      WINDOW_SIZE - (size + 14) - 12)
+        glDrawPixels(size, size + 14, GL_RGB, GL_UNSIGNED_BYTE, data)
+        glWindowPos2i(0, 0)
+        glPopAttrib()
 
     def player_touch(cell, kind, quiet=False):
         """The player warms or chills an empty cell (the layer above acting on
@@ -3312,7 +3376,21 @@ def run_simulation():
 
             elif endgame["stage"] == "o33":
                 # 5. O! — sparse gold on black (generic cutscene branch below),
-                # then the ouroboros closes: advance the turning, reset the world
+                # then THE SUMMATION: the manifesto compressed to six beats
+                if not cutscene.active:
+                    s_key, s_title, s_beats = SUMMATION
+                    print(f"COMPLETION: THE SUMMATION — what the lattice "
+                          f"learned, in six movements (frame {_rec_n[0]}).")
+                    cutscene.start(s_key, s_title, "", style="summation",
+                                   beats=s_beats)
+                    if _AUTO and not _VERIFY:
+                        cutscene._dur = EG_CUT_DUR
+                    endgame.update(stage="summation", t0=now)
+                    CLOCK.tick(FPS)
+                    continue
+
+            elif endgame["stage"] == "summation":
+                # 6. The ouroboros closes: advance the turning, reset the world
                 if not cutscene.active:
                     chronicle.record(
                         current_generation,
@@ -3906,6 +3984,17 @@ def run_simulation():
                     # not change the walker's per-tick behavior (phase 6)
                     ev = spaceland.update_and_render(
                         current_generation / float(FPS), keys)
+                    # THE RECURSION, LIVED: the world below keeps simulating
+                    # while the walker stands above it — its Conway layer
+                    # ticks on at one-third speed (the agents hold their
+                    # breath), and the corner window watches it live. The
+                    # simulation the walker left is itself still a simulation
+                    # running inside the one they walk.
+                    if frame_count % 3 == 0:
+                        environment.fade_player_cells()
+                        environment.update(current_generation, ai_agents_2d)
+                    if not HEADLESS:
+                        _draw_world_below()
                     # Positional audio: steer the looping emitters from the
                     # camera pose every frame; footsteps ride the head-bob
                     for _ek, _pan, _gain in spaceland.emitters():
