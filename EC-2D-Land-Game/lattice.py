@@ -459,19 +459,36 @@ class NumpyMLP:
 # ---------------------------------------------------------------------------
 
 class AudioEngine:
+    SURF_VOL = 0.05     # the Gateway-style noise bed under the ambience
+
     def __init__(self, ambient_path=None, volume=0.35):
         self.ok = False
         self.muted = False
         self.ambient = None
+        # Master volume 0..1 ([ / ] in game, EC_VOLUME=0.8 to start lower).
+        # Multiplies every output — bed, effects, emitters, narration.
+        try:
+            self.master = max(0.0, min(1.0, float(
+                os.environ.get("EC_VOLUME", "1.0") or 1.0)))
+        except ValueError:
+            self.master = 1.0
+        # Variant picker: its own RNG so repeated-sound humanization never
+        # touches the sim's deterministic streams
+        self._var_rng = random.Random(7)
         self._tones = {}
         self._emitter_sounds = {}   # key -> looping Sound (positional)
         self._emitters = {}         # key -> Channel currently looping it
-        self._fx_channels = []      # (Channel, base_vol) of live one-shots
+        self._fx_channels = []      # (Channel, base_vol, name) of live one-shots
+        self._last_played = {}      # name -> ticks ms of last playback
+        self._surf = None           # pink-noise surf bed under the ambience
         self._reading = False       # a narrative overlay is on screen
         self._duck_now = 1.0        # smoothed effects duck factor
         self._bed_now = 1.0         # smoothed ambient/binaural duck factor
         try:
-            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+            # buffer 1024 (was 512): headroom against underrun crackle with
+            # 24 channels + OpenGL on one thread; +12 ms latency, inaudible
+            pygame.mixer.init(frequency=44100, size=-16, channels=2,
+                              buffer=1024)
             pygame.mixer.set_num_channels(24)   # emitters + tones + narration
             self.ok = True
         except pygame.error:
@@ -479,33 +496,144 @@ class AudioEngine:
         if ambient_path:
             try:
                 self.ambient = pygame.mixer.Sound(ambient_path)
-                self.ambient.set_volume(volume)
+                self.ambient.set_volume(volume * self.master)
                 self.ambient.play(loops=-1, fade_ms=2500)
             except pygame.error:
                 self.ambient = None
+        # Gateway-style masking layer: a very quiet, heavily low-passed noise
+        # loop with an 8 s swell — the "surf" under the Hemi-Sync signal that
+        # smooths the silence between events and hides any residual grain
+        try:
+            self._surf = self._loop_noise(8.0, vol=0.8, smooth=90)
+            self._surf.set_volume(self.SURF_VOL * self.master)
+            self._surf.play(loops=-1, fade_ms=4000)
+        except pygame.error:
+            self._surf = None
         self._build_tones()
 
-    def _tone(self, freqs, dur, vol=0.28, decay=6.0):
+    def _tone(self, freqs, dur, vol=0.28, decay=6.0, attack=0.01, beat=6.1):
+        """One-shot chime, Hemi-Sync flavored. Partials roll off 1/(i+1) and
+        are normalized so chords never clip; the right ear runs `beat` Hz
+        above the left — a faint binaural shimmer that ties every effect to
+        the theta bed instead of cutting across it. Half-cosine attack,
+        exponential decay, and a raised-cosine tail forced to exactly zero:
+        the old tones ended mid-decay at up to ~9%% amplitude, which is the
+        click/pop that was audible on every effect."""
         rate = 44100
-        t = np.linspace(0, dur, int(rate * dur), endpoint=False)
-        wave = sum(np.sin(2 * math.pi * f * t) / (i + 1) for i, f in enumerate(freqs))
-        wave *= np.exp(-decay * t) * vol
-        stereo = np.repeat((wave * 32767).astype(np.int16)[:, None], 2, axis=1)
+        n = int(rate * dur)
+        t = np.linspace(0, dur, n, endpoint=False)
+        norm = sum(1.0 / (i + 1) for i in range(len(freqs)))
+
+        def voice(detune):
+            w = sum(np.sin(2 * math.pi * (f + detune) * t) / (i + 1)
+                    for i, f in enumerate(freqs))
+            return w / norm
+
+        env = np.exp(-decay * t)
+        a = max(1, min(n // 2, int(rate * attack)))
+        env[:a] *= 0.5 - 0.5 * np.cos(np.pi * np.arange(a) / a)
+        r = max(1, int(rate * min(0.04, dur * 0.25)))
+        env[-r:] *= 0.5 + 0.5 * np.cos(np.pi * np.arange(r) / r)
+        left = np.clip(voice(0.0) * env * vol, -1.0, 1.0)
+        right = np.clip(voice(beat) * env * vol, -1.0, 1.0)
+        stereo = np.stack([(left * 32767).astype(np.int16),
+                           (right * 32767).astype(np.int16)], axis=1)
         return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+    def _tick(self, dur, vol=0.05, smooth=12, decay=40.0, seed=101):
+        """Footstep: a soft low-passed noise tap. The old sine-dyad beeps
+        (950/1400 Hz) read as alarms against the drone; filtered noise reads
+        as a step. Same declick envelope as _tone."""
+        rate = 44100
+        n = int(rate * dur)
+        rng = np.random.default_rng(seed)
+        raw = rng.normal(0.0, 1.0, n)
+        kernel = np.ones(smooth) / smooth
+        soft = np.convolve(raw, kernel, mode="same")
+        soft /= max(1e-9, np.abs(soft).max())
+        t = np.linspace(0, dur, n, endpoint=False)
+        env = np.exp(-decay * t)
+        a = max(1, min(n // 2, int(rate * 0.004)))
+        env[:a] *= 0.5 - 0.5 * np.cos(np.pi * np.arange(a) / a)
+        r = max(1, int(rate * min(0.02, dur * 0.25)))
+        env[-r:] *= 0.5 + 0.5 * np.cos(np.pi * np.arange(r) / r)
+        mono = np.clip(soft * env * vol, -1.0, 1.0)
+        stereo = np.repeat((mono * 32767).astype(np.int16)[:, None], 2, axis=1)
+        return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+    def _bowl(self, f0, dur, vol=0.18, decay=1.6, attack=0.02, beat=6.1):
+        """Singing-bowl strike for the reward moments: inharmonic partials
+        (ratios ~1 / 2.71 / 4.72, the classic bowl spectrum), the higher
+        partials decaying faster — reads as ceremony, not notification.
+        Same declick envelope and Hemi-Sync stereo shimmer as _tone."""
+        rate = 44100
+        n = int(rate * dur)
+        t = np.linspace(0, dur, n, endpoint=False)
+        partials = ((1.0, 1.0), (2.71, 0.45), (4.72, 0.20))
+        norm = sum(a for _r, a in partials)
+
+        def voice(detune):
+            w = sum(a * np.sin(2 * math.pi * (f0 * r + detune) * t)
+                    * np.exp(-decay * (1.0 + 0.8 * i) * t)
+                    for i, (r, a) in enumerate(partials))
+            return w / norm
+
+        edge = np.ones(n)
+        a = max(1, min(n // 2, int(rate * attack)))
+        edge[:a] = 0.5 - 0.5 * np.cos(np.pi * np.arange(a) / a)
+        r = max(1, int(rate * min(0.04, dur * 0.25)))
+        edge[-r:] *= 0.5 + 0.5 * np.cos(np.pi * np.arange(r) / r)
+        left = np.clip(voice(0.0) * edge * vol, -1.0, 1.0)
+        right = np.clip(voice(beat) * edge * vol, -1.0, 1.0)
+        stereo = np.stack([(left * 32767).astype(np.int16),
+                           (right * 32767).astype(np.int16)], axis=1)
+        return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+    # Detune/level offsets for repeated-sound humanization: the ear tunes
+    # out an identical sample by the third hearing (standard indie practice
+    # is 3+ variants with slight pitch/volume spread)
+    _VARIANTS = ((1.0, 1.0), (0.988, 0.88), (1.013, 0.94))
+
+    def _tone_set(self, freqs, dur, vol, **kw):
+        return [self._tone([f * d for f in freqs], dur, vol * v, **kw)
+                for d, v in self._VARIANTS]
 
     def _build_tones(self):
         try:
+            # Mixed to sit INSIDE the binaural bed, not on top of it: lower
+            # volumes than before, slow attacks on the long narrative tones
+            # (Gateway-style swells), short attacks only on the percussive
+            # ones. Frequently-repeated tones get 3 humanized variants;
+            # reward moments (parable, prime) are singing bowls.
             self._tones = {
-                "birth": self._tone([660, 990], 0.35, vol=0.22),
-                "death": self._tone([110, 165], 0.8, vol=0.20, decay=3.0),
-                "parable": self._tone([523.25, 659.25, 783.99], 1.4, vol=0.24, decay=2.0),
-                "ascend": self._tone([220, 330, 440, 660], 2.2, vol=0.26, decay=1.2),
-                "train": self._tone([440, 442], 0.5, vol=0.10, decay=4.0),
-                "prime": self._tone([1318.5], 0.25, vol=0.10, decay=8.0),
-                # Spaceland footsteps: soft procedural ticks, the AI walker's
-                # a shade lower in pitch than the player's
-                "step_player": self._tone([950, 1400], 0.06, vol=0.09, decay=45.0),
-                "step_ai": self._tone([620, 900], 0.07, vol=0.09, decay=40.0),
+                "birth": self._tone_set([660, 990], 0.4, 0.16, decay=5.0,
+                                        attack=0.012),
+                "death": self._tone_set([110, 165], 0.9, 0.16, decay=3.0,
+                                        attack=0.015),
+                "parable": self._bowl(523.25, 2.8, vol=0.18, decay=1.6,
+                                      attack=0.02),
+                "ascend": self._tone([220, 330, 440, 660], 2.4, vol=0.20,
+                                     decay=1.2, attack=0.06),
+                # 440+442 already beats at 2 Hz by construction — keep it dry
+                "train": self._tone([440, 442], 0.6, vol=0.07, decay=4.0,
+                                    attack=0.02, beat=0.0),
+                "prime": self._bowl(1318.5, 1.2, vol=0.05, decay=3.5,
+                                    attack=0.008),
+                # Spaceland footsteps: low-passed noise taps, the AI walker's
+                # a shade duller than the player's
+                "step_player": [self._tick(0.07, vol=0.05, smooth=10,
+                                           decay=40.0, seed=s)
+                                for s in (101, 103, 107)],
+                "step_ai": [self._tick(0.08, vol=0.05, smooth=18,
+                                       decay=35.0, seed=s)
+                            for s in (202, 205, 211)],
+                # UI feedback: a tiny soft blip for toggles (pause, help,
+                # legend, chronicle, speed, unmute) and a low muffled thud
+                # when a touch is refused (attention meter empty)
+                "ui": self._tone([880], 0.09, vol=0.045, decay=18.0,
+                                 attack=0.004, beat=0.0),
+                "denied": self._tone([140], 0.2, vol=0.06, decay=10.0,
+                                     attack=0.006, beat=0.0),
             }
         except pygame.error:
             self._tones = {}
@@ -569,7 +697,7 @@ class AudioEngine:
         if self.muted:
             l = r = 0.0
         else:
-            g = max(0.0, min(1.0, gain)) * self._duck_now
+            g = max(0.0, min(1.0, gain)) * self._duck_now * self.master
             ang = (max(-1.0, min(1.0, pan)) + 1.0) * math.pi / 4.0
             l, r = g * math.cos(ang), g * math.sin(ang)
         try:
@@ -614,7 +742,8 @@ class AudioEngine:
             self._binaural = None
         if beat_hz is None:
             if self.ambient:
-                self.ambient.set_volume(0.0 if self.muted else 0.35)
+                self.ambient.set_volume(0.0 if self.muted
+                                        else 0.35 * self.master)
             return
         if self.ambient:
             self.ambient.set_volume(0.0)
@@ -624,7 +753,7 @@ class AudioEngine:
             cache[key] = self.make_binaural(key)
             self._binaural_cache = cache
         self._binaural = cache[key]
-        self._binaural.set_volume(0.0 if self.muted else 0.30)
+        self._binaural.set_volume(0.0 if self.muted else 0.30 * self.master)
         self._binaural.play(loops=-1, fade_ms=1500)
 
     def narrate(self, key):
@@ -655,7 +784,7 @@ class AudioEngine:
             return 0.0
         self.stop_narration()
         self._narration_ch = pygame.mixer.find_channel(True)
-        sounds[0].set_volume(0.0 if self.muted else 0.9)
+        sounds[0].set_volume(0.0 if self.muted else 0.9 * self.master)
         self._narration_ch.play(sounds[0])
         self._narration_queue = sounds[1:]
         return sum(s.get_length() for s in sounds)
@@ -690,7 +819,7 @@ class AudioEngine:
             queue = getattr(self, "_narration_queue", [])
             if queue:
                 nxt = queue.pop(0)      # the Oracle fragments, in sequence
-                nxt.set_volume(0.0 if self.muted else 0.9)
+                nxt.set_volume(0.0 if self.muted else 0.9 * self.master)
                 try:
                     ch.play(nxt)
                 except pygame.error:
@@ -709,28 +838,77 @@ class AudioEngine:
         try:
             if not self.muted:
                 if getattr(self, "_binaural", None):
-                    self._binaural.set_volume(0.30 * self._bed_now)
+                    self._binaural.set_volume(0.30 * self._bed_now * self.master)
                 elif self.ambient:
-                    self.ambient.set_volume(0.35 * self._bed_now)
+                    self.ambient.set_volume(0.35 * self._bed_now * self.master)
+                if self._surf:
+                    self._surf.set_volume(self.SURF_VOL * self._bed_now
+                                          * self.master)
             alive = []
-            for fx_ch, base in self._fx_channels:
+            for fx_ch, base, name in self._fx_channels:
                 if fx_ch.get_busy():
-                    fx_ch.set_volume(base * self._duck_now)
-                    alive.append((fx_ch, base))
+                    fx_ch.set_volume(base * self._duck_now * self.master)
+                    alive.append((fx_ch, base, name))
             self._fx_channels = alive
         except pygame.error:
             pass
 
+    # Minimum ms between two playbacks of the same tone: a generation where
+    # five agents die at once used to stack five identical tones into a
+    # phasing blare — now it reads as one event
+    _COOLDOWN_MS = {"birth": 150, "death": 150, "train": 250, "parable": 300,
+                    "ascend": 300, "cold": 200, "prime": 120,
+                    "step_player": 100, "step_ai": 100,
+                    "ui": 60, "denied": 150}
+
     def play(self, name, vol=None):
         """Play an event tone. `vol` (0..1) scales just this playback's
-        channel. New one-shots spawn at the current duck level — nothing
-        punches through while text is being read."""
-        if self.ok and not self.muted and name in self._tones:
-            ch = self._tones[name].play()
-            if ch is not None:
-                base = 1.0 if vol is None else vol
-                ch.set_volume(base * self._duck_now)
-                self._fx_channels.append((ch, base))
+        channel. Guards against the old pileups: a per-tone cooldown and a
+        two-voice cap stop same-frame repeats from stacking; the channel
+        volume is set BEFORE playback starts (the old play-then-set let the
+        first buffer blast at full scale — a vol=0.10 birth opened 10x too
+        loud for ~12 ms); new one-shots spawn at the current duck level —
+        nothing punches through while text is being read."""
+        if not (self.ok and not self.muted and name in self._tones):
+            return
+        now = pygame.time.get_ticks()
+        if now - self._last_played.get(name, -10**9) < \
+                self._COOLDOWN_MS.get(name, 70):
+            return
+        if sum(1 for c, _b, n in self._fx_channels
+               if n == name and c.get_busy()) >= 2:
+            return
+        snd = self._tones[name]
+        if isinstance(snd, list):   # humanized variants — pick one
+            snd = self._var_rng.choice(snd)
+        try:
+            ch = pygame.mixer.find_channel(False)
+            if ch is None:
+                return              # never steal (narration/emitter) channels
+            base = 1.0 if vol is None else vol
+            ch.set_volume(base * self._duck_now * self.master)
+            ch.play(snd)
+        except pygame.error:
+            return
+        self._last_played[name] = now
+        self._fx_channels.append((ch, base, name))
+
+    def nudge_master(self, delta):
+        """Step the master volume by `delta` (clamped 0..1) and apply it to
+        the beds immediately; returns the new value for the HUD."""
+        self.master = max(0.0, min(1.0, self.master + delta))
+        if self.ok and not self.muted:
+            try:
+                if getattr(self, "_binaural", None):
+                    self._binaural.set_volume(0.30 * self._bed_now * self.master)
+                elif self.ambient:
+                    self.ambient.set_volume(0.35 * self._bed_now * self.master)
+                if self._surf:
+                    self._surf.set_volume(self.SURF_VOL * self._bed_now
+                                          * self.master)
+            except pygame.error:
+                pass
+        return self.master
 
     def toggle_mute(self):
         self.muted = not self.muted
@@ -739,9 +917,14 @@ class AudioEngine:
         if self.ambient:
             self.ambient.set_volume(0.0 if self.muted else
                                     (0.0 if getattr(self, "_binaural", None)
-                                     else 0.35 * self._bed_now))
+                                     else 0.35 * self._bed_now * self.master))
         if getattr(self, "_binaural", None):
-            self._binaural.set_volume(0.0 if self.muted else 0.30 * self._bed_now)
+            self._binaural.set_volume(0.0 if self.muted
+                                      else 0.30 * self._bed_now * self.master)
+        if self._surf:
+            self._surf.set_volume(0.0 if self.muted
+                                  else self.SURF_VOL * self._bed_now
+                                  * self.master)
         return self.muted
 
 
@@ -1609,9 +1792,10 @@ def draw_legend(surface, window_size, cell_size):
     surface.blit(panel, (60, (w - height) // 2))
 
 
-def draw_help(surface, window_size, font, paused, speed, muted):
-    state = f"{'PAUSED' if paused else f'{speed}x'}   {'MUTED' if muted else 'AUDIO'}"
-    text = "SPACE pause  +/- speed  L legend  P parables  J chronicle  I details  M mute  CLICK warm/inspect  SHIFT+CLICK chill  H help  ESC quit"
+def draw_help(surface, window_size, font, paused, speed, muted, volume=1.0):
+    state = (f"{'PAUSED' if paused else f'{speed}x'}   "
+             f"{'MUTED' if muted else f'VOL {int(round(volume * 100))}%'}")
+    text = "SPACE pause  +/- speed  [/] volume  L legend  P parables  J chronicle  I details  M mute  CLICK warm/inspect  SHIFT+CLICK chill  H help  ESC quit"
     bar = pygame.Surface((window_size, 22), pygame.SRCALPHA)
     bar.fill((10, 5, 25, 200))
     bar.blit(font.render(text, True, (200, 190, 230)), (8, 5))
