@@ -18,6 +18,7 @@ phase-specific checks below.
 | 8 | [2D legibility — legend, toasts, labeled HUD, hover](phases/phase-08-legibility.md) | ✅ complete | 2, 5, 7 |
 | 9 | [Sound quality — declick, mix, Hemi-Sync shimmer](phases/phase-09-sound-quality.md) | awaiting verification | 4 |
 | 10 | [Audio UX + the unseen hand — variants, bowls, volume, drag-to-draw, halo](phases/phase-10-audio-ux-unseen-hand.md) | awaiting verification | 9 |
+| 11 | [Post-Spaceland render fix — frozen 2D, missing endgame scenes](phases/phase-11-post-spaceland-render-fix.md) | awaiting verification | — |
 
 Invariants (verifier attacks every phase): read-only guardrails N/A here, but —
 no TensorFlow returns; autopilot must stay deterministic-enough to exit cleanly;

@@ -2925,10 +2925,20 @@ def run_simulation():
             _rec_n[0] += 1
 
     def _present(frame_surface):
-        """Push a 2D surface to the OpenGL display (shared by intro + pause)."""
+        """Push a 2D surface to the OpenGL display (shared by intro + pause +
+        cutscenes + the endgame arc). Depth test and fog would eat or tint
+        the pixel rectangle (see spaceland.leave), and a cutscene can fire
+        while Spaceland is live — so the enable bits are saved, forced 2D-safe
+        for the draw, and restored for whoever renders next."""
         _record(frame_surface)
         data = pygame.image.tostring(frame_surface, "RGB", True)
+        if not HEADLESS:
+            glPushAttrib(GL_ENABLE_BIT)
+            glDisable(GL_DEPTH_TEST)
+            glDisable(GL_FOG)
         glDrawPixels(WINDOW_SIZE, WINDOW_SIZE, GL_RGB, GL_UNSIGNED_BYTE, data)
+        if not HEADLESS:
+            glPopAttrib()
         pygame.display.flip()
 
     def player_touch(cell, kind, quiet=False):
